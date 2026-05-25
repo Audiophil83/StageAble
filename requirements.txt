@@ -1,0 +1,7 @@
+Django>=4.2,<5.1
+channels>=4.0
+daphne>=4.0
+channels-redis>=4.1
+djangorestframework>=3.14
+python-osc>=1.8
+sortedcontainers>=2.4

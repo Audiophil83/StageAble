@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Remoteable — Live Show Control</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Header -->
+    <header id="header">
+      <div class="header-left">
+        <h1>Remoteable</h1>
+        <span id="connection-badge" class="badge badge-disconnected">disconnected</span>
+      </div>
+      <div class="header-right">
+        <button id="btn-rescan" class="btn btn-secondary" title="Re-scan arrangement">Rescan</button>
+      </div>
+    </header>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="error-banner hidden"></div>
+
+    <!-- Main Content -->
+    <main>
+      <!-- Live Display Panel -->
+      <section id="live-panel" class="panel">
+        <div id="now-playing">
+          <div id="song-name" class="song-name">--</div>
+          <div id="section-name" class="section-name">--</div>
+        </div>
+        <div id="lyrics-display" class="lyrics-display">
+          <div id="lyrics-text">--</div>
+        </div>
+        <div id="transport-info">
+          <span id="transport-position">0.0</span>
+          <span id="transport-tempo">120 BPM</span>
+          <span id="transport-time-sig">4/4</span>
+        </div>
+      </section>
+
+      <!-- Transport Controls -->
+      <section id="transport-controls" class="panel transport-panel">
+        <button id="btn-play" class="btn btn-play">Play</button>
+        <button id="btn-stop" class="btn btn-stop">Stop</button>
+        <button id="btn-prev" class="btn btn-nav" title="Previous song">Prev</button>
+        <button id="btn-next" class="btn btn-nav" title="Next song">Next</button>
+      </section>
+
+      <!-- Setlist / Song List -->
+      <section id="setlist-panel" class="panel">
+        <h2>Songs</h2>
+        <ul id="song-list" class="song-list"></ul>
+      </section>
+
+      <!-- Sections Panel -->
+      <section id="sections-panel" class="panel">
+        <h2>Sections</h2>
+        <ul id="section-list" class="section-list"></ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

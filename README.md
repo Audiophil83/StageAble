@@ -1,0 +1,343 @@
+# Remoteable
+
+Real-time show-control system for Ableton Live. Reads your arrangement via
+[AbletonOSC](https://github.com/ideoforms/AbletonOSC), builds a deterministic
+timeline of songs, sections, lyrics and stop markers, then streams the live
+state to any number of browser clients over WebSocket.
+
+---
+
+## Features
+
+- Song / section / lyrics overlay resolved in real time from the playhead
+- Automatic STOP-event playback control (no Max4Live required)
+- Multi-client web UI with transport controls and setlist display
+- Keyboard shortcuts (Space = play/stop, arrows = prev/next song)
+- Configurable preroll when jumping to songs or sections
+- Persistent setlist management via REST API
+- Auto-reconnects to Ableton if the connection drops
+
+---
+
+## Prerequisites
+
+| Requirement | Notes |
+|---|---|
+| **Python 3.11+** | Tested on 3.13 |
+| **Ableton Live** | With Arrangement View content |
+| **AbletonOSC** | [Install instructions](https://github.com/ideoforms/AbletonOSC#installation). Enable it under *Preferences > Link / Tempo / MIDI > Control Surface*. |
+
+AbletonOSC listens on UDP port **11000** and replies on port **11001** by
+default. Remoteable uses the same defaults.
+
+---
+
+## Quick Start
+
+```bash
+# Clone and enter the project
+cd remoteable
+
+# Create a virtual environment and install dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run database migrations
+REMOTEABLE_NO_ENGINE=1 python manage.py migrate
+
+# Start the server (engine auto-starts and connects to Ableton)
+daphne -b 0.0.0.0 -p 8000 remoteable.asgi:application
+```
+
+Open **http://localhost:8000** in a browser. Open it on as many devices as you
+like -- all clients stay in sync.
+
+### Alternative: engine-only mode
+
+If you only need the polling engine without the web UI (e.g. for testing):
+
+```bash
+python manage.py run_engine
+```
+
+---
+
+## Ableton Arrangement Setup
+
+Remoteable reads four specially-named tracks from your Ableton arrangement.
+Track names are matched **case-insensitively** (e.g. `Songs`, `SONGS`,
+`songs` all work).
+
+### SONGS (mandatory)
+
+Exactly one track named **SONGS**. Each arrangement clip on this track defines
+a song:
+
+- Clip name = song title
+- Clip position = song start (in beats)
+- Clip length = song duration
+
+Songs **must not overlap**. Gaps between songs are fine -- place them wherever
+you want on the timeline.
+
+### SECTIONS (optional)
+
+A track named **SECTIONS**. Each clip defines a structural section (Intro,
+Verse, Chorus, etc.). Used for navigation and UI display. Clips must not
+overlap.
+
+### LYRICS (optional)
+
+A track named **LYRICS**. Each clip represents a lyric cue:
+
+- Clip name = the lyric text to display
+- Multiple lyrics can be active at the same time (overlapping clips are OK)
+
+### CONTROL (optional)
+
+A track named **CONTROL**. Only one clip type is recognised:
+
+- Clips named **STOP** -- when the playhead crosses a STOP marker, Remoteable
+  automatically stops Ableton's transport.
+
+Any clip with a name other than `STOP` is ignored (with a log warning).
+
+All other tracks in your set are ignored by Remoteable.
+
+---
+
+## Configuration
+
+All settings are controlled via environment variables. Defaults work for a
+standard local setup.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ABLETON_OSC_HOST` | `127.0.0.1` | IP address of the machine running Ableton |
+| `ABLETON_OSC_SEND_PORT` | `11000` | Port AbletonOSC listens on |
+| `ABLETON_OSC_RECV_PORT` | `11001` | Port Remoteable listens on for OSC replies |
+| `ENGINE_POLL_HZ` | `20` | How often (per second) the engine polls Ableton |
+| `DEFAULT_PREROLL_BARS` | `1` | Bars of preroll applied when jumping to a song or section |
+| `DJANGO_DEBUG` | `True` | Set to `False` in production |
+| `DJANGO_SECRET_KEY` | *(dev key)* | Override in production |
+| `REMOTEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
+
+### LAN setup
+
+To connect to Ableton on a different machine, set `ABLETON_OSC_HOST` to that
+machine's IP and make sure UDP ports 11000/11001 are reachable.
+
+---
+
+## Architecture
+
+```
+Ableton Live
+    |
+    | UDP/OSC (11000 / 11001)
+    |
+AbletonOSCClient            osc_client.py     Bidirectional OSC over python-osc
+    |
+    |-- Scanner              scanner.py        Reads tracks + clips, builds Timeline
+    |-- Runtime Loop         runtime.py        20 Hz poll, STOP detection, broadcast
+    |
+EngineState                  state.py          Thread-safe global state singleton
+    |
+    |-- REST API             views.py          Transport control, song/section data, setlists
+    |-- WebSocket            consumers.py      Real-time state stream + command input
+    |
+Browser clients              app.js / HTML     Vanilla JS SPA, no build step
+```
+
+### How it works
+
+1. On startup, Remoteable connects to AbletonOSC and **scans the
+   arrangement**: reads all tracks, identifies the four semantic tracks by
+   name, reads their clips, and builds a sorted in-memory **Timeline**.
+
+2. A background thread runs the **runtime loop** at 20 Hz (configurable). Each
+   tick:
+   - Reads the current playhead position and playing state from Ableton via OSC
+   - Resolves which song, section, and lyrics are active (binary search on
+     sorted interval lists)
+   - Checks for **STOP crossings**: if the playhead moved forward past a STOP
+     marker since the last tick, it sends a stop command to Ableton
+   - If the state changed since the last broadcast, pushes a snapshot to all
+     connected WebSocket clients
+
+3. Browser clients connect via WebSocket at `/ws/engine/` and receive the full
+   state on connect, then incremental updates. Clients can send commands
+   (play, stop, seek, jump) which are forwarded to Ableton through the engine.
+
+### Data flow
+
+- **Ableton is the only transport authority.** Remoteable never overrides
+  Ableton's state -- it reads, augments, and relays.
+- **Last write wins.** Multiple clients can send commands simultaneously; there
+  is no locking.
+- **The frontend is stateless.** It only renders whatever the backend sends.
+
+---
+
+## API Reference
+
+### WebSocket
+
+Connect to `ws://<host>:<port>/ws/engine/`.
+
+#### Server -> Client messages
+
+| `type` | Payload | When |
+|---|---|---|
+| `state` | Full engine state object (see below) | On connect and every time state changes (~20 Hz max) |
+| `ack` | `{ "command": "<name>" }` | After a command is processed |
+| `error` | `{ "message": "..." }` | On invalid or failed command |
+
+**State object shape:**
+
+```json
+{
+  "connection_status": "connected",
+  "is_playing": true,
+  "transport_position": 64.0,
+  "tempo": 128.0,
+  "signature_numerator": 4,
+  "signature_denominator": 4,
+  "active_song": { "name": "Drifts", "type": "SONG", "start_beat": 0.0, "end_beat": 544.0 },
+  "active_song_index": 0,
+  "active_section": { "name": "Verse 1", "type": "SECTION", "start_beat": 16.0, "end_beat": 48.0 },
+  "active_lyrics": [{ "name": "Some lyric line", "type": "LYRIC", "start_beat": 64.0, "end_beat": 68.0 }],
+  "next_stop": 544.0,
+  "timeline_valid": true,
+  "timeline_errors": [],
+  "last_update": 1716660140.123
+}
+```
+
+#### Client -> Server commands
+
+Send JSON with a `"command"` field:
+
+| Command | Extra fields | Effect |
+|---|---|---|
+| `play` | -- | Start Ableton transport |
+| `stop` | -- | Stop Ableton transport |
+| `seek` | `"beat": 64.0` | Move playhead to beat position |
+| `jump_to_song` | `"index": 2` | Jump to song by 0-based index (with preroll) |
+| `jump_to_section` | `"start_beat": 48.0` | Jump to section start (with preroll) |
+| `rescan` | -- | Re-read arrangement from Ableton and rebuild timeline |
+
+### REST API
+
+All endpoints are under `/api/`. No authentication required (configurable).
+
+#### Engine status
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/status/` | Current engine state snapshot (same shape as WebSocket state) |
+
+#### Transport control
+
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| POST | `/api/transport/play/` | -- | Start playback |
+| POST | `/api/transport/stop/` | -- | Stop playback |
+| POST | `/api/transport/seek/` | `{ "beat": 64.0 }` | Seek to beat |
+| POST | `/api/transport/jump-to-song/` | `{ "index": 0 }` | Jump to song with preroll |
+| POST | `/api/transport/jump-to-section/` | `{ "start_beat": 48.0 }` | Jump to section with preroll |
+
+#### Arrangement data
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/songs/` | All songs from the timeline |
+| GET | `/api/sections/` | All sections from the timeline |
+| POST | `/api/rescan/` | Re-scan the Ableton arrangement |
+
+#### Setlist CRUD
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/setlists/` | List all setlists |
+| POST | `/api/setlists/` | Create a setlist (with optional nested entries) |
+| GET | `/api/setlists/{id}/` | Get a single setlist with entries |
+| PUT | `/api/setlists/{id}/` | Replace a setlist (entries are replaced entirely) |
+| PATCH | `/api/setlists/{id}/` | Partial update |
+| DELETE | `/api/setlists/{id}/` | Delete a setlist |
+| POST | `/api/setlists/{id}/activate/` | Mark as active (deactivates all others) |
+
+---
+
+## Project Structure
+
+```
+remoteable/
+├── manage.py                          Django management CLI
+├── requirements.txt                   Python dependencies
+├── remoteable/                        Django project package
+│   ├── settings.py                    All configuration
+│   ├── asgi.py                        ASGI entrypoint + static files + engine auto-start
+│   ├── urls.py                        Root URL routing
+│   └── wsgi.py                        WSGI fallback
+├── engine/                            Core application
+│   ├── osc_client.py                  Bidirectional AbletonOSC client (python-osc)
+│   ├── timeline.py                    Timeline data structures + interval resolution
+│   ├── scanner.py                     Reads arrangement from Ableton, builds Timeline
+│   ├── state.py                       Thread-safe global EngineState singleton
+│   ├── runtime.py                     20 Hz poll loop, STOP detection, WS broadcast
+│   ├── consumers.py                   WebSocket consumer (state stream + commands)
+│   ├── views.py                       REST API views
+│   ├── urls.py                        API URL routing
+│   ├── routing.py                     WebSocket URL routing
+│   ├── models.py                      Setlist + SetlistEntry Django models
+│   ├── serializers.py                 DRF serializers
+│   ├── admin.py                       Django admin config
+│   ├── startup.py                     One-shot engine auto-start guard
+│   └── management/commands/
+│       └── run_engine.py              `python manage.py run_engine` standalone command
+├── templates/
+│   └── index.html                     Single-page frontend
+└── static/
+    ├── app.js                         Frontend JS (WebSocket, rendering, controls)
+    └── style.css                      Dark theme CSS
+```
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Space | Toggle play / stop |
+| Arrow Right | Next song |
+| Arrow Left | Previous song |
+
+---
+
+## Troubleshooting
+
+**"No track named 'SONGS' found"**
+Your Ableton set must have exactly one track named `SONGS` (case-insensitive).
+
+**Engine shows "disconnected"**
+Make sure Ableton is running with AbletonOSC enabled. Check that UDP ports
+11000/11001 are not blocked by a firewall.
+
+**Static files not loading (404)**
+Remoteable serves static files automatically in DEBUG mode via
+`ASGIStaticFilesHandler`. Make sure `DJANGO_DEBUG` is `True` (the default) or
+run `python manage.py collectstatic` and serve the `staticfiles/` directory in
+production.
+
+**OSC query timeouts in the log**
+AbletonOSC replies have a 2-second timeout. If Ableton is under heavy load or
+the network is slow, queries may time out. The engine will retry on the next
+poll tick.
+
+---
+
+## License
+
+MIT
