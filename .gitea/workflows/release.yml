@@ -15,11 +15,16 @@ jobs:
           python3 --version
           python3 -c 'import sys; assert sys.version_info >= (3, 11), sys.version'
 
+      - name: Create virtual environment
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+
       - name: Install dependencies
-        run: python3 -m pip install -r requirements.txt
+        run: .venv/bin/pip install -r requirements.txt
 
       - name: Django system check
-        run: REMOTEABLE_NO_ENGINE=1 python3 manage.py check
+        run: REMOTEABLE_NO_ENGINE=1 .venv/bin/python manage.py check
 
   build-macos:
     needs: check
@@ -32,11 +37,16 @@ jobs:
           python3 --version
           python3 -c 'import sys; assert sys.version_info >= (3, 11), sys.version'
 
+      - name: Create virtual environment
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+
       - name: Install dependencies
-        run: python3 -m pip install -r requirements.txt pyinstaller pillow
+        run: .venv/bin/pip install -r requirements.txt pyinstaller pillow
 
       - name: Build RemoteAble.app
-        run: python3 scripts/build_mac_app.py
+        run: .venv/bin/python scripts/build_mac_app.py
 
       - name: Zip app bundle
         run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
