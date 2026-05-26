@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 
+from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from .runtime import WS_GROUP
@@ -71,7 +72,8 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
                 beat = float(content.get("start_beat", 0))
                 engine.cmd_jump_to_section(beat)
             elif cmd == "rescan":
-                engine.cmd_rescan()
+                # Rescan loads the active setlist from the DB (sync ORM).
+                await sync_to_async(engine.cmd_rescan)()
             else:
                 await self.send_json(
                     {"type": "error", "message": f"Unknown command: {cmd}"}
