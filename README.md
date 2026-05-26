@@ -409,14 +409,19 @@ choose **Open**, or allow it in *System Settings → Privacy & Security*.
 
 On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/release.yml):
 
-1. Runs `python manage.py check` on the Linux runner
-2. Builds `RemoteAble.app` on a Mac runner
+1. Runs `python3 manage.py check` on the Mac runner
+2. Builds `RemoteAble.app` on the Mac runner
 3. Publishes `RemoteAble-macOS.zip` as a Gitea release
+
+The workflow uses the Mac runner's installed `python3` (not
+`actions/setup-python`, which requires GitHub-hosted paths like
+`/Users/runner/hostedtoolcache` and fails on self-hosted `act_runner` hosts).
 
 **Mac runner setup (one-time):**
 
 1. Enable Actions in your Gitea instance and repo
-2. Install and register `act_runner` on a Mac with host execution:
+2. Ensure Python 3.11+ is available: `python3 --version`
+3. Install and register `act_runner` on a Mac with host execution:
 
    ```bash
    brew install act_runner
@@ -427,9 +432,11 @@ On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/relea
      --labels macos-latest:host
    ```
 
-3. Set `executor: host` in the runner config (see
-   [`docs/act_runner-macos.example.yaml`](docs/act_runner-macos.example.yaml))
-4. Start the runner: `act_runner daemon --config /path/to/config.yaml`
+4. Set `executor: host` in the runner config (see
+   [`docs/act_runner-macos.example.yaml`](docs/act_runner-macos.example.yaml)).
+   If the runner daemon uses a minimal `PATH`, set `runner.envs.PATH` there so
+   `python3` and `pip` are found, then restart the runner.
+5. Start the runner: `act_runner daemon --config /path/to/config.yaml`
 
 Keep your existing Linux Docker runner for `runs-on: ubuntu-latest` jobs.
 

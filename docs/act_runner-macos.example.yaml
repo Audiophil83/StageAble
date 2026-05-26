@@ -23,6 +23,8 @@ runner:
   executor: host
   labels:
     - "macos-latest:host"
+  envs:
+    PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 cache:
   enabled: true
