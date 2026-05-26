@@ -24,11 +24,26 @@
   let lastSongListKey = null;
   let editorDropZonesReady = false;
 
+  // Client-side playhead smoothing (extrapolates between server polls)
+  const PLAYHEAD_SNAP_BEATS = 0.25;
+  let progressLoopActive = false;
+  let progressRafId = 0;
+  const playhead = {
+    anchorBeat: 0,
+    anchorTime: 0,
+    beatsPerSecond: 2,
+    playing: false,
+    contextKey: "",
+  };
+
   // ── DOM refs ─────────────────────────────────────────────────────
   const $badge        = document.getElementById("connection-badge");
   const $errorBanner  = document.getElementById("error-banner");
   const $songName     = document.getElementById("song-name");
   const $sectionName  = document.getElementById("section-name");
+  const $sectionProgressFill = document.querySelector(
+    "#section-display .progress-bar-fill"
+  );
   const $lyricsText   = document.getElementById("lyrics-text");
   const $position     = document.getElementById("transport-position");
   const $tempo        = document.getElementById("transport-tempo");
@@ -235,6 +250,149 @@
     });
   }
 
+  function findSongByName(name) {
+    return songs.find(function (s) {
+      return s.name === name;
+    });
+  }
+
+  function beatProgressPercent(position, startBeat, endBeat) {
+    if (
+      position == null ||
+      startBeat == null ||
+      endBeat == null ||
+      endBeat <= startBeat
+    ) {
+      return 0;
+    }
+    const span = endBeat - startBeat;
+    const frac = (position - startBeat) / span;
+    return Math.max(0, Math.min(100, frac * 100));
+  }
+
+  function setProgressFill(fillEl, percent) {
+    if (!fillEl) return;
+    const scale = Math.max(0, Math.min(1, percent / 100));
+    fillEl.style.transform = "scaleX(" + scale + ")";
+  }
+
+  function playheadContextKey() {
+    const song = state.active_song ? state.active_song.name : "";
+    const section = state.active_section ? state.active_section.name : "";
+    return song + "|" + section;
+  }
+
+  function syncPlayheadFromState() {
+    const serverBeat = state.transport_position || 0;
+    const now = performance.now();
+    const key = playheadContextKey();
+
+    if (key !== playhead.contextKey) {
+      playhead.contextKey = key;
+      playhead.anchorBeat = serverBeat;
+      playhead.anchorTime = now;
+    }
+
+    playhead.beatsPerSecond = (state.tempo || 120) / 60;
+    playhead.playing = !!state.is_playing;
+
+    if (!playhead.playing) {
+      playhead.anchorBeat = serverBeat;
+      playhead.anchorTime = now;
+      return;
+    }
+
+    const extrapolated =
+      playhead.anchorBeat +
+      ((now - playhead.anchorTime) / 1000) * playhead.beatsPerSecond;
+
+    if (Math.abs(serverBeat - extrapolated) > PLAYHEAD_SNAP_BEATS) {
+      playhead.anchorBeat = serverBeat;
+      playhead.anchorTime = now;
+    }
+  }
+
+  function getDisplayBeat() {
+    if (!playhead.playing) {
+      return state.transport_position || 0;
+    }
+    const now = performance.now();
+    return (
+      playhead.anchorBeat +
+      ((now - playhead.anchorTime) / 1000) * playhead.beatsPerSecond
+    );
+  }
+
+  function paintProgressBars() {
+    updateProgressBars(getDisplayBeat());
+  }
+
+  function scheduleProgressFrame() {
+    if (!progressLoopActive) return;
+    progressRafId = requestAnimationFrame(progressFrame);
+  }
+
+  function progressFrame() {
+    progressRafId = 0;
+    if (!progressLoopActive) return;
+    if (
+      currentView === "performance" &&
+      !document.hidden &&
+      playhead.playing
+    ) {
+      paintProgressBars();
+    }
+    scheduleProgressFrame();
+  }
+
+  function ensureProgressLoop() {
+    const want = currentView === "performance";
+    if (want && !progressLoopActive) {
+      progressLoopActive = true;
+      scheduleProgressFrame();
+      return;
+    }
+    if (!want && progressLoopActive) {
+      progressLoopActive = false;
+      if (progressRafId) {
+        cancelAnimationFrame(progressRafId);
+        progressRafId = 0;
+      }
+    }
+  }
+
+  function updateProgressBars(position) {
+
+    if ($sectionProgressFill) {
+      const sec = state.active_section;
+      const sectionPct = sec
+        ? beatProgressPercent(position, sec.start_beat, sec.end_beat)
+        : 0;
+      setProgressFill($sectionProgressFill, sectionPct);
+    }
+
+    if (!$songList) return;
+    const activeName = state.active_song ? state.active_song.name : null;
+    $songList.querySelectorAll("li").forEach(function (li) {
+      const fill = li.querySelector(".song-progress .progress-bar-fill");
+      if (!fill) return;
+      let pct = 0;
+      if (activeName && li.dataset.songName === activeName) {
+        const live = state.active_song;
+        const start =
+          live && live.start_beat != null
+            ? live.start_beat
+            : parseFloat(li.dataset.startBeat);
+        const end =
+          live && live.end_beat != null
+            ? live.end_beat
+            : parseFloat(li.dataset.endBeat);
+        pct = beatProgressPercent(position, start, end);
+      }
+      setProgressFill(fill, pct);
+    });
+  }
+
   function getPerformanceSongs() {
     if (state.active_setlist && state.active_setlist.entries) {
       return state.active_setlist.entries
@@ -312,6 +470,8 @@
       $btnRescan.hidden = !isPerformance;
     }
 
+    ensureProgressLoop();
+
     if (isSettings) {
       fetchSettings();
     }
@@ -373,8 +533,11 @@
     }
 
     // Active song highlight in list
+    syncPlayheadFromState();
     renderSongListIfNeeded();
     renderSongListHighlight();
+    paintProgressBars();
+    ensureProgressLoop();
     renderAutoAdvance();
   }
 
@@ -417,23 +580,41 @@
       const li = document.createElement("li");
       li.dataset.index = i;
       const name = song.song_name || song.name;
+      li.dataset.songName = name;
+      const timeline = findSongByName(name) || song;
+      if (timeline.start_beat != null) {
+        li.dataset.startBeat = timeline.start_beat;
+      }
+      if (timeline.end_beat != null) {
+        li.dataset.endBeat = timeline.end_beat;
+      }
+      let durationHtml = "";
+      const durationBeats =
+        timeline.duration_beats != null ? timeline.duration_beats : null;
+      if (durationBeats != null) {
+        durationHtml =
+          '<span class="song-duration">' +
+          formatBeatDuration(durationBeats) +
+          "</span>";
+      }
       li.innerHTML =
+        '<div class="song-row">' +
         '<span class="song-index">' +
         (i + 1) +
         '</span><span class="song-label">' +
         escHtml(name) +
-        "</span>";
-      if (song.duration_beats != null) {
-        li.innerHTML +=
-          '<span class="song-duration">' +
-          formatBeatDuration(song.duration_beats) +
-          "</span>";
-      }
+        "</span>" +
+        durationHtml +
+        "</div>" +
+        '<div class="progress-bar song-progress" aria-hidden="true">' +
+        '<div class="progress-bar-fill"></div>' +
+        "</div>";
       li.addEventListener("click", function () {
         jumpToPerformanceIndex(i);
       });
       $songList.appendChild(li);
     });
+    paintProgressBars();
   }
 
   function renderSongListHighlight() {
@@ -866,6 +1047,13 @@
         e.preventDefault();
         $btnPrev.click();
         break;
+    }
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      syncPlayheadFromState();
+      paintProgressBars();
     }
   });
 

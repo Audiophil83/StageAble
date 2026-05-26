@@ -13,6 +13,8 @@
   --red: #ef4444;
   --orange: #f59e0b;
   --song-active: #1e1b4b;
+  --progress-track: #2a2a3a;
+  --progress-fill: #6366f1;
   --radius: 8px;
 }
 
@@ -135,11 +137,40 @@ header h1 {
   margin-bottom: 4px;
 }
 
+.section-display {
+  margin-bottom: 16px;
+}
+
 .section-name {
   font-size: 18px;
   color: var(--accent);
   font-weight: 500;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.section-progress {
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* ── Progress bars (read-only, two-tone) ────────────────────────── */
+
+.progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--progress-track);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--progress-fill);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }
 
 .lyrics-display {
@@ -260,14 +291,24 @@ header h1 {
 }
 
 .song-list li {
-  padding: 10px 14px;
+  padding: 10px 14px 8px;
   border-radius: 6px;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   transition: background 0.1s;
   font-size: 14px;
+}
+
+.song-list .song-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.song-list .song-progress {
+  width: 100%;
 }
 
 .song-list li:hover {
@@ -277,6 +318,10 @@ header h1 {
 .song-list li.active {
   background: var(--song-active);
   border-left: 3px solid var(--accent);
+}
+
+.song-list li.active .progress-bar-fill {
+  background: var(--accent-hover);
 }
 
 .song-list .song-index {
