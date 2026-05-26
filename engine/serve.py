@@ -16,9 +16,14 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8000
+
+
+def project_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent.parent
 
 
 def get_local_ip() -> str:
@@ -60,20 +65,35 @@ def python_for_subprocess() -> str:
 
 def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
     """Start Daphne as a background subprocess."""
-    cmd = [
-        python_for_subprocess(),
-        "-m",
-        "daphne",
-        "-b",
-        bind_host,
-        "-p",
-        str(port),
-        "remoteable.asgi:application",
-    ]
+    root = project_root()
+    env = os.environ.copy()
+    if getattr(sys, "frozen", False):
+        cmd = [
+            sys.executable,
+            "--daphne-worker",
+            "-b",
+            bind_host,
+            "-p",
+            str(port),
+            "remoteable.asgi:application",
+        ]
+        env.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
+        env["REMOTEABLE_FROZEN"] = "1"
+    else:
+        cmd = [
+            python_for_subprocess(),
+            "-m",
+            "daphne",
+            "-b",
+            bind_host,
+            "-p",
+            str(port),
+            "remoteable.asgi:application",
+        ]
     return subprocess.Popen(
         cmd,
-        cwd=BASE_DIR,
-        env=os.environ.copy(),
+        cwd=root,
+        env=env,
     )
 
 

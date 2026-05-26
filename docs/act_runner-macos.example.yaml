@@ -1,0 +1,28 @@
+# Example act_runner config for a macOS build host.
+# Copy to your runner config path (e.g. /opt/homebrew/etc/act_runner/config.yaml)
+# after registering with: act_runner register --labels macos-latest:host
+#
+# Registration (run once on the Mac):
+#   brew install act_runner
+#   act_runner register \
+#     --instance https://YOUR_GITEA \
+#     --token YOUR_REGISTRATION_TOKEN \
+#     --name macos-builder \
+#     --labels macos-latest:host
+#
+# Start the runner:
+#   act_runner daemon --config /path/to/config.yaml
+
+log:
+  level: info
+
+runner:
+  file: .runner
+  capacity: 1
+  timeout: 3h
+  executor: host
+  labels:
+    - "macos-latest:host"
+
+cache:
+  enabled: true

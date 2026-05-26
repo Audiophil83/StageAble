@@ -3,9 +3,16 @@ Django settings for remoteable project.
 """
 
 import os
+import sys
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys._MEIPASS)
+    APP_DATA_DIR = Path.home() / "Library" / "Application Support" / "RemoteAble"
+    APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    APP_DATA_DIR = BASE_DIR
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -70,7 +77,7 @@ CHANNEL_LAYERS = {
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": APP_DATA_DIR / "db.sqlite3",
     }
 }
 

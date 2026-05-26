@@ -383,6 +383,58 @@ poll tick.
 
 ---
 
+## Building and releases
+
+RemoteAble ships as a macOS `.app` bundle built with [PyInstaller](https://pyinstaller.org/).
+A Linux Gitea runner **cannot** produce a working `.app` (macOS Mach-O binaries are required),
+so CI uses a **macOS `act_runner`** for release builds.
+
+### Local macOS build
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt pyinstaller pillow
+python scripts/build_mac_app.py
+open dist/RemoteAble.app
+```
+
+The bundled app stores its SQLite database in
+`~/Library/Application Support/RemoteAble/db.sqlite3`.
+
+**Unsigned builds:** macOS Gatekeeper may block the first launch. Right-click the app and
+choose **Open**, or allow it in *System Settings → Privacy & Security*.
+
+### Gitea Actions CI/CD
+
+On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/release.yml):
+
+1. Runs `python manage.py check` on the Linux runner
+2. Builds `RemoteAble.app` on a Mac runner
+3. Publishes `RemoteAble-macOS.zip` as a Gitea release
+
+**Mac runner setup (one-time):**
+
+1. Enable Actions in your Gitea instance and repo
+2. Install and register `act_runner` on a Mac with host execution:
+
+   ```bash
+   brew install act_runner
+   act_runner register \
+     --instance https://YOUR_GITEA \
+     --token YOUR_REGISTRATION_TOKEN \
+     --name macos-builder \
+     --labels macos-latest:host
+   ```
+
+3. Set `executor: host` in the runner config (see
+   [`docs/act_runner-macos.example.yaml`](docs/act_runner-macos.example.yaml))
+4. Start the runner: `act_runner daemon --config /path/to/config.yaml`
+
+Keep your existing Linux Docker runner for `runs-on: ubuntu-latest` jobs.
+
+---
+
 ## License
 
 MIT
