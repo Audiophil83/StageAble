@@ -9,8 +9,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from subprocess import Popen
 
+import sys
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import ttk
+
+
+def app_icon_path() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "assets" / "app-icon.png"
+    return Path(__file__).resolve().parent.parent / "assets" / "app-icon.png"
 
 
 def copy_to_clipboard(root: tk.Tk, text: str) -> None:
@@ -28,6 +37,11 @@ class RemoteableStatusWindow:
         self.root.title("Remoteable")
         self.root.resizable(False, False)
         self.root.attributes("-topmost", True)
+        icon_path = app_icon_path()
+        if icon_path.exists():
+            icon = tk.PhotoImage(file=str(icon_path))
+            self.root.iconphoto(True, icon)
+            self._icon = icon
 
         frame = ttk.Frame(self.root, padding=16)
         frame.grid(row=0, column=0, sticky="nsew")
