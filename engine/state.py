@@ -45,6 +45,9 @@ class EngineState:
     signature_numerator: int = 4
     signature_denominator: int = 4
 
+    # Cue points (name -> index mapping for song jumps)
+    cue_points: list[dict] = field(default_factory=list)
+
     # Resolved state
     active_song: Optional[dict] = None
     active_song_index: Optional[int] = None
@@ -80,6 +83,7 @@ class EngineState:
                 "active_section": self.active_section,
                 "active_lyrics": self.active_lyrics,
                 "next_stop": round(self.next_stop, 4) if self.next_stop else None,
+                "cue_points": self.cue_points,
                 "timeline_valid": (
                     self.timeline.is_valid if self.timeline else False
                 ),

@@ -47,6 +47,7 @@ class RuntimeEngine:
         self._prev_position: float = 0.0
         self._prev_snapshot: dict | None = None
         self._pending_position: float | None = None
+        self._pending_cue_name: str | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
@@ -87,10 +88,13 @@ class RuntimeEngine:
     # ── commands (called from REST / WebSocket) ───────────────────────
 
     def cmd_play(self) -> None:
-        # When Ableton is stopped and we've seeked/jumped, Ableton may not
-        # honour the new playhead position on start_playing.  Re-apply the
-        # pending position immediately before playing so the two OSC messages
-        # arrive back-to-back and Ableton starts from the right spot.
+        # When Ableton is stopped, seek/cue jumps may not stick on
+        # start_playing. Re-apply immediately before playing so the two OSC
+        # messages arrive back-to-back and Ableton starts from the right spot.
+        pending_cue = self._pending_cue_name
+        if pending_cue is not None:
+            self.osc.cue_point_jump(pending_cue)
+            self._pending_cue_name = None
         pending = self._pending_position
         if pending is not None:
             self.osc.set_current_song_time(pending)
@@ -102,12 +106,13 @@ class RuntimeEngine:
 
     def cmd_seek(self, beat: float) -> None:
         """Seek to a specific beat position."""
+        self._pending_cue_name = None
         self.osc.set_current_song_time(beat)
         if not self.state.is_playing:
             self._pending_position = beat
 
     def cmd_jump_to_song(self, song_index: int) -> None:
-        """Jump to a song by index, applying preroll."""
+        """Jump to a song by index via a matching cue point."""
         tl = self.state.timeline
         if tl is None:
             return
@@ -115,20 +120,25 @@ class RuntimeEngine:
         if song is None:
             logger.warning("Song index %d out of range", song_index)
             return
-        preroll_beats = self._preroll_beats()
-        target = max(0.0, song.start_beat - preroll_beats)
-        self.osc.set_current_song_time(target)
+
+        cue_name = song.name
+        if not self._has_cue_point(cue_name):
+            logger.warning(
+                "No cue point named '%s' — add a cue marker with the same name "
+                "as the SONGS clip",
+                cue_name,
+            )
+            return
+
+        self._pending_position = None
+        self.osc.cue_point_jump(cue_name)
         if not self.state.is_playing:
-            self._pending_position = target
-        logger.info(
-            "Jump to song '%s' at beat %.2f (preroll %.2f)",
-            song.name,
-            target,
-            preroll_beats,
-        )
+            self._pending_cue_name = cue_name
+        logger.info("Jump to song '%s' via cue point", cue_name)
 
     def cmd_jump_to_section(self, start_beat: float) -> None:
         """Jump to a section by its start beat, applying preroll."""
+        self._pending_cue_name = None
         preroll_beats = self._preroll_beats()
         target = max(0.0, start_beat - preroll_beats)
         self.osc.set_current_song_time(target)
@@ -145,6 +155,9 @@ class RuntimeEngine:
     def _preroll_beats(self) -> float:
         """Preroll in beats (default = 1 bar = numerator beats)."""
         return float(self.state.signature_numerator * settings.DEFAULT_PREROLL_BARS)
+
+    def _has_cue_point(self, name: str) -> bool:
+        return any(cp["name"] == name for cp in self.state.cue_points)
 
     def _initial_scan(self) -> None:
         """Read arrangement data and build the timeline."""
@@ -164,6 +177,27 @@ class RuntimeEngine:
                 self.state.update(signature_numerator=num)
             if den:
                 self.state.update(signature_denominator=den)
+
+            # Read cue points (song jumps use cue markers, not SONGS clip positions)
+            cue_raw = self.osc.get_cue_points()
+            cue_points: list[dict] = []
+            if cue_raw is not None:
+                cue_points = [
+                    {"name": name, "time": round(time, 4)}
+                    for name, time in cue_raw
+                ]
+                self.state.update(cue_points=cue_points)
+
+            scan_errors = list(tl.errors)
+            if tl.is_valid and cue_raw is not None:
+                cue_names = {name for name, _ in cue_raw}
+                for song in tl.all_songs():
+                    if song.name not in cue_names:
+                        scan_errors.append(
+                            f"No cue point named '{song.name}' — add a cue marker "
+                            "with the same name as the SONGS clip"
+                        )
+            self.state.update(timeline_errors=scan_errors)
 
             if not tl.is_valid:
                 self.state.update(connection_status=ConnectionStatus.ERROR)
@@ -224,9 +258,10 @@ class RuntimeEngine:
         prev_pos = self._prev_position
         self._prev_position = position
 
-        # Clear pending position once Ableton is actually playing
+        # Clear pending seek/cue once Ableton is actually playing
         if is_playing:
             self._pending_position = None
+            self._pending_cue_name = None
 
         # 2. Resolve active events
         tl = self.state.timeline

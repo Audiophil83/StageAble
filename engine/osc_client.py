@@ -157,7 +157,33 @@ class AbletonOSCClient:
         return None
 
     def set_current_song_time(self, beats: float) -> None:
-        self.send("/live/song/set/current_song_time", float(beats))
+        current = self.get_current_song_time()
+        if current is not None:
+            delta = float(beats) - current
+            self.jump_by(delta)
+        else:
+            self.send("/live/song/set/current_song_time", float(beats))
+
+    def jump_by(self, beats: float) -> None:
+        self.send("/live/song/jump_by", float(beats))
+
+    # Cue points ---------------------------------------------------------
+
+    def get_cue_points(self) -> list[tuple[str, float]] | None:
+        """Query all cue points. Returns list of (name, time) pairs."""
+        r = self.query("/live/song/get/cue_points")
+        if r is None:
+            return None
+        # Response is a flat alternating list: [name1, time1, name2, time2, ...]
+        result: list[tuple[str, float]] = []
+        for i in range(0, len(r), 2):
+            if i + 1 < len(r):
+                result.append((str(r[i]), float(r[i + 1])))
+        return result
+
+    def cue_point_jump(self, name_or_index: str | int) -> None:
+        """Jump to a cue point by name (str) or index (int)."""
+        self.send("/live/song/cue_point/jump", name_or_index)
 
     def get_tempo(self) -> float | None:
         r = self.query("/live/song/get/tempo")
