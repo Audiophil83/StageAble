@@ -52,13 +52,20 @@ def transport_seek(request):
 @api_view(["POST"])
 def jump_to_song(request):
     index = request.data.get("index")
-    if index is None:
+    setlist_index = request.data.get("setlist_index")
+    if index is None and setlist_index is None:
         return Response(
-            {"error": "Missing 'index' parameter"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": "Missing 'index' or 'setlist_index' parameter"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
     from .runtime import get_engine
 
-    get_engine().cmd_jump_to_song(int(index))
+    engine = get_engine()
+    if setlist_index is not None:
+        engine.cmd_jump_to_setlist_index(int(setlist_index))
+        return Response({"status": "ok", "setlist_index": int(setlist_index)})
+
+    engine.cmd_jump_to_song(int(index))
     return Response({"status": "ok", "index": int(index)})
 
 
@@ -135,10 +142,33 @@ class SetlistViewSet(viewsets.ModelViewSet):
             return SetlistCreateSerializer
         return SetlistSerializer
 
+    def perform_create(self, serializer):
+        setlist = serializer.save()
+        if setlist.is_active:
+            self._reload_active_setlist()
+
+    def perform_update(self, serializer):
+        was_active = serializer.instance.is_active
+        setlist = serializer.save()
+        if was_active or setlist.is_active:
+            self._reload_active_setlist()
+
+    def perform_destroy(self, instance):
+        was_active = instance.is_active
+        instance.delete()
+        if was_active:
+            self._reload_active_setlist()
+
+    def _reload_active_setlist(self) -> None:
+        from .setlist_loader import reload_engine_active_setlist
+
+        reload_engine_active_setlist()
+
     @action(detail=True, methods=["post"])
     def activate(self, request, pk=None):
         """Mark this setlist as active (deactivates others)."""
         setlist = self.get_object()
         setlist.is_active = True
         setlist.save()
+        self._reload_active_setlist()
         return Response(SetlistSerializer(setlist).data)

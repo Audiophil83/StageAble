@@ -22,7 +22,7 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
     - Joins the ``engine`` group on connect.
     - Receives ``engine.state`` broadcasts from the runtime loop.
     - Accepts commands from clients: play, stop, seek, jump_to_song,
-      jump_to_section, rescan.
+      jump_to_setlist_index (via setlist_index field), jump_to_section, rescan.
     """
 
     async def connect(self):
@@ -61,8 +61,12 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
                 beat = float(content.get("beat", 0))
                 engine.cmd_seek(beat)
             elif cmd == "jump_to_song":
-                index = int(content.get("index", 0))
-                engine.cmd_jump_to_song(index)
+                if "setlist_index" in content:
+                    index = int(content.get("setlist_index", 0))
+                    engine.cmd_jump_to_setlist_index(index)
+                else:
+                    index = int(content.get("index", 0))
+                    engine.cmd_jump_to_song(index)
             elif cmd == "jump_to_section":
                 beat = float(content.get("start_beat", 0))
                 engine.cmd_jump_to_section(beat)

@@ -19,12 +19,14 @@ from channels.layers import get_channel_layer
 from .config import get_app_settings
 from .osc_client import AbletonOSCClient
 from .scanner import scan_arrangement
+from .setlist_loader import load_active_setlist
 from .state import ConnectionStatus, EngineState, _event_to_dict, engine_state
 from .timeline import Timeline
 
 logger = logging.getLogger(__name__)
 
 WS_GROUP = "engine"
+AUTO_CUE_MIN_PLAY_DELAY = 0.05  # seconds between cue jump and play
 
 
 class RuntimeEngine:
@@ -36,19 +38,22 @@ class RuntimeEngine:
         osc: AbletonOSCClient | None = None,
     ):
         self.state = state or engine_state
-        cfg = get_app_settings()
+        self.cfg = get_app_settings()
         self.osc = osc or AbletonOSCClient(
-            host=cfg.ableton_osc_host,
-            send_port=cfg.ableton_osc_send_port,
-            recv_port=cfg.ableton_osc_recv_port,
+            host=self.cfg.ableton_osc_host,
+            send_port=self.cfg.ableton_osc_send_port,
+            recv_port=self.cfg.ableton_osc_recv_port,
         )
-        self._poll_interval = 1.0 / cfg.engine_poll_hz
+        self._poll_interval = 1.0 / self.cfg.engine_poll_hz
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._prev_position: float = 0.0
         self._prev_snapshot: dict | None = None
         self._pending_position: float | None = None
         self._pending_cue_name: str | None = None
+        self._auto_advance_deadline: float | None = None
+        self._auto_advance_target_index: int | None = None
+        self._auto_advance_cue_name: str | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
@@ -75,7 +80,7 @@ class RuntimeEngine:
             target=self._run_loop, daemon=True, name="engine-loop"
         )
         self._thread.start()
-        logger.info("Runtime engine started (%.0f Hz)", cfg.engine_poll_hz)
+        logger.info("Runtime engine started (%.0f Hz)", self.cfg.engine_poll_hz)
 
     def stop(self) -> None:
         """Stop the engine and OSC client."""
@@ -89,6 +94,7 @@ class RuntimeEngine:
     # ── commands (called from REST / WebSocket) ───────────────────────
 
     def cmd_play(self) -> None:
+        self._cancel_auto_advance()
         # When Ableton is stopped, seek/cue jumps may not stick on
         # start_playing. Re-apply immediately before playing so the two OSC
         # messages arrive back-to-back and Ableton starts from the right spot.
@@ -103,17 +109,20 @@ class RuntimeEngine:
         self.osc.transport_play()
 
     def cmd_stop(self) -> None:
+        self._cancel_auto_advance()
         self.osc.transport_stop()
 
     def cmd_seek(self, beat: float) -> None:
         """Seek to a specific beat position."""
+        self._cancel_auto_advance()
         self._pending_cue_name = None
         self.osc.set_current_song_time(beat)
         if not self.state.is_playing:
             self._pending_position = beat
 
     def cmd_jump_to_song(self, song_index: int) -> None:
-        """Jump to a song by index via a matching cue point."""
+        """Jump to a song by timeline index via a matching cue point."""
+        self._cancel_auto_advance()
         tl = self.state.timeline
         if tl is None:
             return
@@ -121,8 +130,32 @@ class RuntimeEngine:
         if song is None:
             logger.warning("Song index %d out of range", song_index)
             return
+        self._jump_to_song_by_name(song.name)
 
-        cue_name = song.name
+    def cmd_jump_to_setlist_index(self, setlist_index: int) -> None:
+        """Jump to a song by position in the active setlist."""
+        self._cancel_auto_advance()
+        self._jump_to_setlist_index_no_cancel(setlist_index)
+
+    def _jump_to_setlist_index_no_cancel(self, setlist_index: int) -> None:
+        active = self.state.active_setlist
+        if not active:
+            logger.warning("No active setlist — cannot jump by setlist index")
+            return
+        entries = active.get("entries") or []
+        if setlist_index < 0 or setlist_index >= len(entries):
+            logger.warning("Setlist index %d out of range", setlist_index)
+            return
+        entry = entries[setlist_index]
+        if entry.get("missing"):
+            logger.warning(
+                "Setlist entry '%s' is not in the current arrangement scan",
+                entry.get("song_name"),
+            )
+            return
+        self._jump_to_song_by_name(entry["song_name"])
+
+    def _jump_to_song_by_name(self, cue_name: str) -> None:
         if not self._has_cue_point(cue_name):
             logger.warning(
                 "No cue point named '%s' — add a cue marker with the same name "
@@ -133,12 +166,16 @@ class RuntimeEngine:
 
         self._pending_position = None
         self.osc.cue_point_jump(cue_name)
-        if not self.state.is_playing:
+        is_playing = self.osc.get_is_playing()
+        if is_playing is None:
+            is_playing = False
+        if not is_playing:
             self._pending_cue_name = cue_name
         logger.info("Jump to song '%s' via cue point", cue_name)
 
     def cmd_jump_to_section(self, start_beat: float) -> None:
         """Jump to a section by its start beat, applying preroll."""
+        self._cancel_auto_advance()
         self._pending_cue_name = None
         preroll_beats = self._preroll_beats()
         target = max(0.0, start_beat - preroll_beats)
@@ -148,7 +185,15 @@ class RuntimeEngine:
 
     def cmd_rescan(self) -> None:
         """Re-scan the arrangement and rebuild the timeline."""
+        self._cancel_auto_advance()
         self._initial_scan()
+        self._broadcast()
+
+    def reload_active_setlist(self) -> None:
+        """Reload the active setlist from the database."""
+        self._cancel_auto_advance()
+        active = load_active_setlist(self.state.timeline)
+        self.state.update(active_setlist=active, active_setlist_index=None)
         self._broadcast()
 
     def apply_settings(self) -> None:
@@ -202,6 +247,102 @@ class RuntimeEngine:
     def _has_cue_point(self, name: str) -> bool:
         return any(cp["name"] == name for cp in self.state.cue_points)
 
+    def _cancel_auto_advance(self) -> None:
+        self._auto_advance_deadline = None
+        self._auto_advance_target_index = None
+        self._auto_advance_cue_name = None
+
+    def _auto_resume_playback(self, cue_name: str) -> None:
+        """Resume transport after auto-cue (re-apply cue then play)."""
+        self.osc.cue_point_jump(cue_name)
+        self.osc.transport_play()
+        self._pending_cue_name = None
+        self._pending_position = None
+        logger.info("Auto-cue: playing '%s'", cue_name)
+
+    def _setlist_index_for_song(self, song_name: str | None) -> int | None:
+        if not song_name:
+            return None
+        active = self.state.active_setlist
+        if not active:
+            return None
+        for i, entry in enumerate(active.get("entries") or []):
+            if entry.get("song_name") == song_name and not entry.get("missing"):
+                return i
+        return None
+
+    def _schedule_auto_advance(self, setlist_index: int) -> None:
+        active = self.state.active_setlist
+        if not active:
+            logger.info("Auto-cue skipped — no active setlist")
+            return
+        entries = active.get("entries") or []
+        if setlist_index < 0 or setlist_index >= len(entries):
+            logger.warning(
+                "Auto-cue skipped — setlist index %d out of range", setlist_index
+            )
+            return
+        entry = entries[setlist_index]
+        if not entry.get("auto_cue_next"):
+            logger.info(
+                "Auto-cue disabled for '%s' — enable 'Auto-cue next song' in setlist",
+                entry.get("song_name"),
+            )
+            return
+        next_index = setlist_index + 1
+        if next_index >= len(entries):
+            logger.info(
+                "Auto-cue skipped — '%s' is the last song in the setlist",
+                entry.get("song_name"),
+            )
+            return
+        next_entry = entries[next_index]
+        if next_entry.get("missing"):
+            logger.warning(
+                "Cannot auto-cue missing song '%s'",
+                next_entry.get("song_name"),
+            )
+            return
+        next_name = next_entry.get("song_name")
+        if not self._has_cue_point(next_name):
+            logger.warning(
+                "Cannot auto-cue — no cue point named '%s'",
+                next_name,
+            )
+            return
+        gap = float(entry.get("gap_seconds") or 0.0)
+        play_delay = max(gap, AUTO_CUE_MIN_PLAY_DELAY)
+        self._auto_advance_target_index = next_index
+        self._auto_advance_cue_name = next_name
+        self._auto_advance_deadline = time.time() + play_delay
+
+        self._jump_to_setlist_index_no_cancel(next_index)
+        logger.info(
+            "Auto-cue: jumped to '%s', play in %.2fs",
+            next_name,
+            play_delay,
+        )
+
+    def _process_auto_advance(self) -> dict | None:
+        if self._auto_advance_deadline is None or self._auto_advance_cue_name is None:
+            return None
+
+        remaining = self._auto_advance_deadline - time.time()
+        next_name = self._auto_advance_cue_name
+
+        if remaining <= 0:
+            cue_name = self._auto_advance_cue_name
+            self._cancel_auto_advance()
+            if cue_name:
+                self._auto_resume_playback(cue_name)
+            return None
+
+        return {
+            "active": True,
+            "seconds_remaining": round(max(0.0, remaining), 1),
+            "next_song_name": next_name,
+        }
+
     def _initial_scan(self) -> None:
         """Read arrangement data and build the timeline."""
         try:
@@ -241,6 +382,8 @@ class RuntimeEngine:
                             "with the same name as the SONGS clip"
                         )
             self.state.update(timeline_errors=scan_errors)
+
+            self.reload_active_setlist()
 
             if not tl.is_valid:
                 self.state.update(connection_status=ConnectionStatus.ERROR)
@@ -310,9 +453,12 @@ class RuntimeEngine:
         tl = self.state.timeline
         active_song = None
         active_song_index = None
+        active_setlist_index = None
         active_section = None
         active_lyrics: list[dict] = []
         next_stop = None
+        stop_crossed = False
+        stop_setlist_index: int | None = None
 
         if tl is not None and tl.is_valid:
             song_evt = tl.active_song(position)
@@ -331,19 +477,51 @@ class RuntimeEngine:
             if is_playing and prev_pos < position:
                 stops = tl.stops_in_range(prev_pos, position)
                 if stops:
+                    stop_beat = stops[0].start_beat
                     logger.info(
                         "STOP crossing detected at beat %.2f (prev=%.2f cur=%.2f)",
-                        stops[0].start_beat,
+                        stop_beat,
                         prev_pos,
                         position,
                     )
                     self.osc.transport_stop()
                     is_playing = False
+                    stop_crossed = True
+                    # Playhead may already be past the song clip end at STOP;
+                    # resolve the song from just before the crossing.
+                    song_at_stop = tl.active_song(prev_pos) or tl.active_song(
+                        stop_beat - 0.001
+                    )
+                    if song_at_stop:
+                        stop_setlist_index = self._setlist_index_for_song(
+                            song_at_stop.name
+                        )
 
             # Next upcoming stop
             stop_evt = tl.next_stop_after(position)
             if stop_evt:
                 next_stop = stop_evt.start_beat
+
+        active_setlist = self.state.active_setlist
+        if active_setlist and active_song:
+            active_setlist_index = self._setlist_index_for_song(
+                active_song.get("name")
+            )
+
+        if stop_crossed:
+            if stop_setlist_index is not None:
+                self._schedule_auto_advance(stop_setlist_index)
+            elif self.state.active_setlist:
+                logger.info(
+                    "STOP crossed — current song not found in active setlist "
+                    "(prev_pos=%.2f, cur=%.2f)",
+                    prev_pos,
+                    position,
+                )
+            else:
+                logger.info("STOP crossed — no active setlist")
+
+        auto_advance = self._process_auto_advance()
 
         # 4. Update state
         self.state.update(
@@ -351,9 +529,11 @@ class RuntimeEngine:
             transport_position=position,
             active_song=active_song,
             active_song_index=active_song_index,
+            active_setlist_index=active_setlist_index,
             active_section=active_section,
             active_lyrics=active_lyrics,
             next_stop=next_stop,
+            auto_advance=auto_advance,
         )
 
         # 5. Broadcast to WebSocket clients (only if changed)

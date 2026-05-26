@@ -55,6 +55,11 @@ class EngineState:
     active_lyrics: list[dict] = field(default_factory=list)
     next_stop: Optional[float] = None
 
+    # Active setlist (resolved against timeline)
+    active_setlist: Optional[dict] = None
+    active_setlist_index: Optional[int] = None
+    auto_advance: Optional[dict] = None
+
     # Timestamps
     last_update: float = 0.0
 
@@ -83,6 +88,9 @@ class EngineState:
                 "active_section": self.active_section,
                 "active_lyrics": self.active_lyrics,
                 "next_stop": round(self.next_stop, 4) if self.next_stop else None,
+                "active_setlist": self.active_setlist,
+                "active_setlist_index": self.active_setlist_index,
+                "auto_advance": self.auto_advance,
                 "cue_points": self.cue_points,
                 "timeline_valid": (
                     self.timeline.is_valid if self.timeline else False

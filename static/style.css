@@ -174,9 +174,23 @@ header h1 {
 
 .transport-panel {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
   gap: 10px;
   padding: 12px;
+}
+
+.auto-advance-info {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 13px;
+  color: var(--orange);
+  margin-top: 4px;
+}
+
+.auto-advance-info.hidden {
+  display: none;
 }
 
 .btn {
@@ -385,6 +399,217 @@ main {
   color: var(--red);
 }
 
+/* ── Setlist Editor ─────────────────────────────────────────────── */
+
+.setlist-editor-panel h2 {
+  margin-bottom: 8px;
+}
+
+.setlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.setlist-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.setlist-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setlist-name-input,
+.setlist-load-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.setlist-name-input {
+  min-width: 180px;
+}
+
+.setlist-load-select {
+  min-width: 160px;
+}
+
+.setlist-active-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--green);
+  color: #000;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.setlist-active-badge.hidden {
+  display: none;
+}
+
+.setlist-editor-status {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  min-height: 18px;
+}
+
+.setlist-editor-status.success {
+  color: var(--green);
+}
+
+.setlist-editor-status.error {
+  color: var(--red);
+}
+
+.setlist-editor-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.setlist-column {
+  min-height: 200px;
+}
+
+.available-songs-list,
+.editor-setlist {
+  list-style: none;
+  min-height: 120px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.editor-setlist.drag-over,
+.available-songs-list.drag-over {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.available-songs-list li,
+.editor-setlist li.setlist-entry-row {
+  padding: 8px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.available-songs-list li {
+  cursor: grab;
+}
+
+.available-songs-list li:hover {
+  background: var(--bg-panel-hover);
+}
+
+.available-songs-list li.missing-warning {
+  opacity: 0.5;
+}
+
+.setlist-entry-row {
+  cursor: grab;
+}
+
+.setlist-entry-row.dragging {
+  opacity: 0.5;
+}
+
+.setlist-entry-row.missing {
+  border-color: var(--orange);
+}
+
+.drag-handle {
+  color: var(--text-dim);
+  cursor: grab;
+  user-select: none;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.setlist-entry-label {
+  flex: 1;
+}
+
+.btn-remove-entry {
+  padding: 4px 8px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.setlist-transition-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 6px 10px 12px 32px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+  border-left: 2px solid var(--border);
+  margin-left: 12px;
+}
+
+.auto-cue-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.auto-cue-label input {
+  accent-color: var(--accent);
+}
+
+.gap-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gap-control.hidden {
+  display: none;
+}
+
+.gap-control label {
+  white-space: nowrap;
+}
+
+.gap-control input {
+  width: 72px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.editor-setlist-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 16px;
+  text-align: center;
+}
+
 /* ── Responsive ─────────────────────────────────────────────────── */
 
 @media (max-width: 600px) {
@@ -394,4 +619,5 @@ main {
   .transport-panel { flex-wrap: wrap; }
   .form-row { grid-template-columns: 1fr; }
   .header-right { flex-wrap: wrap; justify-content: flex-end; }
+  .setlist-editor-columns { grid-template-columns: 1fr; }
 }

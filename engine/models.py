@@ -80,6 +80,15 @@ class SetlistEntry(models.Model):
     )
     song_name = models.CharField(max_length=300)
     order = models.PositiveIntegerField(default=0)
+    auto_cue_next = models.BooleanField(
+        default=False,
+        help_text="After this song's STOP, wait then cue the next song automatically.",
+    )
+    gap_seconds = models.FloatField(
+        default=0.0,
+        validators=[MinValueValidator(0)],
+        help_text="Seconds to wait after STOP before cueing the next song (when auto_cue_next is enabled).",
+    )
     notes = models.TextField(blank=True, default="")
 
     class Meta:

@@ -22,7 +22,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
 class SetlistEntrySerializer(serializers.ModelSerializer):
     class Meta:
         model = SetlistEntry
-        fields = ["id", "song_name", "order", "notes"]
+        fields = ["id", "song_name", "order", "auto_cue_next", "gap_seconds", "notes"]
 
 
 class SetlistSerializer(serializers.ModelSerializer):
