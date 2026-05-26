@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 WS_GROUP = "engine"
 AUTO_CUE_MIN_PLAY_DELAY = 0.05  # seconds between cue jump and play
+# Max beats advanced in one poll tick while playing (~4 beats at 20 Hz / 300 BPM).
+MAX_PLAY_STEP_BEATS = 4.0
 
 
 class RuntimeEngine:
@@ -112,11 +114,19 @@ class RuntimeEngine:
         self._cancel_auto_advance()
         self.osc.transport_stop()
 
+    def _sync_prev_playhead(self, beat: float | None = None) -> None:
+        """Reset poll baseline after a seek/cue so STOP detection does not fire."""
+        if beat is None:
+            beat = self.osc.get_current_song_time()
+        if beat is not None:
+            self._prev_position = beat
+
     def cmd_seek(self, beat: float) -> None:
         """Seek to a specific beat position."""
         self._cancel_auto_advance()
         self._pending_cue_name = None
         self.osc.set_current_song_time(beat)
+        self._sync_prev_playhead(beat)
         if not self.state.is_playing:
             self._pending_position = beat
 
@@ -166,6 +176,7 @@ class RuntimeEngine:
 
         self._pending_position = None
         self.osc.cue_point_jump(cue_name)
+        self._sync_prev_playhead()
         is_playing = self.osc.get_is_playing()
         if is_playing is None:
             is_playing = False
@@ -180,6 +191,7 @@ class RuntimeEngine:
         preroll_beats = self._preroll_beats()
         target = max(0.0, start_beat - preroll_beats)
         self.osc.set_current_song_time(target)
+        self._sync_prev_playhead(target)
         if not self.state.is_playing:
             self._pending_position = target
 
@@ -446,8 +458,15 @@ class RuntimeEngine:
 
         # Clear pending seek/cue once Ableton is actually playing
         if is_playing:
+            had_pending = (
+                self._pending_position is not None
+                or self._pending_cue_name is not None
+            )
             self._pending_position = None
             self._pending_cue_name = None
+            if had_pending:
+                self._sync_prev_playhead(position)
+                prev_pos = position
 
         # 2. Resolve active events
         tl = self.state.timeline
@@ -473,29 +492,36 @@ class RuntimeEngine:
             lyric_evts = tl.active_lyrics(position)
             active_lyrics = [_event_to_dict(l) for l in lyric_evts]
 
-            # 3. STOP crossing detection
-            if is_playing and prev_pos < position:
-                stops = tl.stops_in_range(prev_pos, position)
-                if stops:
-                    stop_beat = stops[0].start_beat
+            # 3. STOP crossing — playhead entered a CONTROL STOP clip while playing
+            delta = position - prev_pos
+            if (
+                is_playing
+                and 0 < delta <= MAX_PLAY_STEP_BEATS
+            ):
+                stop_evt = tl.stop_entered(prev_pos, position)
+                if stop_evt:
                     logger.info(
                         "STOP crossing detected at beat %.2f (prev=%.2f cur=%.2f)",
-                        stop_beat,
+                        stop_evt.start_beat,
                         prev_pos,
                         position,
                     )
                     self.osc.transport_stop()
                     is_playing = False
                     stop_crossed = True
-                    # Playhead may already be past the song clip end at STOP;
-                    # resolve the song from just before the crossing.
                     song_at_stop = tl.active_song(prev_pos) or tl.active_song(
-                        stop_beat - 0.001
+                        stop_evt.start_beat - 0.001
                     )
                     if song_at_stop:
                         stop_setlist_index = self._setlist_index_for_song(
                             song_at_stop.name
                         )
+            elif is_playing and delta > MAX_PLAY_STEP_BEATS:
+                logger.debug(
+                    "Playhead discontinuity (prev=%.2f cur=%.2f) — skipping STOP check",
+                    prev_pos,
+                    position,
+                )
 
             # Next upcoming stop
             stop_evt = tl.next_stop_after(position)

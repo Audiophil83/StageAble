@@ -160,10 +160,13 @@ class Timeline:
         if control_clips:
             for clip in sorted(control_clips, key=lambda c: c.start_time):
                 if clip.name.strip().upper() == "STOP":
+                    end = clip.start_time + clip.length
+                    if end <= clip.start_time:
+                        end = clip.start_time + 0.001
                     tl.stops.add(
                         TimelineEvent(
                             start_beat=clip.start_time,
-                            end_beat=None,
+                            end_beat=end,
                             type=EventType.STOP,
                             name="STOP",
                         )
@@ -200,24 +203,29 @@ class Timeline:
                 result.append(evt)
         return result
 
+    def active_stop(self, beat: float) -> TimelineEvent | None:
+        """Return the STOP control clip active at *beat*, or None."""
+        return self._find_active(self.stops, beat)
+
+    def stop_entered(self, prev_beat: float, cur_beat: float) -> TimelineEvent | None:
+        """Return the STOP clip the playhead just entered during forward motion.
+
+        Only fires when *cur_beat* is inside a STOP clip and *prev_beat* was not
+        (i.e. the playhead ran onto the clip, not a seek across the timeline).
+        """
+        if cur_beat <= prev_beat:
+            return None
+        stop = self.active_stop(cur_beat)
+        if stop is None or self.active_stop(prev_beat) is not None:
+            return None
+        return stop
+
     def next_stop_after(self, beat: float) -> TimelineEvent | None:
-        """Return the next STOP event strictly after *beat*."""
+        """Return the next STOP clip strictly after *beat* (by clip start)."""
         idx = self.stops.bisect_right(TimelineEvent(start_beat=beat, type=EventType.STOP))
         if idx < len(self.stops):
             return self.stops[idx]
         return None
-
-    def stops_in_range(self, start: float, end: float) -> list[TimelineEvent]:
-        """Return all STOP events in the half-open interval (start, end]."""
-        results = []
-        lo = self.stops.bisect_right(TimelineEvent(start_beat=start, type=EventType.STOP))
-        for i in range(lo, len(self.stops)):
-            evt = self.stops[i]
-            if evt.start_beat > end:
-                break
-            if evt.start_beat > start:
-                results.append(evt)
-        return results
 
     def all_songs(self) -> list[TimelineEvent]:
         return list(self.songs)
