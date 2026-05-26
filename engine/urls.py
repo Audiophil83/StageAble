@@ -25,6 +25,7 @@ urlpatterns = [
     path("songs/", views.song_list, name="song-list"),
     path("sections/", views.section_list, name="section-list"),
     path("rescan/", views.rescan, name="rescan"),
+    path("settings/", views.app_settings, name="app-settings"),
     # Setlist CRUD
     path("", include(router.urls)),
 ]

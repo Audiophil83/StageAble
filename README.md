@@ -13,7 +13,7 @@ state to any number of browser clients over WebSocket.
 - Automatic STOP-event playback control (no Max4Live required)
 - Multi-client web UI with transport controls and setlist display
 - Keyboard shortcuts (Space = play/stop, arrows = prev/next song)
-- Configurable preroll when jumping to songs or sections
+- Song navigation via named cue points (fallback to beat-position jump with preroll)
 - Persistent setlist management via REST API
 - Auto-reconnects to Ableton if the connection drops
 
@@ -72,7 +72,7 @@ Track names are matched **case-insensitively** (e.g. `Songs`, `SONGS`,
 ### SONGS (mandatory)
 
 Exactly one track named **SONGS**. Each arrangement clip on this track defines
-a song:
+a song and is used for **identifying the currently playing song only**:
 
 - Clip name = song title
 - Clip position = song start (in beats)
@@ -80,6 +80,8 @@ a song:
 
 Songs **must not overlap**. Gaps between songs are fine -- place them wherever
 you want on the timeline.
+
+**Navigation** uses cue points instead of clip positions (see [Cue Points](#cue-points) below). Place a named cue marker at each song's desired jump position — the cue point name must match the corresponding SONGS clip name.
 
 ### SECTIONS (optional)
 
@@ -103,30 +105,72 @@ A track named **CONTROL**. Only one clip type is recognised:
 
 Any clip with a name other than `STOP` is ignored (with a log warning).
 
+### Cue Points
+
+Remoteable uses Ableton's **cue markers** for song navigation. When you jump to a
+song, the engine looks for a cue point whose name matches the SONGS clip name and
+jumps to it via `/live/song/cue_point/jump`. This correctly positions the playhead
+regardless of transport state (unlike `jump_by` / `set_current_song_time`, which can
+drift when stopped).
+
+- Cue point names **must match** the corresponding SONGS clip name exactly.
+- If no matching cue point exists, the engine falls back to the old beat-position
+  jump with preroll (see `DEFAULT_PREROLL_BARS`).
+
 All other tracks in your set are ignored by Remoteable.
 
 ---
 
 ## Configuration
 
-All settings are controlled via environment variables. Defaults work for a
-standard local setup.
+Engine settings are stored in the database (singleton ``AppSettings`` row) and
+can be managed at runtime through the Django admin or REST API. Environment
+variables are only used as defaults when the settings row is first created.
 
-| Variable | Default | Description |
+### Settings fields
+
+| Field | Default | Description |
 |---|---|---|
-| `ABLETON_OSC_HOST` | `127.0.0.1` | IP address of the machine running Ableton |
-| `ABLETON_OSC_SEND_PORT` | `11000` | Port AbletonOSC listens on |
-| `ABLETON_OSC_RECV_PORT` | `11001` | Port Remoteable listens on for OSC replies |
-| `ENGINE_POLL_HZ` | `20` | How often (per second) the engine polls Ableton |
-| `DEFAULT_PREROLL_BARS` | `1` | Bars of preroll applied when jumping to a song or section |
-| `DJANGO_DEBUG` | `True` | Set to `False` in production |
-| `DJANGO_SECRET_KEY` | *(dev key)* | Override in production |
-| `REMOTEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
+| `ableton_osc_host` | `127.0.0.1` | IP address of the machine running Ableton |
+| `ableton_osc_send_port` | `11000` | Port AbletonOSC listens on |
+| `ableton_osc_recv_port` | `11001` | Port Remoteable listens on for OSC replies |
+| `engine_poll_hz` | `20` | How often (per second) the engine polls Ableton |
+| `default_preroll_bars` | `1` | Bars of preroll applied when jumping to a section or as fallback when no matching cue point exists for a song |
+
+### Changing settings
+
+- **Django Admin** — navigate to `/admin/engine/appsettings/` and edit the
+  singleton row.
+- **REST API** — `GET/PATCH /api/settings/` to read or update settings at
+  runtime. Changes are hot-reloaded immediately.
+
+### Initial seed (env vars)
+
+The environment variables below are only read when the settings row is first
+created (e.g. on first migration). After that, they are ignored in favour of
+the database.
+
+| Variable | Default |
+|---|---|
+| `ABLETON_OSC_HOST` | `127.0.0.1` |
+| `ABLETON_OSC_SEND_PORT` | `11000` |
+| `ABLETON_OSC_RECV_PORT` | `11001` |
+| `ENGINE_POLL_HZ` | `20` |
+| `DEFAULT_PREROLL_BARS` | `1` |
 
 ### LAN setup
 
-To connect to Ableton on a different machine, set `ABLETON_OSC_HOST` to that
-machine's IP and make sure UDP ports 11000/11001 are reachable.
+To connect to Ableton on a different machine, set `ableton_osc_host` to that
+machine's IP (via Admin or API) and make sure UDP ports 11000/11001 are
+reachable.
+
+### Other env vars
+
+| Variable | Default | Description |
+|---|---|---|
+| `DJANGO_DEBUG` | `True` | Set to `False` in production |
+| `DJANGO_SECRET_KEY` | *(dev key)* | Override in production |
+| `REMOTEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
 
 ---
 
@@ -154,7 +198,8 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 
 1. On startup, Remoteable connects to AbletonOSC and **scans the
    arrangement**: reads all tracks, identifies the four semantic tracks by
-   name, reads their clips, and builds a sorted in-memory **Timeline**.
+   name, reads their clips, reads cue points, and builds a sorted in-memory
+   **Timeline**.
 
 2. A background thread runs the **runtime loop** at 20 Hz (configurable). Each
    tick:
@@ -224,7 +269,7 @@ Send JSON with a `"command"` field:
 | `play` | -- | Start Ableton transport |
 | `stop` | -- | Stop Ableton transport |
 | `seek` | `"beat": 64.0` | Move playhead to beat position |
-| `jump_to_song` | `"index": 2` | Jump to song by 0-based index (with preroll) |
+| `jump_to_song` | `"index": 2` | Jump to song by 0-based index (via cue point; falls back to beat-position jump with preroll) |
 | `jump_to_section` | `"start_beat": 48.0` | Jump to section start (with preroll) |
 | `rescan` | -- | Re-read arrangement from Ableton and rebuild timeline |
 
@@ -245,7 +290,7 @@ All endpoints are under `/api/`. No authentication required (configurable).
 | POST | `/api/transport/play/` | -- | Start playback |
 | POST | `/api/transport/stop/` | -- | Stop playback |
 | POST | `/api/transport/seek/` | `{ "beat": 64.0 }` | Seek to beat |
-| POST | `/api/transport/jump-to-song/` | `{ "index": 0 }` | Jump to song with preroll |
+| POST | `/api/transport/jump-to-song/` | `{ "index": 0 }` | Jump to song (via cue point; falls back to beat-position jump with preroll) |
 | POST | `/api/transport/jump-to-section/` | `{ "start_beat": 48.0 }` | Jump to section with preroll |
 
 #### Arrangement data

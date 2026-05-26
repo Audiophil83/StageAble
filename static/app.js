@@ -13,6 +13,8 @@
   let state = {};
   let songs = [];
   let sections = [];
+  let appSettings = {};
+  let currentView = "performance";
   let reconnectTimer = null;
   const RECONNECT_DELAY = 2000;
 
@@ -32,6 +34,12 @@
   const $btnPrev      = document.getElementById("btn-prev");
   const $btnNext      = document.getElementById("btn-next");
   const $btnRescan    = document.getElementById("btn-rescan");
+  const $viewPerformance = document.getElementById("view-performance");
+  const $viewSettings = document.getElementById("view-settings");
+  const $navPerformance = document.getElementById("nav-performance");
+  const $navSettings = document.getElementById("nav-settings");
+  const $settingsForm = document.getElementById("settings-form");
+  const $settingsStatus = document.getElementById("settings-status");
 
   // ── WebSocket ────────────────────────────────────────────────────
 
@@ -100,6 +108,76 @@
         renderSectionList();
       })
       .catch(console.error);
+  }
+
+  function fetchSettings() {
+    return fetch("/api/settings/")
+      .then((r) => r.json())
+      .then((data) => {
+        appSettings = data;
+        populateSettingsForm();
+      })
+      .catch(console.error);
+  }
+
+  function getCsrfToken() {
+    const match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
+  }
+
+  function saveSettings(formData) {
+    return fetch("/api/settings/", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify(formData),
+    }).then((r) => {
+      if (!r.ok) {
+        return r.json().then((err) => Promise.reject(err));
+      }
+      return r.json();
+    });
+  }
+
+  function populateSettingsForm() {
+    if (!$settingsForm || !appSettings) return;
+    $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
+    $settingsForm.ableton_osc_send_port.value = appSettings.ableton_osc_send_port || "";
+    $settingsForm.ableton_osc_recv_port.value = appSettings.ableton_osc_recv_port || "";
+    $settingsForm.engine_poll_hz.value = appSettings.engine_poll_hz || "";
+    $settingsForm.default_preroll_bars.value = appSettings.default_preroll_bars || "";
+  }
+
+  function setView(view) {
+    currentView = view;
+    const isPerformance = view === "performance";
+
+    if ($viewPerformance) {
+      $viewPerformance.hidden = !isPerformance;
+    }
+    if ($viewSettings) {
+      $viewSettings.hidden = isPerformance;
+    }
+    if ($navPerformance) {
+      $navPerformance.classList.toggle("active", isPerformance);
+    }
+    if ($navSettings) {
+      $navSettings.classList.toggle("active", !isPerformance);
+    }
+    if ($btnRescan) {
+      $btnRescan.hidden = !isPerformance;
+    }
+
+    if (!isPerformance) {
+      fetchSettings();
+    }
+  }
+
+  function setSettingsStatus(message, type) {
+    $settingsStatus.textContent = message || "";
+    $settingsStatus.className = "settings-status" + (type ? " " + type : "");
   }
 
   // ── Rendering ────────────────────────────────────────────────────
@@ -283,6 +361,44 @@
     }, 1000);
   });
 
+  const $viewNav = document.getElementById("view-nav");
+  if ($viewNav) {
+    $viewNav.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-view]");
+      if (!btn) return;
+      setView(btn.dataset.view);
+    });
+  }
+
+  if ($settingsForm) {
+    $settingsForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    setSettingsStatus("Saving...", "");
+
+    const payload = {
+      ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
+      ableton_osc_send_port: parseInt($settingsForm.ableton_osc_send_port.value, 10),
+      ableton_osc_recv_port: parseInt($settingsForm.ableton_osc_recv_port.value, 10),
+      engine_poll_hz: parseInt($settingsForm.engine_poll_hz.value, 10),
+      default_preroll_bars: parseInt($settingsForm.default_preroll_bars.value, 10),
+    };
+
+    saveSettings(payload)
+      .then(function (data) {
+        appSettings = data;
+        populateSettingsForm();
+        setSettingsStatus("Saved", "success");
+      })
+      .catch(function (err) {
+        const message =
+          err && typeof err === "object"
+            ? Object.values(err).flat().join(" ")
+            : "Failed to save settings";
+        setSettingsStatus(message, "error");
+      });
+    });
+  }
+
   // Keyboard shortcuts
   document.addEventListener("keydown", function (e) {
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
@@ -303,5 +419,14 @@
   });
 
   // ── Init ─────────────────────────────────────────────────────────
-  connect();
+  function init() {
+    setView("performance");
+    connect();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Remoteable — Live Show Control</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=2">
 </head>
 <body>
   <div id="app">
@@ -16,6 +16,10 @@
         <span id="connection-badge" class="badge badge-disconnected">disconnected</span>
       </div>
       <div class="header-right">
+        <nav id="view-nav" class="view-nav">
+          <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
+          <button id="nav-settings" class="btn btn-nav-tab" type="button" data-view="settings">Settings</button>
+        </nav>
         <button id="btn-rescan" class="btn btn-secondary" title="Re-scan arrangement">Rescan</button>
       </div>
     </header>
@@ -25,6 +29,7 @@
 
     <!-- Main Content -->
     <main>
+      <div id="view-performance">
       <!-- Live Display Panel -->
       <section id="live-panel" class="panel">
         <div id="now-playing">
@@ -60,9 +65,47 @@
         <h2>Sections</h2>
         <ul id="section-list" class="section-list"></ul>
       </section>
+      </div>
+
+      <div id="view-settings" hidden>
+        <section id="settings-panel" class="panel settings-panel">
+          <h2>Engine Settings</h2>
+          <p class="settings-intro">Configuration is stored in the database and applied immediately.</p>
+          <form id="settings-form" class="settings-form">
+            <div class="form-group">
+              <label for="setting-osc-host">Ableton OSC Host</label>
+              <input id="setting-osc-host" name="ableton_osc_host" type="text" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="setting-osc-send-port">Send Port</label>
+                <input id="setting-osc-send-port" name="ableton_osc_send_port" type="number" min="1" max="65535" required>
+              </div>
+              <div class="form-group">
+                <label for="setting-osc-recv-port">Receive Port</label>
+                <input id="setting-osc-recv-port" name="ableton_osc_recv_port" type="number" min="1" max="65535" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="setting-poll-hz">Poll Rate (Hz)</label>
+                <input id="setting-poll-hz" name="engine_poll_hz" type="number" min="1" max="60" required>
+              </div>
+              <div class="form-group">
+                <label for="setting-preroll">Pre-roll (bars)</label>
+                <input id="setting-preroll" name="default_preroll_bars" type="number" min="0" max="16" required>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button id="btn-settings-save" class="btn btn-play" type="submit">Save</button>
+              <span id="settings-status" class="settings-status"></span>
+            </div>
+          </form>
+        </section>
+      </div>
     </main>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=2"></script>
 </body>
 </html>

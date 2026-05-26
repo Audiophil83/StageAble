@@ -2,8 +2,6 @@
 
 ## Bugs to be fixed
 
-* Play state hickup
-* Song only changes when playing
 
 ## Features to be implemented
 

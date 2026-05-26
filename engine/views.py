@@ -6,8 +6,8 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from .models import Setlist
-from .serializers import SetlistCreateSerializer, SetlistSerializer
+from .models import AppSettings, Setlist
+from .serializers import AppSettingsSerializer, SetlistCreateSerializer, SetlistSerializer
 from .state import engine_state
 
 
@@ -100,6 +100,31 @@ def section_list(request):
 
 
 # ── Setlist CRUD ──────────────────────────────────────────────────────
+
+
+@api_view(["GET", "PATCH"])
+def app_settings(request):
+    """Read or update engine configuration stored in the database."""
+    from .config import get_app_settings_model
+
+    settings_obj = get_app_settings_model()
+
+    if request.method == "GET":
+        return Response(AppSettingsSerializer(settings_obj).data)
+
+    serializer = AppSettingsSerializer(
+        settings_obj, data=request.data, partial=True
+    )
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer.save()
+
+    from .runtime import get_engine
+
+    get_engine().apply_settings()
+
+    return Response(serializer.data)
 
 
 class SetlistViewSet(viewsets.ModelViewSet):

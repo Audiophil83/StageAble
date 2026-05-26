@@ -2,7 +2,21 @@
 
 from rest_framework import serializers
 
-from .models import Setlist, SetlistEntry
+from .models import AppSettings, Setlist, SetlistEntry
+
+
+class AppSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppSettings
+        fields = [
+            "ableton_osc_host",
+            "ableton_osc_send_port",
+            "ableton_osc_recv_port",
+            "engine_poll_hz",
+            "default_preroll_bars",
+            "updated_at",
+        ]
+        read_only_fields = ["updated_at"]
 
 
 class SetlistEntrySerializer(serializers.ModelSerializer):

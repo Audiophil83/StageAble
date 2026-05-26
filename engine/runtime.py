@@ -15,8 +15,8 @@ from typing import Optional
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.conf import settings
 
+from .config import get_app_settings
 from .osc_client import AbletonOSCClient
 from .scanner import scan_arrangement
 from .state import ConnectionStatus, EngineState, _event_to_dict, engine_state
@@ -36,12 +36,13 @@ class RuntimeEngine:
         osc: AbletonOSCClient | None = None,
     ):
         self.state = state or engine_state
+        cfg = get_app_settings()
         self.osc = osc or AbletonOSCClient(
-            host=settings.ABLETON_OSC_HOST,
-            send_port=settings.ABLETON_OSC_SEND_PORT,
-            recv_port=settings.ABLETON_OSC_RECV_PORT,
+            host=cfg.ableton_osc_host,
+            send_port=cfg.ableton_osc_send_port,
+            recv_port=cfg.ableton_osc_recv_port,
         )
-        self._poll_interval = 1.0 / settings.ENGINE_POLL_HZ
+        self._poll_interval = 1.0 / cfg.engine_poll_hz
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._prev_position: float = 0.0
@@ -74,7 +75,7 @@ class RuntimeEngine:
             target=self._run_loop, daemon=True, name="engine-loop"
         )
         self._thread.start()
-        logger.info("Runtime engine started (%.0f Hz)", settings.ENGINE_POLL_HZ)
+        logger.info("Runtime engine started (%.0f Hz)", cfg.engine_poll_hz)
 
     def stop(self) -> None:
         """Stop the engine and OSC client."""
@@ -150,11 +151,53 @@ class RuntimeEngine:
         self._initial_scan()
         self._broadcast()
 
+    def apply_settings(self) -> None:
+        """Apply updated configuration from the database."""
+        cfg = get_app_settings()
+        self._poll_interval = 1.0 / cfg.engine_poll_hz
+
+        osc_changed = (
+            self.osc.host != cfg.ableton_osc_host
+            or self.osc.send_port != cfg.ableton_osc_send_port
+            or self.osc.recv_port != cfg.ableton_osc_recv_port
+        )
+        if not osc_changed:
+            logger.info("Engine settings applied (poll=%d Hz)", cfg.engine_poll_hz)
+            return
+
+        was_running = self._running
+        if was_running:
+            self.osc.stop()
+
+        self.osc = AbletonOSCClient(
+            host=cfg.ableton_osc_host,
+            send_port=cfg.ableton_osc_send_port,
+            recv_port=cfg.ableton_osc_recv_port,
+        )
+
+        if was_running:
+            self.state.update(connection_status=ConnectionStatus.CONNECTING)
+            self.osc.start()
+            if self.osc.is_connected():
+                self.state.update(connection_status=ConnectionStatus.CONNECTED)
+                self._initial_scan()
+            else:
+                self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
+
+        logger.info(
+            "Engine OSC settings applied (%s:%d/%d, poll=%d Hz)",
+            cfg.ableton_osc_host,
+            cfg.ableton_osc_send_port,
+            cfg.ableton_osc_recv_port,
+            cfg.engine_poll_hz,
+        )
+
     # ── internal ──────────────────────────────────────────────────────
 
     def _preroll_beats(self) -> float:
         """Preroll in beats (default = 1 bar = numerator beats)."""
-        return float(self.state.signature_numerator * settings.DEFAULT_PREROLL_BARS)
+        cfg = get_app_settings()
+        return float(self.state.signature_numerator * cfg.default_preroll_bars)
 
     def _has_cue_point(self, name: str) -> bool:
         return any(cp["name"] == name for cp in self.state.cue_points)
