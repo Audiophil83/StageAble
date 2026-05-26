@@ -4,27 +4,11 @@
 
 
 ## Features to be implemented
-
-###
-
-* Config file instead of environment variables
   
-### Client, more modes
+### Sections
 
-* Performance
-* Setlist-editor
-* Backend-Settings
-* Sections should only appear when its song is playing
-
-### Setlist editor
-
-* Simply drag and drop
-* Save/load setlist
-
-### Config in client
-
-* Pre-roll configurable
-* Poll interval
+* not visible as a list, only as progress bar
+* read only, no need to select a certain section for now
 
 ### Progress bar in song and in region
 

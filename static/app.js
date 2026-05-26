@@ -12,7 +12,6 @@
   let ws = null;
   let state = {};
   let songs = [];
-  let sections = [];
   let appSettings = {};
   let currentView = "performance";
   let reconnectTimer = null;
@@ -35,7 +34,6 @@
   const $tempo        = document.getElementById("transport-tempo");
   const $timeSig      = document.getElementById("transport-time-sig");
   const $songList     = document.getElementById("song-list");
-  const $sectionList  = document.getElementById("section-list");
   const $btnPlay      = document.getElementById("btn-play");
   const $btnStop      = document.getElementById("btn-stop");
   const $btnPrev      = document.getElementById("btn-prev");
@@ -72,9 +70,8 @@
     ws.onopen = function () {
       clearTimeout(reconnectTimer);
       setBadge("connected");
-      // Fetch song/section lists via REST
+      // Fetch song list via REST
       fetchSongs();
-      fetchSections();
     };
 
     ws.onmessage = function (event) {
@@ -119,16 +116,6 @@
         if (currentView === "setlist") {
           renderSetlistEditor();
         }
-      })
-      .catch(console.error);
-  }
-
-  function fetchSections() {
-    fetch("/api/sections/")
-      .then((r) => r.json())
-      .then((data) => {
-        sections = data;
-        renderSectionList();
       })
       .catch(console.error);
   }
@@ -388,7 +375,6 @@
     // Active song highlight in list
     renderSongListIfNeeded();
     renderSongListHighlight();
-    renderSectionListHighlight();
     renderAutoAdvance();
   }
 
@@ -460,9 +446,6 @@
       const idx = parseInt(li.dataset.index, 10);
       if (idx === activeIdx) {
         li.classList.add("active");
-        if (!isElementInViewport(li)) {
-          li.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
       } else {
         li.classList.remove("active");
       }
@@ -660,37 +643,6 @@
     };
   }
 
-  function renderSectionList() {
-    $sectionList.innerHTML = "";
-    sections.forEach(function (sec) {
-      const li = document.createElement("li");
-      li.dataset.startBeat = sec.start_beat;
-      li.innerHTML = `
-        <span class="section-label">${escHtml(sec.name)}</span>
-        <span class="section-beat">${formatBeat(sec.start_beat)}</span>
-      `;
-      li.addEventListener("click", function () {
-        send({ command: "jump_to_section", start_beat: sec.start_beat });
-      });
-      $sectionList.appendChild(li);
-    });
-  }
-
-  function renderSectionListHighlight() {
-    const items = $sectionList.querySelectorAll("li");
-    items.forEach(function (li) {
-      const beat = parseFloat(li.dataset.startBeat);
-      if (
-        state.active_section &&
-        Math.abs(beat - state.active_section.start_beat) < 0.01
-      ) {
-        li.classList.add("active");
-      } else {
-        li.classList.remove("active");
-      }
-    });
-  }
-
   function setBadge(status) {
     $badge.textContent = status;
     $badge.className = "badge badge-" + status;
@@ -715,15 +667,6 @@
     const d = document.createElement("div");
     d.textContent = s || "";
     return d.innerHTML;
-  }
-
-  function isElementInViewport(el) {
-    const rect = el.getBoundingClientRect();
-    return (
-      rect.top >= 0 &&
-      rect.bottom <=
-        (window.innerHeight || document.documentElement.clientHeight)
-    );
   }
 
   // ── Event handlers ───────────────────────────────────────────────
@@ -769,10 +712,7 @@
   $btnRescan.addEventListener("click", function () {
     send({ command: "rescan" });
     // Refresh lists after a short delay
-    setTimeout(function () {
-      fetchSongs();
-      fetchSections();
-    }, 1000);
+    setTimeout(fetchSongs, 1000);
   });
 
   const $viewNav = document.getElementById("view-nav");
