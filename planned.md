@@ -6,3 +6,7 @@
 ## Features to be implemented
 
 ### CI / CD
+
+### Chords Track
+
+### Time Signatures
