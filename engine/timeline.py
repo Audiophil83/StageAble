@@ -4,7 +4,7 @@ and resolves active events for any given playhead position.
 
 The timeline is a flat sorted list of ``TimelineEvent`` objects.  At runtime
 the engine performs interval lookups to determine which song, section, lyrics,
-and control events are active.
+chords, and control events are active.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ class EventType(str, Enum):
     SONG = "SONG"
     SECTION = "SECTION"
     LYRIC = "LYRIC"
+    CHORD = "CHORD"
     STOP = "STOP"
 
 
@@ -70,6 +71,7 @@ class Timeline:
     songs: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     sections: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     lyrics: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
+    chords: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     stops: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
 
     # Validation state
@@ -85,6 +87,7 @@ class Timeline:
         section_clips: list[ArrangementClip] | None = None,
         lyric_clips: list[ArrangementClip] | None = None,
         control_clips: list[ArrangementClip] | None = None,
+        chord_clips: list[ArrangementClip] | None = None,
     ) -> Timeline:
         """Construct a validated Timeline from raw clip data."""
         tl = cls()
@@ -156,6 +159,29 @@ class Timeline:
                     )
                 )
 
+        # -- CHORDS (optional) ------------------------------------------
+        if chord_clips:
+            sorted_chords = sorted(chord_clips, key=lambda c: c.start_time)
+            for clip in sorted_chords:
+                end = clip.start_time + clip.length
+                tl.chords.add(
+                    TimelineEvent(
+                        start_beat=clip.start_time,
+                        end_beat=end,
+                        type=EventType.CHORD,
+                        name=clip.name,
+                    )
+                )
+            for i in range(len(sorted_chords) - 1):
+                cur_end = sorted_chords[i].start_time + sorted_chords[i].length
+                nxt_start = sorted_chords[i + 1].start_time
+                if cur_end > nxt_start + 0.001:
+                    tl.errors.append(
+                        f"CHORDS overlap: '{sorted_chords[i].name}' ends at "
+                        f"{cur_end:.2f} but '{sorted_chords[i + 1].name}' starts at "
+                        f"{nxt_start:.2f}"
+                    )
+
         # -- CONTROL (STOP events only) ---------------------------------
         if control_clips:
             for clip in sorted(control_clips, key=lambda c: c.start_time):
@@ -192,6 +218,9 @@ class Timeline:
 
     def active_section(self, beat: float) -> TimelineEvent | None:
         return self._find_active(self.sections, beat)
+
+    def active_chord(self, beat: float) -> TimelineEvent | None:
+        return self._find_active(self.chords, beat)
 
     def active_lyrics(self, beat: float) -> list[TimelineEvent]:
         """Return all lyrics active at the given beat."""
@@ -232,6 +261,9 @@ class Timeline:
 
     def all_sections(self) -> list[TimelineEvent]:
         return list(self.sections)
+
+    def all_chords(self) -> list[TimelineEvent]:
+        return list(self.chords)
 
     def song_at_index(self, index: int) -> TimelineEvent | None:
         if 0 <= index < len(self.songs):

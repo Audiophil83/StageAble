@@ -106,6 +106,12 @@ def section_list(request):
     return Response(engine_state.get_sections())
 
 
+@api_view(["GET"])
+def chord_list(request):
+    """Return all chords from the timeline."""
+    return Response(engine_state.get_chords())
+
+
 # ── Setlist CRUD ──────────────────────────────────────────────────────
 
 

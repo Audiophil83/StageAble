@@ -52,6 +52,7 @@ class EngineState:
     active_song: Optional[dict] = None
     active_song_index: Optional[int] = None
     active_section: Optional[dict] = None
+    active_chord: Optional[dict] = None
     active_lyrics: list[dict] = field(default_factory=list)
     next_stop: Optional[float] = None
 
@@ -86,6 +87,7 @@ class EngineState:
                 "active_song": self.active_song,
                 "active_song_index": self.active_song_index,
                 "active_section": self.active_section,
+                "active_chord": self.active_chord,
                 "active_lyrics": self.active_lyrics,
                 "next_stop": round(self.next_stop, 4) if self.next_stop else None,
                 "active_setlist": self.active_setlist,
@@ -127,6 +129,20 @@ class EngineState:
                     "end_beat": round(evt.end_beat, 4) if evt.end_beat else None,
                 }
                 for evt in self.timeline.all_sections()
+            ]
+
+    def get_chords(self) -> list[dict]:
+        """Return all chords."""
+        with self._lock:
+            if self.timeline is None:
+                return []
+            return [
+                {
+                    "name": evt.name,
+                    "start_beat": round(evt.start_beat, 4),
+                    "end_beat": round(evt.end_beat, 4) if evt.end_beat else None,
+                }
+                for evt in self.timeline.all_chords()
             ]
 
 

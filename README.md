@@ -2,14 +2,14 @@
 
 Real-time show-control system for Ableton Live. Reads your arrangement via
 [AbletonOSC](https://github.com/ideoforms/AbletonOSC), builds a deterministic
-timeline of songs, sections, lyrics and stop markers, then streams the live
+timeline of songs, sections, lyrics, chords and stop markers, then streams the live
 state to any number of browser clients over WebSocket.
 
 ---
 
 ## Features
 
-- Song / section / lyrics overlay resolved in real time from the playhead
+- Song / section / chord / lyrics overlay resolved in real time from the playhead
 - Automatic STOP-event playback control (no Max4Live required)
 - Multi-client web UI with transport controls and setlist display
 - Keyboard shortcuts (Space = play/stop, arrows = prev/next song)
@@ -65,7 +65,7 @@ python manage.py run_engine
 
 ## Ableton Arrangement Setup
 
-Remoteable reads four specially-named tracks from your Ableton arrangement.
+Remoteable reads up to five specially-named tracks from your Ableton arrangement.
 Track names are matched **case-insensitively** (e.g. `Songs`, `SONGS`,
 `songs` all work).
 
@@ -95,6 +95,13 @@ A track named **LYRICS**. Each clip represents a lyric cue:
 
 - Clip name = the lyric text to display
 - Multiple lyrics can be active at the same time (overlapping clips are OK)
+
+### CHORDS (optional)
+
+A track named **CHORDS**. Each clip represents the current chord symbol to display:
+
+- Clip name = chord text (shown verbatim, e.g. `Am7`, `F | Bb`)
+- One chord is active at a time; clips must not overlap
 
 ### CONTROL (optional)
 
@@ -197,14 +204,14 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 ### How it works
 
 1. On startup, Remoteable connects to AbletonOSC and **scans the
-   arrangement**: reads all tracks, identifies the four semantic tracks by
+   arrangement**: reads all tracks, identifies the five semantic tracks by
    name, reads their clips, reads cue points, and builds a sorted in-memory
    **Timeline**.
 
 2. A background thread runs the **runtime loop** at 20 Hz (configurable). Each
    tick:
    - Reads the current playhead position and playing state from Ableton via OSC
-   - Resolves which song, section, and lyrics are active (binary search on
+   - Resolves which song, section, chord, and lyrics are active (binary search on
      sorted interval lists)
    - Checks for **STOP crossings**: if the playhead moved forward past a STOP
      marker since the last tick, it sends a stop command to Ableton
@@ -252,6 +259,7 @@ Connect to `ws://<host>:<port>/ws/engine/`.
   "active_song": { "name": "Drifts", "type": "SONG", "start_beat": 0.0, "end_beat": 544.0 },
   "active_song_index": 0,
   "active_section": { "name": "Verse 1", "type": "SECTION", "start_beat": 16.0, "end_beat": 48.0 },
+  "active_chord": { "name": "Am7", "type": "CHORD", "start_beat": 32.0, "end_beat": 48.0 },
   "active_lyrics": [{ "name": "Some lyric line", "type": "LYRIC", "start_beat": 64.0, "end_beat": 68.0 }],
   "next_stop": 544.0,
   "timeline_valid": true,
@@ -299,6 +307,7 @@ All endpoints are under `/api/`. No authentication required (configurable).
 |---|---|---|
 | GET | `/api/songs/` | All songs from the timeline |
 | GET | `/api/sections/` | All sections from the timeline |
+| GET | `/api/chords/` | All chords from the timeline |
 | POST | `/api/rescan/` | Re-scan the Ableton arrangement |
 
 #### Setlist CRUD

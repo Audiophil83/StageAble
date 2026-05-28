@@ -491,6 +491,7 @@ class RuntimeEngine:
         active_song_index = None
         active_setlist_index = None
         active_section = None
+        active_chord = None
         active_lyrics: list[dict] = []
         next_stop = None
         stop_crossed = False
@@ -505,6 +506,10 @@ class RuntimeEngine:
             section_evt = tl.active_section(position)
             if section_evt:
                 active_section = _event_to_dict(section_evt)
+
+            chord_evt = tl.active_chord(position)
+            if chord_evt:
+                active_chord = _event_to_dict(chord_evt)
 
             lyric_evts = tl.active_lyrics(position)
             active_lyrics = [_event_to_dict(l) for l in lyric_evts]
@@ -574,6 +579,7 @@ class RuntimeEngine:
             active_song_index=active_song_index,
             active_setlist_index=active_setlist_index,
             active_section=active_section,
+            active_chord=active_chord,
             active_lyrics=active_lyrics,
             next_stop=next_stop,
             auto_advance=auto_advance,

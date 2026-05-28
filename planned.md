@@ -6,5 +6,3 @@
 ## Features to be implemented
 
 ### CI / CD
-
-### Chords Track

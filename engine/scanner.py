@@ -21,8 +21,15 @@ TRACK_SONGS = "songs"
 TRACK_SECTIONS = "sections"
 TRACK_LYRICS = "lyrics"
 TRACK_CONTROL = "control"
+TRACK_CHORDS = "chords"
 
-SEMANTIC_TRACKS = {TRACK_SONGS, TRACK_SECTIONS, TRACK_LYRICS, TRACK_CONTROL}
+SEMANTIC_TRACKS = {
+    TRACK_SONGS,
+    TRACK_SECTIONS,
+    TRACK_LYRICS,
+    TRACK_CONTROL,
+    TRACK_CHORDS,
+}
 
 
 @dataclass
@@ -48,7 +55,7 @@ def scan_tracks(osc: AbletonOSCClient) -> list[TrackInfo]:
 
 
 def find_semantic_tracks(tracks: list[TrackInfo]) -> dict[str, TrackInfo]:
-    """Identify the semantic tracks (SONGS, SECTIONS, LYRICS, CONTROL)."""
+    """Identify the semantic tracks (SONGS, SECTIONS, LYRICS, CONTROL, CHORDS)."""
     found: dict[str, TrackInfo] = {}
     for t in tracks:
         normalised = t.name.strip().lower()
@@ -115,6 +122,7 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
     section_clips: list[ArrangementClip] | None = None
     lyric_clips: list[ArrangementClip] | None = None
     control_clips: list[ArrangementClip] | None = None
+    chord_clips: list[ArrangementClip] | None = None
 
     if TRACK_SONGS not in semantic:
         logger.error("No SONGS track found — timeline will be invalid")
@@ -142,19 +150,25 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
         control_clips = read_arrangement_clips(osc, semantic[TRACK_CONTROL].index)
         logger.info("CONTROL: %d clips", len(control_clips))
 
+    if TRACK_CHORDS in semantic:
+        chord_clips = read_arrangement_clips(osc, semantic[TRACK_CHORDS].index)
+        logger.info("CHORDS: %d clips", len(chord_clips))
+
     timeline = Timeline.build(
         song_clips=song_clips,
         section_clips=section_clips,
         lyric_clips=lyric_clips,
         control_clips=control_clips,
+        chord_clips=chord_clips,
     )
 
     if timeline.is_valid:
         logger.info(
-            "Timeline built: %d songs, %d sections, %d lyrics, %d stops",
+            "Timeline built: %d songs, %d sections, %d lyrics, %d chords, %d stops",
             len(timeline.songs),
             len(timeline.sections),
             len(timeline.lyrics),
+            len(timeline.chords),
             len(timeline.stops),
         )
     else:

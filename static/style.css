@@ -173,6 +173,19 @@ header h1 {
   will-change: transform;
 }
 
+.chords-display {
+  margin-bottom: 12px;
+}
+
+.chords-text,
+#chords-text {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
 .lyrics-display {
   background: rgba(99, 102, 241, 0.08);
   border: 1px solid rgba(99, 102, 241, 0.2);
@@ -642,6 +655,7 @@ main {
 @media (max-width: 600px) {
   .song-name { font-size: 24px; }
   .section-name { font-size: 15px; }
+  #chords-text { font-size: 22px; }
   #lyrics-text { font-size: 18px; }
   .transport-panel { flex-wrap: wrap; }
   .form-row { grid-template-columns: 1fr; }

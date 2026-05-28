@@ -44,6 +44,7 @@
   const $sectionProgressFill = document.querySelector(
     "#section-display .progress-bar-fill"
   );
+  const $chordsText   = document.getElementById("chords-text");
   const $lyricsText   = document.getElementById("lyrics-text");
   const $position     = document.getElementById("transport-position");
   const $tempo        = document.getElementById("transport-tempo");
@@ -507,6 +508,12 @@
     $sectionName.textContent = state.active_section
       ? state.active_section.name
       : "--";
+
+    if ($chordsText) {
+      $chordsText.textContent = state.active_chord
+        ? state.active_chord.name
+        : "--";
+    }
 
     // Lyrics
     if (state.active_lyrics && state.active_lyrics.length > 0) {
