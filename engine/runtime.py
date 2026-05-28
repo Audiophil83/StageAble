@@ -188,7 +188,7 @@ class RuntimeEngine:
         """Jump to a section by its start beat, applying preroll."""
         self._cancel_auto_advance()
         self._pending_cue_name = None
-        preroll_beats = self._preroll_beats()
+        preroll_beats = self._preroll_beats(at_beat=start_beat)
         target = max(0.0, start_beat - preroll_beats)
         self.osc.set_current_song_time(target)
         self._sync_prev_playhead(target)
@@ -251,10 +251,28 @@ class RuntimeEngine:
 
     # ── internal ──────────────────────────────────────────────────────
 
-    def _preroll_beats(self) -> float:
-        """Preroll in beats (default = 1 bar = numerator beats)."""
+    def _preroll_beats(self, at_beat: float | None = None) -> float:
+        """Preroll in beats (default = 1 bar = numerator beats at ``at_beat``)."""
         cfg = get_app_settings()
-        return float(self.state.signature_numerator * cfg.default_preroll_bars)
+        num = self.state.signature_numerator
+        if at_beat is not None:
+            n, _ = self.osc.get_time_signature_at(at_beat)
+            if n is not None:
+                num = n
+        return float(num * cfg.default_preroll_bars)
+
+    def _sync_time_signature_from_playhead(self) -> None:
+        """Refresh meter from Ableton at the current playhead (follows TS markers)."""
+        num, den = self.osc.get_time_signature()
+        if num is None and den is None:
+            return
+        updates: dict[str, int] = {}
+        if num is not None and num != self.state.signature_numerator:
+            updates["signature_numerator"] = num
+        if den is not None and den != self.state.signature_denominator:
+            updates["signature_denominator"] = den
+        if updates:
+            self.state.update(**updates)
 
     def _has_cue_point(self, name: str) -> bool:
         return any(cp["name"] == name for cp in self.state.cue_points)
@@ -358,21 +376,17 @@ class RuntimeEngine:
     def _initial_scan(self) -> None:
         """Read arrangement data and build the timeline."""
         try:
+            # Song metadata before the heavy track/clip scan. A long scan can
+            # back up AbletonOSC so later /live/song/get/* queries time out.
+            tempo = self.osc.get_tempo()
+            if tempo:
+                self.state.update(tempo=tempo)
+
             tl = scan_arrangement(self.osc)
             self.state.update(
                 timeline=tl,
                 timeline_errors=tl.errors,
             )
-            # Read tempo/time signature
-            tempo = self.osc.get_tempo()
-            if tempo:
-                self.state.update(tempo=tempo)
-            num = self.osc.get_signature_numerator()
-            den = self.osc.get_signature_denominator()
-            if num:
-                self.state.update(signature_numerator=num)
-            if den:
-                self.state.update(signature_denominator=den)
 
             # Read cue points (song jumps use cue markers, not SONGS clip positions)
             cue_raw = self.osc.get_cue_points()
@@ -396,6 +410,7 @@ class RuntimeEngine:
             self.state.update(timeline_errors=scan_errors)
 
             self.reload_active_setlist()
+            self._sync_time_signature_from_playhead()
 
             if not tl.is_valid:
                 self.state.update(connection_status=ConnectionStatus.ERROR)
@@ -455,6 +470,8 @@ class RuntimeEngine:
 
         prev_pos = self._prev_position
         self._prev_position = position
+
+        self._sync_time_signature_from_playhead()
 
         # Clear pending seek/cue once Ableton is actually playing
         if is_playing:

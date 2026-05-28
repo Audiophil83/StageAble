@@ -381,6 +381,20 @@ AbletonOSC replies have a 2-second timeout. If Ableton is under heavy load or
 the network is slow, queries may time out. The engine will retry on the next
 poll tick.
 
+**Time signature stays 4/4 or log mentions missing `signature_*`**
+An older AbletonOSC install in *User Library/Remote Scripts/AbletonOSC* may not
+expose `/live/song/get/signature_numerator` and `signature_denominator`. Remoteable
+falls back to 4/4 for pre-roll. Update the Remote Script from
+[ideoforms/AbletonOSC](https://github.com/ideoforms/AbletonOSC), restart Live, and
+re-select the control surface.
+
+**Time signature looks wrong or never changes**
+Ableton reports the meter **at the playhead** (it updates as you move through
+time-signature markers in the arrangement). Remoteable polls this on every engine
+tick. Section pre-roll uses the meter at that section’s start beat. If the UI
+shows 3/8 but you expect 3/4, check which marker applies at the current playhead
+position in Live’s arrangement ruler.
+
 ---
 
 ## Building and releases

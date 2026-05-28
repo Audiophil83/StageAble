@@ -43,6 +43,8 @@ class AbletonOSCClient:
     _reply_queues: dict[str, queue.Queue] = field(default_factory=dict, init=False, repr=False)
     _listeners: dict[str, list] = field(default_factory=dict, init=False, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    _query_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    _signature_osc_supported: bool | None = field(default=None, init=False, repr=False)
     _running: bool = field(default=False, init=False, repr=False)
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -51,6 +53,7 @@ class AbletonOSCClient:
         """Start the OSC client and reply listener."""
         if self._running:
             return
+        self._signature_osc_supported = None
         self._client = SimpleUDPClient(self.host, self.send_port)
         dispatcher = Dispatcher()
         dispatcher.set_default_handler(self._handle_reply)
@@ -89,28 +92,35 @@ class AbletonOSCClient:
         self._client.send_message(address, list(args))
 
     def query(
-        self, address: str, *args: Any, timeout: float = DEFAULT_TIMEOUT
+        self,
+        address: str,
+        *args: Any,
+        timeout: float = DEFAULT_TIMEOUT,
+        warn_timeout: bool = True,
     ) -> list[Any] | None:
         """Send an OSC message and wait for the reply.
 
         Returns the reply arguments as a list, or ``None`` on timeout.
+
+        Queries are serialized so the poll loop and scan/rescan paths cannot
+        steal each other's replies for the same OSC address.
         """
-        reply_q: queue.Queue = queue.Queue()
-        with self._lock:
-            self._reply_queues.setdefault(address, reply_q)
-            # Replace — only the latest query is active per address.
-            self._reply_queues[address] = reply_q
-
-        self.send(address, *args)
-
-        try:
-            return reply_q.get(timeout=timeout)
-        except queue.Empty:
-            logger.warning("OSC query timed out: %s %s", address, args)
-            return None
-        finally:
+        with self._query_lock:
+            reply_q: queue.Queue = queue.Queue(maxsize=1)
             with self._lock:
-                self._reply_queues.pop(address, None)
+                self._reply_queues[address] = reply_q
+
+            self.send(address, *args)
+
+            try:
+                return reply_q.get(timeout=timeout)
+            except queue.Empty:
+                if warn_timeout:
+                    logger.warning("OSC query timed out: %s %s", address, args)
+                return None
+            finally:
+                with self._lock:
+                    self._reply_queues.pop(address, None)
 
     def subscribe(self, address: str, callback) -> None:
         """Register a callback for a specific OSC address (listener mode)."""
@@ -191,17 +201,63 @@ class AbletonOSCClient:
             return float(r[0])
         return None
 
-    def get_signature_numerator(self) -> int | None:
-        r = self.query("/live/song/get/signature_numerator")
-        if r is not None and len(r) > 0:
-            return int(r[0])
-        return None
+    def _log_signature_unavailable(self) -> None:
+        logger.info(
+            "AbletonOSC does not expose /live/song/get/signature_* on this install "
+            "(older Remote Script). Using 4/4 for pre-roll. Update AbletonOSC from "
+            "https://github.com/ideoforms/AbletonOSC"
+        )
 
-    def get_signature_denominator(self) -> int | None:
-        r = self.query("/live/song/get/signature_denominator")
-        if r is not None and len(r) > 0:
-            return int(r[0])
-        return None
+    def _signature_query_timeout(self) -> float:
+        """Fast probe while detecting support; full timeout once confirmed."""
+        return 0.5 if self._signature_osc_supported is None else DEFAULT_TIMEOUT
+
+    def get_time_signature(self) -> tuple[int | None, int | None]:
+        """Return (numerator, denominator) at the current playhead.
+
+        Live's ``signature_*`` properties follow the playhead — not a single
+        project-wide value when the arrangement has meter changes.
+
+        Older AbletonOSC builds do not register these endpoints; we detect that
+        once and fall back to engine defaults (4/4) without repeated warnings.
+        """
+        if self._signature_osc_supported is False:
+            return None, None
+
+        timeout = self._signature_query_timeout()
+        r = self.query(
+            "/live/song/get/signature_numerator",
+            timeout=timeout,
+            warn_timeout=False,
+        )
+        if r is None or len(r) == 0:
+            if self._signature_osc_supported is None:
+                self._log_signature_unavailable()
+            self._signature_osc_supported = False
+            return None, None
+
+        self._signature_osc_supported = True
+        num = int(r[0])
+
+        den_r = self.query(
+            "/live/song/get/signature_denominator",
+            timeout=timeout,
+            warn_timeout=False,
+        )
+        if den_r is None or len(den_r) == 0:
+            return num, None
+        return num, int(den_r[0])
+
+    def get_time_signature_at(self, beats: float) -> tuple[int | None, int | None]:
+        """Return time signature at an arrangement position (seeks temporarily)."""
+        saved = self.get_current_song_time()
+        if saved is not None and abs(saved - beats) > 1e-6:
+            self.set_current_song_time(beats)
+        try:
+            return self.get_time_signature()
+        finally:
+            if saved is not None and abs(saved - beats) > 1e-6:
+                self.set_current_song_time(saved)
 
     def get_beat_time(self) -> float | None:
         """Alias for get_current_song_time (position in beats)."""
