@@ -8,5 +8,3 @@
 ### CI / CD
 
 ### Chords Track
-
-### Time Signatures
