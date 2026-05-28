@@ -224,12 +224,7 @@ class AbletonOSCClient:
         if self._signature_osc_supported is False:
             return None, None
 
-        timeout = self._signature_query_timeout()
-        r = self.query(
-            "/live/song/get/signature_numerator",
-            timeout=timeout,
-            warn_timeout=False,
-        )
+        r = self.query("/live/song/get/signature_numerator")
         if r is None or len(r) == 0:
             if self._signature_osc_supported is None:
                 self._log_signature_unavailable()
@@ -239,11 +234,7 @@ class AbletonOSCClient:
         self._signature_osc_supported = True
         num = int(r[0])
 
-        den_r = self.query(
-            "/live/song/get/signature_denominator",
-            timeout=timeout,
-            warn_timeout=False,
-        )
+        den_r = self.query("/live/song/get/signature_denominator")
         if den_r is None or len(den_r) == 0:
             return num, None
         return num, int(den_r[0])

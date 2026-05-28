@@ -12,6 +12,7 @@
   let ws = null;
   let state = {};
   let songs = [];
+  let chords = [];
   let appSettings = {};
   let currentView = "performance";
   let reconnectTimer = null;
@@ -86,8 +87,8 @@
     ws.onopen = function () {
       clearTimeout(reconnectTimer);
       setBadge("connected");
-      // Fetch song list via REST
       fetchSongs();
+      fetchChords();
     };
 
     ws.onmessage = function (event) {
@@ -132,6 +133,15 @@
         if (currentView === "setlist") {
           renderSetlistEditor();
         }
+      })
+      .catch(console.error);
+  }
+
+  function fetchChords() {
+    return fetch("/api/chords/")
+      .then((r) => r.json())
+      .then((data) => {
+        chords = data;
       })
       .catch(console.error);
   }
@@ -324,8 +334,24 @@
     );
   }
 
+  function resolveActiveChord(beat) {
+    for (let i = chords.length - 1; i >= 0; i--) {
+      var c = chords[i];
+      if (c.start_beat <= beat) {
+        if (c.end_beat == null || beat < c.end_beat) return c;
+        return null;
+      }
+    }
+    return null;
+  }
+
   function paintProgressBars() {
-    updateProgressBars(getDisplayBeat());
+    const beat = getDisplayBeat();
+    updateProgressBars(beat);
+    if ($chordsText && chords.length > 0) {
+      var active = resolveActiveChord(beat);
+      $chordsText.textContent = active ? active.name : "--";
+    }
   }
 
   function scheduleProgressFrame() {
@@ -510,9 +536,14 @@
       : "--";
 
     if ($chordsText) {
-      $chordsText.textContent = state.active_chord
-        ? state.active_chord.name
-        : "--";
+      if (chords.length > 0) {
+        var chordEvt = resolveActiveChord(getDisplayBeat());
+        $chordsText.textContent = chordEvt ? chordEvt.name : "--";
+      } else {
+        $chordsText.textContent = state.active_chord
+          ? state.active_chord.name
+          : "--";
+      }
     }
 
     // Lyrics
@@ -900,7 +931,7 @@
   $btnRescan.addEventListener("click", function () {
     send({ command: "rescan" });
     // Refresh lists after a short delay
-    setTimeout(fetchSongs, 1000);
+    setTimeout(function () { fetchSongs(); fetchChords(); }, 1000);
   });
 
   const $viewNav = document.getElementById("view-nav");
