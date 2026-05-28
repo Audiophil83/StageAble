@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass
 
 from .osc_client import AbletonOSCClient
-from .timeline import ArrangementClip, Timeline
+from .timeline import ArrangementClip, MeterEntry, MeterMap, Timeline
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,57 @@ def read_arrangement_clips(
     for name, start, length in zip(names, starts, lengths):
         clips.append(ArrangementClip(name=name, start_time=start, length=length))
     return clips
+
+
+def scan_meter_map(osc: AbletonOSCClient, timeline: Timeline) -> MeterMap:
+    """Query time signature and tempo at each song/section start beat.
+
+    Seeks the playhead temporarily; saves and restores the original position.
+    Returns an empty MeterMap if time-signature queries are not supported.
+    """
+    positions: set[float] = {0.0}
+    for song in timeline.songs:
+        positions.add(song.start_beat)
+    for section in timeline.sections:
+        positions.add(section.start_beat)
+
+    sorted_positions = sorted(positions)
+    saved_pos = osc.get_current_song_time()
+
+    entries: list[MeterEntry] = []
+    prev: tuple[int, int, float] | None = None
+
+    for beat in sorted_positions:
+        osc.send("/live/song/set/current_song_time", float(beat))
+        if osc.get_current_song_time() is None:
+            logger.warning("Lost connection during meter scan")
+            break
+
+        num, den = osc.get_time_signature()
+        if num is None:
+            logger.info("Time-signature OSC not supported; meter map empty")
+            break
+
+        tempo = osc.get_tempo()
+        d = den if den is not None else 4
+        t = tempo if tempo is not None else 120.0
+        current = (num, d, t)
+
+        if current != prev:
+            entries.append(
+                MeterEntry(beat=beat, numerator=num, denominator=d, tempo=t)
+            )
+            prev = current
+
+    if saved_pos is not None:
+        osc.send("/live/song/set/current_song_time", float(saved_pos))
+
+    logger.info(
+        "Meter map: %d entries from %d positions",
+        len(entries),
+        len(sorted_positions),
+    )
+    return MeterMap(entries)
 
 
 def scan_arrangement(osc: AbletonOSCClient) -> Timeline:

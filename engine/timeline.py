@@ -28,6 +28,44 @@ class EventType(str, Enum):
 
 
 @dataclass(frozen=True, order=True)
+class MeterEntry:
+    """A time-signature / tempo snapshot at a specific beat position."""
+
+    beat: float
+    numerator: int = field(compare=False, default=4)
+    denominator: int = field(compare=False, default=4)
+    tempo: float = field(compare=False, default=120.0)
+
+
+class MeterMap:
+    """Sorted map of meter/tempo entries, built once during scan.
+
+    Binary-searches by beat position so lookups in the poll tick are free.
+    """
+
+    def __init__(self, entries: list[MeterEntry] | None = None):
+        self._entries: SortedList = SortedList(
+            entries or [], key=lambda e: e.beat
+        )
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def __bool__(self) -> bool:
+        return len(self._entries) > 0
+
+    def at(self, beat: float) -> MeterEntry:
+        """Return the meter entry in effect at *beat*."""
+        if not self._entries:
+            return MeterEntry(beat=0.0)
+        dummy = MeterEntry(beat=beat)
+        idx = self._entries.bisect_right(dummy) - 1
+        if idx >= 0:
+            return self._entries[idx]
+        return self._entries[0]
+
+
+@dataclass(frozen=True, order=True)
 class TimelineEvent:
     """A single event on the arrangement timeline.
 
@@ -73,6 +111,7 @@ class Timeline:
     lyrics: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     chords: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     stops: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
+    meter_map: MeterMap = field(default_factory=MeterMap)
 
     # Validation state
     errors: list[str] = field(default_factory=list)

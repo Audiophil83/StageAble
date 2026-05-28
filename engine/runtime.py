@@ -18,7 +18,7 @@ from channels.layers import get_channel_layer
 
 from .config import get_app_settings
 from .osc_client import AbletonOSCClient
-from .scanner import scan_arrangement
+from .scanner import scan_arrangement, scan_meter_map
 from .setlist_loader import load_active_setlist
 from .state import ConnectionStatus, EngineState, _event_to_dict, engine_state
 from .timeline import Timeline
@@ -49,6 +49,7 @@ class RuntimeEngine:
         self._poll_interval = 1.0 / self.cfg.engine_poll_hz
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._slow_poll_thread: Optional[threading.Thread] = None
         self._prev_position: float = 0.0
         self._prev_snapshot: dict | None = None
         self._pending_position: float | None = None
@@ -82,6 +83,12 @@ class RuntimeEngine:
             target=self._run_loop, daemon=True, name="engine-loop"
         )
         self._thread.start()
+
+        self._slow_poll_thread = threading.Thread(
+            target=self._slow_poll_loop, daemon=True, name="slow-poll"
+        )
+        self._slow_poll_thread.start()
+
         logger.info("Runtime engine started (%.0f Hz)", self.cfg.engine_poll_hz)
 
     def stop(self) -> None:
@@ -89,6 +96,8 @@ class RuntimeEngine:
         self._running = False
         if self._thread:
             self._thread.join(timeout=3)
+        if self._slow_poll_thread:
+            self._slow_poll_thread.join(timeout=3)
         self.osc.stop()
         self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
         logger.info("Runtime engine stopped")
@@ -256,9 +265,13 @@ class RuntimeEngine:
         cfg = get_app_settings()
         num = self.state.signature_numerator
         if at_beat is not None:
-            n, _ = self.osc.get_time_signature_at(at_beat)
-            if n is not None:
-                num = n
+            tl = self.state.timeline
+            if tl is not None and tl.meter_map:
+                num = tl.meter_map.at(at_beat).numerator
+            else:
+                n, _ = self.osc.get_time_signature_at(at_beat)
+                if n is not None:
+                    num = n
         return float(num * cfg.default_preroll_bars)
 
     def _sync_time_signature_from_playhead(self) -> None:
@@ -383,6 +396,11 @@ class RuntimeEngine:
                 self.state.update(tempo=tempo)
 
             tl = scan_arrangement(self.osc)
+
+            # Build meter map: time-sig + tempo at every song/section start.
+            # Stored in the timeline so poll-tick lookups are free.
+            tl.meter_map = scan_meter_map(self.osc, tl)
+
             self.state.update(
                 timeline=tl,
                 timeline_errors=tl.errors,
@@ -410,7 +428,17 @@ class RuntimeEngine:
             self.state.update(timeline_errors=scan_errors)
 
             self.reload_active_setlist()
-            self._sync_time_signature_from_playhead()
+
+            # Initial time-sig sync from the meter map (no OSC round-trip)
+            if tl.meter_map:
+                pos = self.osc.get_current_song_time() or 0.0
+                meter = tl.meter_map.at(pos)
+                self.state.update(
+                    signature_numerator=meter.numerator,
+                    signature_denominator=meter.denominator,
+                )
+            else:
+                self._sync_time_signature_from_playhead()
 
             if not tl.is_valid:
                 self.state.update(connection_status=ConnectionStatus.ERROR)
@@ -454,12 +482,39 @@ class RuntimeEngine:
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
+    # ── slow poll (1 Hz) ────────────────────────────────────────────
+
+    def _slow_poll_loop(self) -> None:
+        """Background loop for low-frequency queries (1/s): tempo + time sig."""
+        while self._running:
+            try:
+                if self.state.connection_status in (
+                    ConnectionStatus.CONNECTED,
+                    ConnectionStatus.ERROR,
+                ):
+                    self._slow_poll_tick()
+            except Exception:
+                logger.exception("Error in slow poll tick")
+            time.sleep(1.0)
+
+    def _slow_poll_tick(self) -> None:
+        """Query tempo and time signature from Ableton (3 OSC queries)."""
+        tempo = self.osc.get_tempo()
+        if tempo is not None and abs(tempo - self.state.tempo) > 0.01:
+            self.state.update(tempo=tempo)
+        self._sync_time_signature_from_playhead()
+
+    # ── fast poll tick ────────────────────────────────────────────
+
     def _poll_tick(self) -> None:
-        """Single tick of the poll loop."""
-        # 1. Read transport state
+        """Single tick of the poll loop.
+
+        Only two OSC queries per tick: position + is_playing.
+        Tempo and time signature are handled by the 1/s slow-poll thread.
+        """
+        # 1. Read transport state (2 OSC queries)
         position = self.osc.get_current_song_time()
         if position is None:
-            # Connection lost?
             if not self.osc.is_connected():
                 self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
             return
@@ -470,8 +525,6 @@ class RuntimeEngine:
 
         prev_pos = self._prev_position
         self._prev_position = position
-
-        self._sync_time_signature_from_playhead()
 
         # Clear pending seek/cue once Ableton is actually playing
         if is_playing:
