@@ -83,6 +83,7 @@
       this.$track = document.getElementById(trackId);
       this.itemsArrayName = itemsArrayName;
       this.activeIndex = -2;
+      this.nextPreviewShown = false;
       this.elements = [];
       this.dataKey = "";
     }
@@ -112,11 +113,32 @@
       }
 
       var idx = this.findActive(items, beat);
-      if (idx === this.activeIndex) return;
-      this.activeIndex = idx;
 
-      this.setClasses(idx);
-      this.center(idx >= 0 ? idx : 0, rebuilt);
+      var songStartBeat = (state.active_song && state.active_song.start_beat != null)
+        ? state.active_song.start_beat : -Infinity;
+      var songEndBeat = (state.active_song && state.active_song.end_beat != null)
+        ? state.active_song.end_beat : Infinity;
+
+      var showNext = false;
+      var nextIdx = -1;
+      if (idx < 0) {
+        nextIdx = this.findNext(items, beat);
+        showNext = nextIdx >= 0
+          && (items[nextIdx].start_beat - beat) <= 16
+          && items[nextIdx].start_beat >= songStartBeat
+          && items[nextIdx].start_beat < songEndBeat;
+      }
+
+      if (idx === this.activeIndex && showNext === this.nextPreviewShown) return;
+      this.activeIndex = idx;
+      this.nextPreviewShown = showNext;
+
+      this.setClasses(idx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx);
+      var centerIdx = idx;
+      if (idx < 0) {
+        centerIdx = showNext ? nextIdx : 0;
+      }
+      this.center(centerIdx, rebuilt);
     }
 
     getItems() {
@@ -135,6 +157,13 @@
       return -1;
     }
 
+    findNext(items, beat) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].start_beat > beat) return i;
+      }
+      return -1;
+    }
+
     rebuild(items) {
       this.$track.innerHTML = "";
       this.elements = [];
@@ -147,13 +176,15 @@
       }
     }
 
-    setClasses(activeIdx) {
+    setClasses(activeIdx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx) {
       for (var i = 0; i < this.elements.length; i++) {
         var role;
         if (i === activeIdx) role = "current";
-        else if (activeIdx >= 0 && i === activeIdx - 1) role = "prev";
-        else if (activeIdx >= 0 && i === activeIdx + 1) role = "next";
-        else if (activeIdx === -1 && i === 0) role = "next";
+        else if (activeIdx >= 0 && i === activeIdx - 1
+          && items[i].start_beat >= songStartBeat) role = "prev";
+        else if (activeIdx >= 0 && i === activeIdx + 1
+          && items[i].start_beat < songEndBeat) role = "next";
+        else if (activeIdx === -1 && showNext && i === nextIdx) role = "next";
         else role = "offscreen";
         this.elements[i].className = "sliding-item " + role;
       }
