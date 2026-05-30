@@ -1208,6 +1208,16 @@
         e.preventDefault();
         $btnPrev.click();
         break;
+      case "Escape":
+        if (document.body.classList.contains("fullscreen-mode")) {
+          exitFullscreen();
+        }
+        break;
+      case "KeyF":
+        if (currentView === "performance" && !document.body.classList.contains("fullscreen-mode")) {
+          enterFullscreen();
+        }
+        break;
     }
   });
 
@@ -1227,6 +1237,63 @@
       }
     });
   }
+
+  // Fullscreen mode
+  var $btnFullscreen = document.getElementById("btn-fullscreen");
+  var $btnExitFullscreen = document.getElementById("btn-exit-fullscreen");
+
+  function enterFullscreen() {
+    document.body.classList.add("fullscreen-mode");
+    $btnExitFullscreen.classList.remove("hidden");
+    var el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(function () {});
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    }
+    if (sectionSlidingDisplay) sectionSlidingDisplay.activeIndex = -2;
+    if (chordsSlidingDisplay) chordsSlidingDisplay.activeIndex = -2;
+    if (lyricsSlidingDisplay) lyricsSlidingDisplay.activeIndex = -2;
+    paintProgressBars();
+  }
+
+  function exitFullscreen() {
+    document.body.classList.remove("fullscreen-mode");
+    $btnExitFullscreen.classList.add("hidden");
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(function () {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+    if (sectionSlidingDisplay) sectionSlidingDisplay.activeIndex = -2;
+    if (chordsSlidingDisplay) chordsSlidingDisplay.activeIndex = -2;
+    if (lyricsSlidingDisplay) lyricsSlidingDisplay.activeIndex = -2;
+    paintProgressBars();
+  }
+
+  if ($btnFullscreen) {
+    $btnFullscreen.addEventListener("click", enterFullscreen);
+  }
+
+  if ($btnExitFullscreen) {
+    $btnExitFullscreen.addEventListener("click", exitFullscreen);
+  }
+
+  document.addEventListener("fullscreenchange", function () {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      document.body.classList.remove("fullscreen-mode");
+      $btnExitFullscreen.classList.add("hidden");
+    }
+  });
+
+  document.addEventListener("webkitfullscreenchange", function () {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      document.body.classList.remove("fullscreen-mode");
+      $btnExitFullscreen.classList.add("hidden");
+    }
+  });
 
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
