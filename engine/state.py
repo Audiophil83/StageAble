@@ -145,6 +145,20 @@ class EngineState:
                 for evt in self.timeline.all_chords()
             ]
 
+    def get_lyrics(self) -> list[dict]:
+        """Return all lyrics."""
+        with self._lock:
+            if self.timeline is None:
+                return []
+            return [
+                {
+                    "name": evt.name,
+                    "start_beat": round(evt.start_beat, 4),
+                    "end_beat": round(evt.end_beat, 4) if evt.end_beat else None,
+                }
+                for evt in self.timeline.lyrics
+            ]
+
 
 def _event_to_dict(evt: TimelineEvent | None) -> dict | None:
     if evt is None:

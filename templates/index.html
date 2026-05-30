@@ -6,7 +6,7 @@
   <title>Remoteable — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -38,17 +38,36 @@
         <div id="now-playing">
           <div id="song-name" class="song-name">--</div>
           <div id="section-display" class="section-display">
-            <div id="section-name" class="section-name">--</div>
+            <div class="sliding-container" id="section-sliding-container">
+              <div class="sliding-track" id="section-sliding-track">
+                <div class="sliding-item current" id="section-name">--</div>
+              </div>
+            </div>
             <div class="progress-bar section-progress" aria-hidden="true">
               <div class="progress-bar-fill"></div>
             </div>
           </div>
         </div>
         <div id="chords-display" class="chords-display">
-          <div id="chords-text" class="chords-text">--</div>
+          <div class="sliding-container" id="chords-sliding-container">
+            <div class="sliding-track" id="chords-sliding-track">
+              <div class="sliding-item current" id="chords-text">--</div>
+            </div>
+          </div>
         </div>
-        <div id="lyrics-display" class="lyrics-display">
-          <div id="lyrics-text">--</div>
+        <div id="lyrics-display-wrapper" class="lyrics-display-wrapper">
+          <div id="lyrics-display" class="lyrics-display">
+            <div class="sliding-container" id="lyrics-sliding-container">
+              <div class="sliding-track" id="lyrics-sliding-track">
+                <div class="sliding-item current" id="lyrics-text">--</div>
+              </div>
+            </div>
+          </div>
+          <button id="btn-lyrics-expand" class="btn btn-lyrics-expand" title="Expand lyrics" type="button">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
         </div>
         <div id="transport-info">
           <span id="transport-position">0.0</span>
@@ -144,6 +163,6 @@
     </main>
   </div>
 
-  <script src="/static/app.js?v=9"></script>
+  <script src="/static/app.js?v=12"></script>
 </body>
 </html>

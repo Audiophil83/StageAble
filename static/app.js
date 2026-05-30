@@ -12,7 +12,9 @@
   let ws = null;
   let state = {};
   let songs = [];
+  let sections = [];
   let chords = [];
+  let lyrics = [];
   let appSettings = {};
   let currentView = "performance";
   let reconnectTimer = null;
@@ -41,12 +43,9 @@
   const $badge        = document.getElementById("connection-badge");
   const $errorBanner  = document.getElementById("error-banner");
   const $songName     = document.getElementById("song-name");
-  const $sectionName  = document.getElementById("section-name");
   const $sectionProgressFill = document.querySelector(
     "#section-display .progress-bar-fill"
   );
-  const $chordsText   = document.getElementById("chords-text");
-  const $lyricsText   = document.getElementById("lyrics-text");
   const $position     = document.getElementById("transport-position");
   const $tempo        = document.getElementById("transport-tempo");
   const $timeSig      = document.getElementById("transport-time-sig");
@@ -76,6 +75,128 @@
   const $btnSetlistDelete = document.getElementById("btn-setlist-delete");
   const $btnSetlistActivate = document.getElementById("btn-setlist-activate");
 
+  // ── Sliding Display Class ───────────────────────────────────────
+
+  class SlidingDisplay {
+    constructor(containerId, trackId, itemsArrayName) {
+      this.$container = document.getElementById(containerId);
+      this.$track = document.getElementById(trackId);
+      this.itemsArrayName = itemsArrayName;
+      this.activeIndex = -2;
+      this.elements = [];
+      this.dataKey = "";
+    }
+
+    update(beat) {
+      if (!this.$container || !this.$track) return;
+
+      var items = this.getItems();
+      if (!items || items.length === 0) {
+        if (this.dataKey !== "") {
+          this.$track.innerHTML = '<div class="sliding-item current">--</div>';
+          this.$track.style.transform = "";
+          this.elements = [];
+          this.activeIndex = -2;
+          this.dataKey = "";
+        }
+        return;
+      }
+
+      var key = items.length + ":" + items[0].name;
+      var rebuilt = false;
+      if (key !== this.dataKey) {
+        this.rebuild(items);
+        this.dataKey = key;
+        this.activeIndex = -2;
+        rebuilt = true;
+      }
+
+      var idx = this.findActive(items, beat);
+      if (idx === this.activeIndex) return;
+      this.activeIndex = idx;
+
+      this.setClasses(idx);
+      this.center(idx >= 0 ? idx : 0, rebuilt);
+    }
+
+    getItems() {
+      if (this.itemsArrayName === "sections") return sections;
+      if (this.itemsArrayName === "chords") return chords;
+      if (this.itemsArrayName === "lyrics") return lyrics;
+      return [];
+    }
+
+    findActive(items, beat) {
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (items[i].start_beat <= beat) {
+          return (items[i].end_beat == null || beat < items[i].end_beat) ? i : -1;
+        }
+      }
+      return -1;
+    }
+
+    rebuild(items) {
+      this.$track.innerHTML = "";
+      this.elements = [];
+      for (var i = 0; i < items.length; i++) {
+        var el = document.createElement("div");
+        el.className = "sliding-item offscreen";
+        el.textContent = items[i].name;
+        this.$track.appendChild(el);
+        this.elements.push(el);
+      }
+    }
+
+    setClasses(activeIdx) {
+      for (var i = 0; i < this.elements.length; i++) {
+        var role;
+        if (i === activeIdx) role = "current";
+        else if (activeIdx >= 0 && i === activeIdx - 1) role = "prev";
+        else if (activeIdx >= 0 && i === activeIdx + 1) role = "next";
+        else if (activeIdx === -1 && i === 0) role = "next";
+        else role = "offscreen";
+        this.elements[i].className = "sliding-item " + role;
+      }
+    }
+
+    center(index, instant) {
+      if (index < 0 || index >= this.elements.length) return;
+      var el = this.elements[index];
+      var self = this;
+
+      requestAnimationFrame(function () {
+        if (!self.$track || !self.$container || !el.parentNode) return;
+
+        var isVertical = self.$container.closest(".expanded") != null;
+        var trackRect = self.$track.getBoundingClientRect();
+        var itemRect = el.getBoundingClientRect();
+        var transform;
+
+        if (isVertical) {
+          var cRect = self.$container.getBoundingClientRect();
+          var yCenterInTrack = (itemRect.top + itemRect.height / 2) - trackRect.top;
+          transform = "translate(-50%, " + (cRect.height / 2 - yCenterInTrack) + "px)";
+        } else {
+          var xCenterInTrack = (itemRect.left + itemRect.width / 2) - trackRect.left;
+          transform = "translateX(" + (-xCenterInTrack) + "px)";
+        }
+
+        if (instant) {
+          self.$track.style.transition = "none";
+          self.$track.style.transform = transform;
+          self.$track.offsetHeight;
+          self.$track.style.transition = "";
+        } else {
+          self.$track.style.transform = transform;
+        }
+      });
+    }
+  }
+
+  let sectionSlidingDisplay = null;
+  let chordsSlidingDisplay = null;
+  let lyricsSlidingDisplay = null;
+
   // ── WebSocket ────────────────────────────────────────────────────
 
   function connect() {
@@ -88,7 +209,9 @@
       clearTimeout(reconnectTimer);
       setBadge("connected");
       fetchSongs();
+      fetchSections();
       fetchChords();
+      fetchLyrics();
     };
 
     ws.onmessage = function (event) {
@@ -137,13 +260,42 @@
       .catch(console.error);
   }
 
-  function fetchChords() {
-    return fetch("/api/chords/")
-      .then((r) => r.json())
-      .then((data) => {
-        chords = data;
+  function fetchSections() {
+    return fetch("/api/sections/")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        sections = data;
+        refreshSlidingDisplays();
       })
       .catch(console.error);
+  }
+
+  function fetchChords() {
+    return fetch("/api/chords/")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        chords = data;
+        refreshSlidingDisplays();
+      })
+      .catch(console.error);
+  }
+
+  function fetchLyrics() {
+    return fetch("/api/lyrics/")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        lyrics = data;
+        refreshSlidingDisplays();
+      })
+      .catch(console.error);
+  }
+
+  function refreshSlidingDisplays() {
+    if (currentView !== "performance") return;
+    var beat = getDisplayBeat();
+    if (sectionSlidingDisplay) sectionSlidingDisplay.update(beat);
+    if (chordsSlidingDisplay) chordsSlidingDisplay.update(beat);
+    if (lyricsSlidingDisplay) lyricsSlidingDisplay.update(beat);
   }
 
   function fetchSettings() {
@@ -334,24 +486,13 @@
     );
   }
 
-  function resolveActiveChord(beat) {
-    for (let i = chords.length - 1; i >= 0; i--) {
-      var c = chords[i];
-      if (c.start_beat <= beat) {
-        if (c.end_beat == null || beat < c.end_beat) return c;
-        return null;
-      }
-    }
-    return null;
-  }
-
   function paintProgressBars() {
     const beat = getDisplayBeat();
     updateProgressBars(beat);
-    if ($chordsText && chords.length > 0) {
-      var active = resolveActiveChord(beat);
-      $chordsText.textContent = active ? active.name : "--";
-    }
+
+    if (sectionSlidingDisplay) sectionSlidingDisplay.update(beat);
+    if (chordsSlidingDisplay) chordsSlidingDisplay.update(beat);
+    if (lyricsSlidingDisplay) lyricsSlidingDisplay.update(beat);
   }
 
   function scheduleProgressFrame() {
@@ -531,29 +672,6 @@
 
     // Now playing
     $songName.textContent = state.active_song ? state.active_song.name : "--";
-    $sectionName.textContent = state.active_section
-      ? state.active_section.name
-      : "--";
-
-    if ($chordsText) {
-      if (chords.length > 0) {
-        var chordEvt = resolveActiveChord(getDisplayBeat());
-        $chordsText.textContent = chordEvt ? chordEvt.name : "--";
-      } else {
-        $chordsText.textContent = state.active_chord
-          ? state.active_chord.name
-          : "--";
-      }
-    }
-
-    // Lyrics
-    if (state.active_lyrics && state.active_lyrics.length > 0) {
-      $lyricsText.textContent = state.active_lyrics
-        .map((l) => l.name)
-        .join("\n");
-    } else {
-      $lyricsText.textContent = "--";
-    }
 
     // Transport info
     $position.textContent = formatBeat(state.transport_position || 0);
@@ -931,7 +1049,12 @@
   $btnRescan.addEventListener("click", function () {
     send({ command: "rescan" });
     // Refresh lists after a short delay
-    setTimeout(function () { fetchSongs(); fetchChords(); }, 1000);
+    setTimeout(function () {
+      fetchSongs();
+      fetchSections();
+      fetchChords();
+      fetchLyrics();
+    }, 1000);
   });
 
   const $viewNav = document.getElementById("view-nav");
@@ -1088,6 +1211,23 @@
     }
   });
 
+  // Expand lyrics toggle
+  var $btnLyricsExpand = document.getElementById("btn-lyrics-expand");
+  var $lyricsDisplayWrapper = document.getElementById("lyrics-display-wrapper");
+  if ($btnLyricsExpand && $lyricsDisplayWrapper) {
+    $btnLyricsExpand.addEventListener("click", function () {
+      $lyricsDisplayWrapper.classList.toggle("expanded");
+      if (lyricsSlidingDisplay) {
+        lyricsSlidingDisplay.activeIndex = -2;
+        paintProgressBars();
+        setTimeout(function () {
+          lyricsSlidingDisplay.activeIndex = -2;
+          paintProgressBars();
+        }, 750);
+      }
+    });
+  }
+
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
       syncPlayheadFromState();
@@ -1097,6 +1237,10 @@
 
   // ── Init ─────────────────────────────────────────────────────────
   function init() {
+    sectionSlidingDisplay = new SlidingDisplay("section-sliding-container", "section-sliding-track", "sections");
+    chordsSlidingDisplay = new SlidingDisplay("chords-sliding-container", "chords-sliding-track", "chords");
+    lyricsSlidingDisplay = new SlidingDisplay("lyrics-sliding-container", "lyrics-sliding-track", "lyrics");
+
     setView("performance");
     connect();
   }

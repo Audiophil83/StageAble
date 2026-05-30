@@ -112,6 +112,12 @@ def chord_list(request):
     return Response(engine_state.get_chords())
 
 
+@api_view(["GET"])
+def lyric_list(request):
+    """Return all lyrics from the timeline."""
+    return Response(engine_state.get_lyrics())
+
+
 # ── Setlist CRUD ──────────────────────────────────────────────────────
 
 
