@@ -260,21 +260,19 @@ header h1 {
 .btn-lyrics-expand {
   background: transparent;
   border: none;
-  border-left: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: 0;
-  padding: 0 16px;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--text-dim);
-  transition: color 0.2s, background-color 0.2s;
+  opacity: 0.5;
+  transition: opacity 0.2s;
 }
 
 .btn-lyrics-expand:hover {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--accent-hover);
-  border-color: rgba(99, 102, 241, 0.2);
+  opacity: 1;
 }
 
 .btn-lyrics-expand svg {
@@ -922,6 +920,10 @@ body.fullscreen-mode #now-playing {
 
 body.fullscreen-mode .chords-display {
   width: 100%;
+}
+
+body.fullscreen-mode #transport-controls #btn-fullscreen {
+  display: none;
 }
 
 body.fullscreen-mode #transport-controls {
