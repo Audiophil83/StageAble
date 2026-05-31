@@ -5,3 +5,4 @@ channels-redis>=4.1
 djangorestframework>=3.14
 python-osc>=1.8
 sortedcontainers>=2.4
+rumps>=0.4; sys_platform == "darwin"

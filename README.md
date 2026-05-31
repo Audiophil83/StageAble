@@ -422,6 +422,9 @@ python scripts/build_mac_app.py
 open dist/RemoteAble.app
 ```
 
+The bundled app runs as a **macOS menu bar app** (no Dock icon). Click the
+menu bar icon to see the server address, open it in a browser, copy it, or quit.
+
 The bundled app stores its SQLite database in
 `~/Library/Application Support/RemoteAble/db.sqlite3`.
 

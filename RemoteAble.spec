@@ -28,6 +28,7 @@ for package in (
     "asgiref",
     "sortedcontainers",
     "pythonosc",
+    "rumps",
 ):
     pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(package)
     datas += pkg_datas
@@ -56,6 +57,11 @@ hiddenimports += [
     "daphne.cli",
     "twisted.internet.asyncioreactor",
     "autobahn.twisted.websocket",
+    "rumps",
+    "objc",
+    "Foundation",
+    "AppKit",
+    "PyObjCTools",
 ]
 
 a = Analysis(
@@ -111,4 +117,5 @@ app = BUNDLE(
     name="RemoteAble.app",
     icon=str(root / "assets" / "RemoteAble.icns"),
     bundle_identifier="com.remoteable.app",
+    info_plist={"LSUIElement": True},
 )
