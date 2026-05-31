@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
+from typing import IO
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,15 @@ def python_for_subprocess() -> str:
     return sys.executable
 
 
+def _daphne_log_file() -> IO[str] | None:
+    """Open a log file for Daphne output when running as a frozen .app bundle."""
+    if not getattr(sys, "frozen", False):
+        return None
+    log_dir = Path.home() / "Library" / "Application Support" / "RemoteAble"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return open(log_dir / "daphne.log", "w")  # noqa: SIM115
+
+
 def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
     """Start Daphne as a background subprocess."""
     root = project_root()
@@ -90,10 +100,13 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
             str(port),
             "remoteable.asgi:application",
         ]
+    log_file = _daphne_log_file()
     return subprocess.Popen(
         cmd,
         cwd=root,
         env=env,
+        stdout=log_file,
+        stderr=log_file,
     )
 
 

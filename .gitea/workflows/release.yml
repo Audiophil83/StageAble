@@ -48,6 +48,9 @@ jobs:
       - name: Build RemoteAble.app
         run: .venv/bin/python scripts/build_mac_app.py
 
+      - name: Ad-hoc sign the app bundle
+        run: codesign --force --deep --sign - dist/RemoteAble.app
+
       - name: Zip app bundle
         run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
 

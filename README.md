@@ -428,6 +428,16 @@ The bundled app stores its SQLite database in
 **Unsigned builds:** macOS Gatekeeper may block the first launch. Right-click the app and
 choose **Open**, or allow it in *System Settings → Privacy & Security*.
 
+If the app opens but closes again after a few seconds, macOS may be applying
+**App Translocation** (quarantine). Remove the quarantine attribute and retry:
+
+```bash
+xattr -cr RemoteAble.app
+```
+
+When something goes wrong the Daphne server log is written to
+`~/Library/Application Support/RemoteAble/daphne.log`.
+
 ### Gitea Actions CI/CD
 
 On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/release.yml):
