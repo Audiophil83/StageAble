@@ -13,18 +13,6 @@ class AppSettings(models.Model):
     """Singleton row storing engine configuration."""
 
     ableton_osc_host = models.CharField(max_length=255, default="127.0.0.1")
-    ableton_osc_send_port = models.PositiveIntegerField(
-        default=11000,
-        validators=[MinValueValidator(1), MaxValueValidator(65535)],
-    )
-    ableton_osc_recv_port = models.PositiveIntegerField(
-        default=11001,
-        validators=[MinValueValidator(1), MaxValueValidator(65535)],
-    )
-    engine_poll_hz = models.PositiveIntegerField(
-        default=20,
-        validators=[MinValueValidator(1), MaxValueValidator(60)],
-    )
     default_preroll_bars = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(0), MaxValueValidator(16)],

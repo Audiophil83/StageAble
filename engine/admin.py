@@ -18,7 +18,6 @@ class SetlistAdmin(admin.ModelAdmin):
 class AppSettingsAdmin(admin.ModelAdmin):
     list_display = [
         "ableton_osc_host",
-        "engine_poll_hz",
         "default_preroll_bars",
         "updated_at",
     ]

@@ -108,9 +108,4 @@ REST_FRAMEWORK = {
 # These env vars are only used when creating the initial AppSettings row.
 # After that, configure via the Settings UI or PATCH /api/settings/.
 ABLETON_OSC_HOST = os.environ.get("ABLETON_OSC_HOST", "127.0.0.1")
-ABLETON_OSC_SEND_PORT = int(os.environ.get("ABLETON_OSC_SEND_PORT", "11000"))
-ABLETON_OSC_RECV_PORT = int(os.environ.get("ABLETON_OSC_RECV_PORT", "11001"))
-
-# ---------- Engine defaults (seed DB on first run) ----------
-ENGINE_POLL_HZ = int(os.environ.get("ENGINE_POLL_HZ", "20"))
 DEFAULT_PREROLL_BARS = int(os.environ.get("DEFAULT_PREROLL_BARS", "1"))

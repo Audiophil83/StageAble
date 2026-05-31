@@ -27,6 +27,10 @@ logger = logging.getLogger(__name__)
 
 WS_GROUP = "engine"
 AUTO_CUE_MIN_PLAY_DELAY = 0.05  # seconds between cue jump and play
+# AbletonOSC uses fixed ports: 11000 (send) and 11001 (recv).
+ABLETON_OSC_SEND_PORT = 11000
+ABLETON_OSC_RECV_PORT = 11001
+ENGINE_POLL_HZ = 20
 # Max beats advanced in one poll tick while playing (~4 beats at 20 Hz / 300 BPM).
 MAX_PLAY_STEP_BEATS = 4.0
 
@@ -43,10 +47,10 @@ class RuntimeEngine:
         self.cfg = get_app_settings()
         self.osc = osc or AbletonOSCClient(
             host=self.cfg.ableton_osc_host,
-            send_port=self.cfg.ableton_osc_send_port,
-            recv_port=self.cfg.ableton_osc_recv_port,
+            send_port=ABLETON_OSC_SEND_PORT,
+            recv_port=ABLETON_OSC_RECV_PORT,
         )
-        self._poll_interval = 1.0 / self.cfg.engine_poll_hz
+        self._poll_interval = 1.0 / ENGINE_POLL_HZ
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._slow_poll_thread: Optional[threading.Thread] = None
@@ -89,7 +93,7 @@ class RuntimeEngine:
         )
         self._slow_poll_thread.start()
 
-        logger.info("Runtime engine started (%.0f Hz)", self.cfg.engine_poll_hz)
+        logger.info("Runtime engine started (%d Hz)", ENGINE_POLL_HZ)
 
     def stop(self) -> None:
         """Stop the engine and OSC client."""
@@ -220,15 +224,9 @@ class RuntimeEngine:
     def apply_settings(self) -> None:
         """Apply updated configuration from the database."""
         cfg = get_app_settings()
-        self._poll_interval = 1.0 / cfg.engine_poll_hz
 
-        osc_changed = (
-            self.osc.host != cfg.ableton_osc_host
-            or self.osc.send_port != cfg.ableton_osc_send_port
-            or self.osc.recv_port != cfg.ableton_osc_recv_port
-        )
-        if not osc_changed:
-            logger.info("Engine settings applied (poll=%d Hz)", cfg.engine_poll_hz)
+        if self.osc.host == cfg.ableton_osc_host:
+            logger.info("Engine settings applied (host unchanged)")
             return
 
         was_running = self._running
@@ -237,8 +235,8 @@ class RuntimeEngine:
 
         self.osc = AbletonOSCClient(
             host=cfg.ableton_osc_host,
-            send_port=cfg.ableton_osc_send_port,
-            recv_port=cfg.ableton_osc_recv_port,
+            send_port=ABLETON_OSC_SEND_PORT,
+            recv_port=ABLETON_OSC_RECV_PORT,
         )
 
         if was_running:
@@ -250,13 +248,7 @@ class RuntimeEngine:
             else:
                 self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
 
-        logger.info(
-            "Engine OSC settings applied (%s:%d/%d, poll=%d Hz)",
-            cfg.ableton_osc_host,
-            cfg.ableton_osc_send_port,
-            cfg.ableton_osc_recv_port,
-            cfg.engine_poll_hz,
-        )
+        logger.info("Engine OSC host updated to %s", cfg.ableton_osc_host)
 
     # ── internal ──────────────────────────────────────────────────────
 

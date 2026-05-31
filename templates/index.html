@@ -151,25 +151,9 @@
               <label for="setting-osc-host">Ableton OSC Host</label>
               <input id="setting-osc-host" name="ableton_osc_host" type="text" required>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="setting-osc-send-port">Send Port</label>
-                <input id="setting-osc-send-port" name="ableton_osc_send_port" type="number" min="1" max="65535" required>
-              </div>
-              <div class="form-group">
-                <label for="setting-osc-recv-port">Receive Port</label>
-                <input id="setting-osc-recv-port" name="ableton_osc_recv_port" type="number" min="1" max="65535" required>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="setting-poll-hz">Poll Rate (Hz)</label>
-                <input id="setting-poll-hz" name="engine_poll_hz" type="number" min="1" max="60" required>
-              </div>
-              <div class="form-group">
-                <label for="setting-preroll">Pre-roll (bars)</label>
-                <input id="setting-preroll" name="default_preroll_bars" type="number" min="0" max="16" required>
-              </div>
+            <div class="form-group">
+              <label for="setting-preroll">Pre-roll (bars)</label>
+              <input id="setting-preroll" name="default_preroll_bars" type="number" min="0" max="16" required>
             </div>
             <div class="settings-actions">
               <button id="btn-settings-save" class="btn btn-play" type="submit">Save</button>

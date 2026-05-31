@@ -635,9 +635,6 @@
   function populateSettingsForm() {
     if (!$settingsForm || !appSettings) return;
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
-    $settingsForm.ableton_osc_send_port.value = appSettings.ableton_osc_send_port || "";
-    $settingsForm.ableton_osc_recv_port.value = appSettings.ableton_osc_recv_port || "";
-    $settingsForm.engine_poll_hz.value = appSettings.engine_poll_hz || "";
     $settingsForm.default_preroll_bars.value = appSettings.default_preroll_bars || "";
   }
 
@@ -1104,9 +1101,6 @@
 
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
-      ableton_osc_send_port: parseInt($settingsForm.ableton_osc_send_port.value, 10),
-      ableton_osc_recv_port: parseInt($settingsForm.ableton_osc_recv_port.value, 10),
-      engine_poll_hz: parseInt($settingsForm.engine_poll_hz.value, 10),
       default_preroll_bars: parseInt($settingsForm.default_preroll_bars.value, 10),
     };
 

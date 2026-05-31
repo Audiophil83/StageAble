@@ -19,18 +19,12 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class AppSettingsData:
     ableton_osc_host: str
-    ableton_osc_send_port: int
-    ableton_osc_recv_port: int
-    engine_poll_hz: int
     default_preroll_bars: int
 
 
 def _env_defaults() -> dict:
     return {
         "ableton_osc_host": django_settings.ABLETON_OSC_HOST,
-        "ableton_osc_send_port": django_settings.ABLETON_OSC_SEND_PORT,
-        "ableton_osc_recv_port": django_settings.ABLETON_OSC_RECV_PORT,
-        "engine_poll_hz": django_settings.ENGINE_POLL_HZ,
         "default_preroll_bars": django_settings.DEFAULT_PREROLL_BARS,
     }
 
@@ -38,9 +32,6 @@ def _env_defaults() -> dict:
 def _to_data(obj: AppSettings | AppSettingsData) -> AppSettingsData:
     return AppSettingsData(
         ableton_osc_host=obj.ableton_osc_host,
-        ableton_osc_send_port=obj.ableton_osc_send_port,
-        ableton_osc_recv_port=obj.ableton_osc_recv_port,
-        engine_poll_hz=obj.engine_poll_hz,
         default_preroll_bars=obj.default_preroll_bars,
     )
 
