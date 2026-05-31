@@ -54,6 +54,22 @@ jobs:
       - name: Ad-hoc sign the app bundle
         run: codesign --force --deep --sign - dist/RemoteAble.app
 
+      - name: Smoke test app bundle
+        run: |
+          dist/RemoteAble.app/Contents/MacOS/RemoteAble --no-ui &
+          APP_PID=$!
+          sleep 5
+          if kill -0 "$APP_PID" 2>/dev/null; then
+            echo "Smoke test passed — app is running (PID $APP_PID)"
+            kill "$APP_PID"
+            wait "$APP_PID" 2>/dev/null || true
+          else
+            echo "Smoke test FAILED — app exited early"
+            echo "--- daphne.log ---"
+            cat "$HOME/Library/Application Support/RemoteAble/daphne.log" 2>/dev/null || echo "(no log file)"
+            exit 1
+          fi
+
       - name: Zip app bundle
         run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
 
