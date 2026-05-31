@@ -77,6 +77,7 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
     """Start Daphne as a background subprocess."""
     root = project_root()
     env = os.environ.copy()
+    env.pop("REMOTEABLE_NO_ENGINE", None)
     if getattr(sys, "frozen", False):
         cmd = [
             sys.executable,
@@ -89,6 +90,7 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
         ]
         env.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
         env["REMOTEABLE_FROZEN"] = "1"
+        env["PYTHONUNBUFFERED"] = "1"
     else:
         cmd = [
             python_for_subprocess(),

@@ -49,6 +49,7 @@ def run_app(argv: list[str]) -> int:
     os.chdir(resource_root())
 
     run_migrations()
+    os.environ.pop("REMOTEABLE_NO_ENGINE", None)
 
     from engine.serve import main
 

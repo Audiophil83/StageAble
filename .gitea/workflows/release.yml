@@ -42,11 +42,14 @@ jobs:
           python3.13 -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
 
+      - name: Purge pip cache
+        run: .venv/bin/pip cache purge || true
+
       - name: Install dependencies
-        run: .venv/bin/pip install -r requirements.txt pyinstaller pillow
+        run: .venv/bin/pip install --no-cache-dir -r requirements.txt pyinstaller pillow
 
       - name: Build RemoteAble.app
-        run: .venv/bin/python scripts/build_mac_app.py
+        run: DJANGO_SETTINGS_MODULE=remoteable.settings .venv/bin/python scripts/build_mac_app.py
 
       - name: Ad-hoc sign the app bundle
         run: codesign --force --deep --sign - dist/RemoteAble.app
