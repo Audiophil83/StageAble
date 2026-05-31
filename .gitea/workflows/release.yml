@@ -51,9 +51,6 @@ jobs:
       - name: Build RemoteAble.app
         run: DJANGO_SETTINGS_MODULE=remoteable.settings .venv/bin/python scripts/build_mac_app.py
 
-      - name: Ad-hoc sign the app bundle
-        run: codesign --force --deep --sign - dist/RemoteAble.app
-
       - name: Smoke test app bundle
         run: |
           dist/RemoteAble.app/Contents/MacOS/RemoteAble --no-ui &
