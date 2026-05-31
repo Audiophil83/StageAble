@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -144,6 +145,12 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
         finally:
             stop_daphne(process)
         return process.returncode or 0
+
+    def _on_term(signum: int, _frame: object) -> None:
+        stop_daphne(process)
+        raise SystemExit(signum)
+
+    signal.signal(signal.SIGTERM, _on_term)
 
     print(f"Remoteable running at {url}")
     print("Press Ctrl+C to stop.")

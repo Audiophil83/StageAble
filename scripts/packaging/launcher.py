@@ -7,9 +7,18 @@ inside the frozen executable (no separate Python install required).
 
 from __future__ import annotations
 
+import builtins
 import os
 import sys
 from pathlib import Path
+
+# PyInstaller with console=False may omit the site module, leaving the
+# exit/quit builtins undefined.  Daphne calls exit(1) on fatal errors,
+# so we must ensure they exist.
+if not hasattr(builtins, "exit"):
+    builtins.exit = sys.exit  # type: ignore[attr-defined]
+if not hasattr(builtins, "quit"):
+    builtins.quit = sys.exit  # type: ignore[attr-defined]
 
 
 def resource_root() -> Path:
