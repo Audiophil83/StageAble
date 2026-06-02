@@ -1329,6 +1329,13 @@
   });
 
   $btnRescan.addEventListener("click", function () {
+    if (
+      !confirm(
+        "Re-scan the arrangement from Ableton? This can take several minutes on large projects."
+      )
+    ) {
+      return;
+    }
     send({ command: "rescan" });
     // Refresh lists after a short delay
     setTimeout(function () {
