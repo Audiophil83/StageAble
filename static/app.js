@@ -27,6 +27,9 @@
   let lastSongListKey = null;
   let editorDropZonesReady = false;
 
+  // Mixer view state
+  let mixerTracks = [];
+
   // Client-side playhead smoothing (extrapolates between server polls)
   const PLAYHEAD_SNAP_BEATS = 0.25;
   let progressLoopActive = false;
@@ -58,9 +61,13 @@
   const $viewPerformance = document.getElementById("view-performance");
   const $viewSetlist = document.getElementById("view-setlist");
   const $viewSettings = document.getElementById("view-settings");
+  const $viewMixer = document.getElementById("view-mixer");
   const $navPerformance = document.getElementById("nav-performance");
   const $navSetlist = document.getElementById("nav-setlist");
+  const $navMixer = document.getElementById("nav-mixer");
   const $navSettings = document.getElementById("nav-settings");
+  const $mixerTrackList = document.getElementById("mixer-track-list");
+  const $mixerStatus = document.getElementById("mixer-status");
   const $settingsForm = document.getElementById("settings-form");
   const $settingsStatus = document.getElementById("settings-status");
   const $autoAdvanceInfo = document.getElementById("auto-advance-info");
@@ -250,8 +257,16 @@
       if (msg.type === "state") {
         state = msg.data;
         render();
+      } else if (msg.type === "ack") {
+        if (msg.command === "set_track_mute" && currentView === "mixer") {
+          fetchMixerTracks();
+        }
       } else if (msg.type === "error") {
         console.error("Server error:", msg.message);
+        if (currentView === "mixer") {
+          fetchMixerTracks();
+          setMixerStatus(msg.message, "error");
+        }
       }
     };
 
@@ -642,6 +657,7 @@
     currentView = view;
     const isPerformance = view === "performance";
     const isSetlist = view === "setlist";
+    const isMixer = view === "mixer";
     const isSettings = view === "settings";
 
     if ($viewPerformance) {
@@ -649,6 +665,9 @@
     }
     if ($viewSetlist) {
       $viewSetlist.hidden = !isSetlist;
+    }
+    if ($viewMixer) {
+      $viewMixer.hidden = !isMixer;
     }
     if ($viewSettings) {
       $viewSettings.hidden = !isSettings;
@@ -658,6 +677,9 @@
     }
     if ($navSetlist) {
       $navSetlist.classList.toggle("active", isSetlist);
+    }
+    if ($navMixer) {
+      $navMixer.classList.toggle("active", isMixer);
     }
     if ($navSettings) {
       $navSettings.classList.toggle("active", isSettings);
@@ -677,6 +699,106 @@
         renderSetlistEditor();
       });
     }
+    if (isMixer) {
+      fetchMixerTracks();
+    }
+  }
+
+  function setMixerStatus(message, type) {
+    if (!$mixerStatus) return;
+    $mixerStatus.textContent = message || "";
+    $mixerStatus.className = "mixer-status" + (type ? " " + type : "");
+  }
+
+  function isMixerConnected() {
+    return state.connection_status === "connected";
+  }
+
+  function fetchMixerTracks() {
+    setMixerStatus("Loading...", "");
+    return apiFetch("/api/mixer/tracks/")
+      .then(function (tracks) {
+        mixerTracks = tracks || [];
+        renderMixer();
+        setMixerStatus("", "");
+      })
+      .catch(function (err) {
+        mixerTracks = [];
+        renderMixer();
+        const message =
+          err && err.error
+            ? err.error
+            : err && err.detail
+              ? err.detail
+              : "Failed to load mixer tracks";
+        setMixerStatus(message, "error");
+      });
+  }
+
+  function renderMixer() {
+    if (!$mixerTrackList) return;
+
+    const connected = isMixerConnected();
+    $mixerTrackList.innerHTML = "";
+
+    if (!mixerTracks.length) {
+      const empty = document.createElement("li");
+      empty.className = "mixer-empty";
+      empty.textContent = connected
+        ? "No [MIX] tracks found. Prefix track names in Ableton with [MIX] and rescan."
+        : "Connect to Ableton to load mixer tracks.";
+      $mixerTrackList.appendChild(empty);
+      return;
+    }
+
+    mixerTracks.forEach(function (track) {
+      const active = !track.muted;
+      const label = track.display_name || track.name;
+
+      const li = document.createElement("li");
+      li.className = "mixer-track-row" + (active ? " is-active" : " is-inactive");
+      li.dataset.trackIndex = String(track.index);
+
+      const name = document.createElement("span");
+      name.className = "mixer-track-name";
+      name.textContent = label;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className =
+        "btn btn-mixer-state" + (active ? " is-active" : " is-inactive");
+      btn.textContent = active ? "Active" : "Inactive";
+      btn.setAttribute("aria-pressed", active ? "true" : "false");
+      btn.setAttribute(
+        "aria-label",
+        (active ? "Set " : "Activate ") + label + (active ? " to inactive" : "")
+      );
+      btn.disabled = !connected;
+      btn.addEventListener("click", function () {
+        toggleMixerMute(track.index, !track.muted);
+      });
+
+      li.appendChild(name);
+      li.appendChild(btn);
+      $mixerTrackList.appendChild(li);
+    });
+  }
+
+  function toggleMixerMute(trackIndex, muted) {
+    if (!isMixerConnected()) {
+      setMixerStatus("Not connected to Ableton", "error");
+      return;
+    }
+
+    setMixerStatus("", "");
+    send({ command: "set_track_mute", track_index: trackIndex, muted: muted });
+    mixerTracks = mixerTracks.map(function (t) {
+      if (t.index === trackIndex) {
+        return Object.assign({}, t, { muted: muted });
+      }
+      return t;
+    });
+    renderMixer();
   }
 
   function setSettingsStatus(message, type) {
@@ -687,6 +809,9 @@
   // ── Rendering ────────────────────────────────────────────────────
 
   function render() {
+    if (currentView === "mixer") {
+      renderMixer();
+    }
     // Connection badge
     setBadge(state.connection_status || "disconnected");
 
@@ -1082,6 +1207,9 @@
       fetchSections();
       fetchChords();
       fetchLyrics();
+      if (currentView === "mixer") {
+        fetchMixerTracks();
+      }
     }, 1000);
   });
 

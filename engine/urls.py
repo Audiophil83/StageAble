@@ -27,6 +27,12 @@ urlpatterns = [
     path("chords/", views.chord_list, name="chord-list"),
     path("lyrics/", views.lyric_list, name="lyric-list"),
     path("rescan/", views.rescan, name="rescan"),
+    path("mixer/tracks/", views.mixer_tracks, name="mixer-tracks"),
+    path(
+        "mixer/tracks/<int:track_index>/mute/",
+        views.mixer_track_mute,
+        name="mixer-track-mute",
+    ),
     path("settings/", views.app_settings, name="app-settings"),
     # Setlist CRUD
     path("", include(router.urls)),

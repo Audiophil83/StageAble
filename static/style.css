@@ -647,6 +647,109 @@ main {
   color: var(--red);
 }
 
+/* ── Mixer ───────────────────────────────────────────────────────── */
+
+.mixer-panel h2 {
+  margin-bottom: 8px;
+}
+
+.mixer-intro {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.mixer-intro code {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mixer-status {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  min-height: 18px;
+}
+
+.mixer-status.success {
+  color: var(--green);
+}
+
+.mixer-status.error {
+  color: var(--red);
+}
+
+.mixer-track-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mixer-track-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-panel-hover);
+  border-radius: 8px;
+}
+
+.mixer-track-name {
+  font-size: 16px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mixer-track-row.is-inactive .mixer-track-name {
+  color: var(--text-dim);
+}
+
+.btn-mixer-state {
+  min-width: 96px;
+  flex-shrink: 0;
+  font-weight: 600;
+  border: none;
+}
+
+.btn-mixer-state.is-active {
+  background: var(--green);
+  color: #000;
+}
+
+.btn-mixer-state.is-active:hover:not(:disabled) {
+  background: #16a34a;
+  color: #000;
+}
+
+.btn-mixer-state.is-inactive {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-mixer-state.is-inactive:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+}
+
+.btn-mixer-state:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mixer-empty {
+  font-size: 14px;
+  color: var(--text-dim);
+  padding: 16px 0;
+}
+
 .setlist-editor-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

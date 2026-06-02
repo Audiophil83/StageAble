@@ -61,6 +61,9 @@ class EngineState:
     active_setlist_index: Optional[int] = None
     auto_advance: Optional[dict] = None
 
+    # Mixer tracks (tracks named [MIX]…)
+    mixer_tracks: list[dict] = field(default_factory=list)
+
     # Timestamps
     last_update: float = 0.0
 
@@ -93,6 +96,7 @@ class EngineState:
                 "active_setlist": self.active_setlist,
                 "active_setlist_index": self.active_setlist_index,
                 "auto_advance": self.auto_advance,
+                "mixer_tracks": list(self.mixer_tracks),
                 "cue_points": self.cue_points,
                 "timeline_valid": (
                     self.timeline.is_valid if self.timeline else False
@@ -158,6 +162,11 @@ class EngineState:
                 }
                 for evt in self.timeline.lyrics
             ]
+
+    def get_mixer_tracks(self) -> list[dict]:
+        """Return cached mixer tracks."""
+        with self._lock:
+            return list(self.mixer_tracks)
 
 
 def _event_to_dict(evt: TimelineEvent | None) -> dict | None:

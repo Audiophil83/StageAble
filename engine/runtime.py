@@ -16,7 +16,7 @@ from channels.layers import get_channel_layer
 
 from .config import get_app_settings
 from .osc_client import AbletonOSCClient
-from .scanner import scan_arrangement, scan_meter_map
+from .scanner import scan_arrangement, scan_meter_map, scan_mixer_tracks, scan_tracks
 from .setlist_loader import load_active_setlist
 from .state import ConnectionStatus, EngineState, _event_to_dict, engine_state
 
@@ -214,6 +214,40 @@ class RuntimeEngine:
             self._cancel_auto_advance()
         self._initial_scan(broadcast=True)
 
+    def get_mixer_tracks(self) -> list[dict]:
+        """Return mixer tracks with live mute state from Ableton."""
+        with self._lock:
+            cached = list(self.state.mixer_tracks)
+        if not cached:
+            return []
+
+        result: list[dict] = []
+        for track in cached:
+            muted = self.osc.get_track_mute(track["index"])
+            result.append(
+                {
+                    **track,
+                    "muted": muted if muted is not None else track.get("muted", False),
+                }
+            )
+        return result
+
+    def cmd_set_track_mute(self, track_index: int, muted: bool) -> None:
+        """Mute or unmute a [MIX] track by Ableton track index."""
+        with self._lock:
+            mixer_indices = {t["index"] for t in self.state.mixer_tracks}
+        if track_index not in mixer_indices:
+            raise ValueError(f"Track {track_index} is not a mixer track")
+
+        self.osc.set_track_mute(track_index, muted)
+
+        with self._lock:
+            updated = [
+                {**t, "muted": muted} if t["index"] == track_index else t
+                for t in self.state.mixer_tracks
+            ]
+            self.state.update(mixer_tracks=updated)
+
     def reload_active_setlist(self, *, broadcast: bool = True) -> None:
         """Reload the active setlist from the database."""
         with self._lock:
@@ -396,6 +430,10 @@ class RuntimeEngine:
                 self.state.update(tempo=tempo)
 
             tl = scan_arrangement(self.osc)
+
+            tracks = scan_tracks(self.osc)
+            mixer_tracks = scan_mixer_tracks(self.osc, tracks)
+            self.state.update(mixer_tracks=mixer_tracks)
 
             # Build meter map: time-sig + tempo at every song/section start.
             # Stored in the timeline so poll-tick lookups are free.

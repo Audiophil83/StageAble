@@ -112,6 +112,19 @@ A track named **CONTROL**. Only one clip type is recognised:
 
 Any clip with a name other than `STOP` is ignored (with a log warning).
 
+### Mixer tracks (optional)
+
+Any track whose name **starts with** `[MIX]` appears in the **Mixer** tab in the
+browser client, where you can toggle each channel **Active** (audible) or
+**Inactive** (muted) during a show.
+
+- Example: rename a track to `[MIX] Kick` — it shows as **Kick** in the mixer.
+- The prefix is stripped for display; spacing after `[MIX]` is optional
+  (`[MIX]Kick` and `[MIX] Kick` both work).
+- Rescan after renaming tracks in Ableton so Remoteable picks up changes.
+- Semantic tracks (`SONGS`, `SECTIONS`, etc.) use **whole-name** matching, so
+  `[MIX] SONGS` is treated as a mixer track, not a song track.
+
 ### Cue Points
 
 Remoteable uses Ableton's **cue markers** for song navigation. When you jump to a
@@ -124,7 +137,7 @@ drift when stopped).
 - If no matching cue point exists, the engine falls back to the old beat-position
   jump with preroll (see `DEFAULT_PREROLL_BARS`).
 
-All other tracks in your set are ignored by Remoteable.
+All other tracks in your set are ignored by Remoteable (except `[MIX]` tracks for the mixer).
 
 ---
 

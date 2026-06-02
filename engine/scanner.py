@@ -31,6 +31,8 @@ SEMANTIC_TRACKS = {
     TRACK_CHORDS,
 }
 
+MIXER_TRACK_PREFIX = "[MIX]"
+
 
 @dataclass
 class TrackInfo:
@@ -52,6 +54,42 @@ def scan_tracks(osc: AbletonOSCClient) -> list[TrackInfo]:
             continue
         tracks.append(TrackInfo(index=i, name=name))
     return tracks
+
+
+def is_mixer_track(name: str) -> bool:
+    """Return True if the track name is marked for the mixer view."""
+    return name.strip().startswith(MIXER_TRACK_PREFIX)
+
+
+def mixer_display_name(name: str) -> str:
+    """Strip the [MIX] prefix for display in the mixer UI."""
+    return name.strip()[len(MIXER_TRACK_PREFIX) :].strip()
+
+
+def find_mixer_tracks(tracks: list[TrackInfo]) -> list[TrackInfo]:
+    """Return tracks marked with [MIX], in arrangement order."""
+    return [t for t in tracks if is_mixer_track(t.name)]
+
+
+def scan_mixer_tracks(
+    osc: AbletonOSCClient, tracks: list[TrackInfo] | None = None
+) -> list[dict]:
+    """Return mixer tracks with live mute state."""
+    if tracks is None:
+        tracks = scan_tracks(osc)
+
+    result: list[dict] = []
+    for t in find_mixer_tracks(tracks):
+        muted = osc.get_track_mute(t.index)
+        result.append(
+            {
+                "index": t.index,
+                "name": t.name,
+                "display_name": mixer_display_name(t.name) or t.name,
+                "muted": muted if muted is not None else False,
+            }
+        )
+    return result
 
 
 def find_semantic_tracks(tracks: list[TrackInfo]) -> dict[str, TrackInfo]:

@@ -74,6 +74,15 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
             elif cmd == "rescan":
                 # Rescan loads the active setlist from the DB (sync ORM).
                 await sync_to_async(engine.cmd_rescan)()
+            elif cmd == "set_track_mute":
+                track_index = int(content.get("track_index", -1))
+                muted = content.get("muted")
+                if muted is None:
+                    await self.send_json(
+                        {"type": "error", "message": "Missing 'muted' field"}
+                    )
+                    return
+                engine.cmd_set_track_mute(track_index, bool(muted))
             else:
                 await self.send_json(
                     {"type": "error", "message": f"Unknown command: {cmd}"}

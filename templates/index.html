@@ -6,7 +6,7 @@
   <title>Remoteable — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=13">
+  <link rel="stylesheet" href="/static/style.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -21,6 +21,7 @@
         <nav id="view-nav" class="view-nav">
           <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
+          <button id="nav-mixer" class="btn btn-nav-tab" type="button" data-view="mixer">Mixer</button>
           <button id="nav-settings" class="btn btn-nav-tab" type="button" data-view="settings">Settings</button>
         </nav>
         <button id="btn-rescan" class="btn btn-secondary" title="Re-scan arrangement">Rescan</button>
@@ -142,6 +143,15 @@
         </section>
       </div>
 
+      <div id="view-mixer" hidden>
+        <section id="mixer-panel" class="panel mixer-panel">
+          <h2>Mixer</h2>
+          <p class="mixer-intro">Tracks named <code>[MIX]…</code> in Ableton appear here. Rescan after renaming tracks.</p>
+          <p id="mixer-status" class="mixer-status"></p>
+          <ul id="mixer-track-list" class="mixer-track-list"></ul>
+        </section>
+      </div>
+
       <div id="view-settings" hidden>
         <section id="settings-panel" class="panel settings-panel">
           <h2>Engine Settings</h2>
@@ -165,6 +175,6 @@
     </main>
   </div>
 
-  <script src="/static/app.js?v=13"></script>
+  <script src="/static/app.js?v=15"></script>
 </body>
 </html>

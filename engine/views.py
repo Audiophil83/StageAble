@@ -91,6 +91,46 @@ def rescan(request):
     return Response({"status": "ok"})
 
 
+# ── Mixer ─────────────────────────────────────────────────────────────
+
+
+@api_view(["GET"])
+def mixer_tracks(request):
+    """Return [MIX] tracks with live mute state."""
+    from .state import ConnectionStatus
+
+    if engine_state.connection_status != ConnectionStatus.CONNECTED:
+        return Response(
+            {"error": "Engine not connected to Ableton"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    from .runtime import get_engine
+
+    return Response(get_engine().get_mixer_tracks())
+
+
+@api_view(["POST"])
+def mixer_track_mute(request, track_index: int):
+    """Mute or unmute a [MIX] track."""
+    muted = request.data.get("muted")
+    if muted is None:
+        return Response(
+            {"error": "Missing 'muted' parameter"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    from .runtime import get_engine
+
+    try:
+        engine = get_engine()
+        engine.cmd_set_track_mute(int(track_index), bool(muted))
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"status": "ok", "tracks": engine.get_mixer_tracks()})
+
+
 # ── Song / section data ──────────────────────────────────────────────
 
 

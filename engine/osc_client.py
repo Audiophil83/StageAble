@@ -268,6 +268,15 @@ class AbletonOSCClient:
             return str(r[1])
         return None
 
+    def get_track_mute(self, track_id: int) -> bool | None:
+        r = self.query("/live/track/get/mute", track_id)
+        if r is not None and len(r) >= 2:
+            return bool(int(r[1]))
+        return None
+
+    def set_track_mute(self, track_id: int, muted: bool) -> None:
+        self.send("/live/track/set/mute", track_id, 1 if muted else 0)
+
     # Arrangement clips --------------------------------------------------
 
     def get_arrangement_clip_names(self, track_id: int) -> list[str] | None:
