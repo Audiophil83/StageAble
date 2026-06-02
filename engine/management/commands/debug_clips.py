@@ -22,6 +22,7 @@ from engine.scanner import scan_tracks
 _ARRANGEMENT_CLIP_QUERIES = ("start_time", "length", "name")
 _ARRANGEMENT_CLIP_ADDRESS = "/live/track/get/arrangement_clips/{field}"
 _ARRANGEMENT_CLIP_NAME_CHUNK = "/live/track/get/arrangement_clips/name_chunk"
+_METER_AT_BEATS = "/live/song/get/meter_at_beats"
 _TRACK_DATA_ADDRESS = "/live/song/get/track_data"
 _OSC_SIZE_WARN_8K = 8192
 _OSC_SIZE_WARN_64K = 65507
@@ -255,6 +256,8 @@ class Command(BaseCommand):
                     osc, track_id, timeout=timeout
                 )
 
+            self._run_meter_at_beats_probe(osc, timeout=timeout)
+
             self._print_diagnosis(results, track_data_results)
 
             if verbose:
@@ -311,6 +314,51 @@ class Command(BaseCommand):
             elapsed_ms=full_ms,
             clip_count=count,
             reply=[track_id, *names] if names else None,
+        )
+
+    def _run_meter_at_beats_probe(
+        self,
+        osc: AbletonOSCClient,
+        *,
+        timeout: float,
+    ) -> None:
+        """Probe the batched meter endpoint added by Remoteable's song.py patch."""
+        self.stdout.write("\nMeter at beats (Remoteable AbletonOSC patch):\n")
+
+        t0 = time.monotonic()
+        probe = osc.query(_METER_AT_BEATS, 0.0, 4.0, 8.0, timeout=timeout, warn_timeout=False)
+        elapsed_ms = (time.monotonic() - t0) * 1000.0
+        if probe is None:
+            self.stdout.write(
+                f"  probe beats 0 4 8        MISSING  {elapsed_ms:7.0f} ms\n"
+                "  Install patch: python scripts/install_abletonosc_patch.py"
+            )
+            return
+
+        if len(probe) < 2 or int(probe[0]) != 1:
+            self.stdout.write(
+                f"  probe beats 0 4 8        FAIL     {elapsed_ms:7.0f} ms\n"
+                f"  Reply: {probe!r}"
+            )
+            return
+
+        count = int(probe[1])
+        samples = []
+        idx = 2
+        for _ in range(count):
+            if idx + 3 >= len(probe):
+                break
+            beat = float(probe[idx])
+            num = int(probe[idx + 1])
+            den = int(probe[idx + 2])
+            tempo = float(probe[idx + 3])
+            samples.append(f"{beat:g}→{num}/{den}@{tempo:g}")
+            idx += 4
+
+        detail = ", ".join(samples) if samples else "(no samples)"
+        self.stdout.write(
+            f"  probe beats 0 4 8        OK       {elapsed_ms:7.0f} ms\n"
+            f"  samples: {detail}"
         )
 
     def _run_track_data_probes(

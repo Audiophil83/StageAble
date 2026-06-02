@@ -564,6 +564,13 @@ class RuntimeEngine:
             else:
                 self._scan_log("Mixer: no [MIX] tracks found")
 
+            # Publish the timeline before the meter scan so a meter-map failure
+            # cannot discard a successful arrangement read (sections/lyrics/etc.).
+            self.state.update(
+                timeline=tl,
+                timeline_errors=tl.errors,
+            )
+
             # Build meter map: time-sig + tempo at every song/section start.
             # Stored in the timeline so poll-tick lookups are free.
             cfg = get_app_settings()
@@ -575,16 +582,16 @@ class RuntimeEngine:
                     positions.add(section.start_beat)
                 n_positions = len(positions)
                 self._scan_log(f"Scanning meter map ({n_positions} positions)…")
-                tl.meter_map = scan_meter_map(
-                    self.osc, tl, progress=self._scan_log
-                )
-                entries = len(tl.meter_map) if tl.meter_map else 0
-                self._scan_log(f"Meter map: {entries} entries")
-
-            self.state.update(
-                timeline=tl,
-                timeline_errors=tl.errors,
-            )
+                try:
+                    tl.meter_map = scan_meter_map(
+                        self.osc, tl, progress=self._scan_log
+                    )
+                    entries = len(tl.meter_map) if tl.meter_map else 0
+                    self._scan_log(f"Meter map: {entries} entries")
+                    self.state.update(timeline=tl)
+                except Exception:
+                    logger.exception("Meter map scan failed")
+                    self._scan_log("Meter map scan failed — continuing without it")
 
             # Read cue points (song jumps use cue markers, not SONGS clip positions)
             self._scan_log("Reading cue points…")

@@ -139,29 +139,36 @@ def read_arrangement_clips(
     return clips
 
 
-def scan_meter_map(
+def _meter_entries_from_samples(
+    sorted_positions: list[float],
+    samples: list[tuple[float, int, int, float]],
+) -> list[MeterEntry]:
+    """Collapse consecutive identical meter readings into map entries."""
+    entries: list[MeterEntry] = []
+    prev: tuple[int, int, float] | None = None
+    for i, (_, num, den, tempo) in enumerate(samples):
+        beat = sorted_positions[i] if i < len(sorted_positions) else samples[i][0]
+        d = den if den is not None else 4
+        t = tempo if tempo is not None else 120.0
+        current = (num, d, t)
+        if current != prev:
+            entries.append(
+                MeterEntry(beat=beat, numerator=num, denominator=d, tempo=t)
+            )
+            prev = current
+    return entries
+
+
+def _scan_meter_map_seek_loop(
     osc: AbletonOSCClient,
-    timeline: Timeline,
+    sorted_positions: list[float],
     *,
     progress: Callable[[str], None] | None = None,
 ) -> MeterMap:
-    """Query time signature and tempo at each song/section start beat.
-
-    Seeks the playhead temporarily; saves and restores the original position.
-    Returns an empty MeterMap if time-signature queries are not supported.
-    """
-    positions: set[float] = {0.0}
-    for song in timeline.songs:
-        positions.add(song.start_beat)
-    for section in timeline.sections:
-        positions.add(section.start_beat)
-
-    sorted_positions = sorted(positions)
+    """Fallback: one OSC round trip per beat when batch endpoint is unavailable."""
     total = len(sorted_positions)
     saved_pos = osc.get_current_song_time()
-
-    entries: list[MeterEntry] = []
-    prev: tuple[int, int, float] | None = None
+    samples: list[tuple[float, int, int, float]] = []
 
     for i, beat in enumerate(sorted_positions):
         if progress and total > 1:
@@ -181,23 +188,62 @@ def scan_meter_map(
         tempo = osc.get_tempo()
         d = den if den is not None else 4
         t = tempo if tempo is not None else 120.0
-        current = (num, d, t)
-
-        if current != prev:
-            entries.append(
-                MeterEntry(beat=beat, numerator=num, denominator=d, tempo=t)
-            )
-            prev = current
+        samples.append((beat, num, d, t))
 
     if saved_pos is not None:
         osc.send("/live/song/set/current_song_time", float(saved_pos))
 
+    entries = _meter_entries_from_samples(sorted_positions, samples)
     logger.info(
-        "Meter map: %d entries from %d positions",
+        "Meter map (seek loop): %d entries from %d positions",
         len(entries),
         len(sorted_positions),
     )
     return MeterMap(entries)
+
+
+def scan_meter_map(
+    osc: AbletonOSCClient,
+    timeline: Timeline,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> MeterMap:
+    """Query time signature and tempo at each song/section start beat.
+
+    Uses the batched AbletonOSC endpoint when patched; otherwise seeks the
+    playhead once per position over OSC.
+    """
+    positions: set[float] = {0.0}
+    for song in timeline.songs:
+        positions.add(song.start_beat)
+    for section in timeline.sections:
+        positions.add(section.start_beat)
+
+    sorted_positions = sorted(positions)
+    total = len(sorted_positions)
+    if progress:
+        progress(f"Meter map: scanning {total} positions…")
+
+    samples = osc.get_meter_at_beats(sorted_positions)
+    if samples is not None and len(samples) == total:
+        entries = _meter_entries_from_samples(sorted_positions, samples)
+        logger.info(
+            "Meter map (batch): %d entries from %d positions",
+            len(entries),
+            total,
+        )
+        return MeterMap(entries)
+    if samples is not None and len(samples) != total:
+        logger.warning(
+            "Batch meter scan returned %d/%d samples; falling back to seek loop",
+            len(samples),
+            total,
+        )
+
+    logger.info("Batch meter scan unavailable; falling back to seek loop")
+    return _scan_meter_map_seek_loop(
+        osc, sorted_positions, progress=progress
+    )
 
 
 def scan_arrangement(osc: AbletonOSCClient) -> Timeline:

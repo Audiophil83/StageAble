@@ -26,10 +26,13 @@ DEFAULT_TIMEOUT = 2.0
 
 _ARRANGEMENT_CLIPS_NAME = "/live/track/get/arrangement_clips/name"
 _ARRANGEMENT_CLIPS_NAME_CHUNK = "/live/track/get/arrangement_clips/name_chunk"
+_METER_AT_BEATS = "/live/song/get/meter_at_beats"
 # Keep chunks small — lyric clip names can be long sentences.
 ARRANGEMENT_CLIP_NAME_CHUNK_SIZE = 40
 ARRANGEMENT_CLIP_BULK_TIMEOUT = 2.0
 ARRANGEMENT_CLIP_CHUNK_TIMEOUT = 5.0
+METER_AT_BEATS_TIMEOUT = 10.0
+METER_AT_BEATS_CHUNK_SIZE = 128
 
 
 def _osc_debug_enabled() -> bool:
@@ -271,6 +274,92 @@ class AbletonOSCClient:
         finally:
             if saved is not None and abs(saved - beats) > 1e-6:
                 self.set_current_song_time(saved)
+
+    def _parse_meter_at_beats_reply(
+        self, r: list[Any], *, expected_count: int
+    ) -> list[tuple[float, int, int, float]] | None:
+        """Parse one ``meter_at_beats`` OSC reply."""
+        if len(r) < 2:
+            return None
+
+        try:
+            saved_ok = int(r[0])
+            count = int(r[1])
+        except (TypeError, ValueError):
+            logger.warning("meter_at_beats reply has invalid header: %r", r[:2])
+            return None
+
+        if saved_ok == 0:
+            return None
+        if count == 0:
+            return None if expected_count > 0 else []
+        if count != expected_count:
+            logger.warning(
+                "meter_at_beats count mismatch: expected %d, got %d",
+                expected_count,
+                count,
+            )
+            return None
+
+        expected_len = 2 + count * 4
+        if len(r) < expected_len:
+            logger.warning(
+                "meter_at_beats reply truncated: expected %d args, got %d",
+                expected_len,
+                len(r),
+            )
+            return None
+
+        samples: list[tuple[float, int, int, float]] = []
+        idx = 2
+        for _ in range(count):
+            try:
+                beat = float(r[idx])
+                num = int(r[idx + 1])
+                den = int(r[idx + 2])
+                tempo = float(r[idx + 3])
+            except (IndexError, TypeError, ValueError):
+                logger.warning(
+                    "meter_at_beats reply malformed at sample %d",
+                    len(samples),
+                )
+                return None
+            samples.append((beat, num, den, tempo))
+            idx += 4
+        return samples
+
+    def get_meter_at_beats(
+        self, beats: list[float]
+    ) -> list[tuple[float, int, int, float]] | None:
+        """Sample tempo and time signature at many beats in one OSC round trip.
+
+        Requires Remoteable's AbletonOSC ``song.py`` patch. Returns ``None`` if
+        the endpoint is missing or the reply is malformed.
+        """
+        if not beats:
+            return []
+
+        saved_pos = self.get_current_song_time()
+        try:
+            samples: list[tuple[float, int, int, float]] = []
+            for offset in range(0, len(beats), METER_AT_BEATS_CHUNK_SIZE):
+                chunk = beats[offset : offset + METER_AT_BEATS_CHUNK_SIZE]
+                r = self.query(
+                    _METER_AT_BEATS,
+                    *[float(b) for b in chunk],
+                    timeout=METER_AT_BEATS_TIMEOUT,
+                    warn_timeout=False,
+                )
+                parsed = self._parse_meter_at_beats_reply(
+                    r or [], expected_count=len(chunk)
+                )
+                if parsed is None:
+                    return None
+                samples.extend(parsed)
+            return samples
+        finally:
+            if saved_pos is not None:
+                self.set_current_song_time(saved_pos)
 
     def get_beat_time(self) -> float | None:
         """Alias for get_current_song_time (position in beats)."""

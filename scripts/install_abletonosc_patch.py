@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install Remoteable's AbletonOSC name_chunk patch into Live's User Library."""
+"""Install Remoteable's AbletonOSC patches into Live's User Library."""
 
 from __future__ import annotations
 
@@ -8,7 +8,10 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PATCH_FILE = REPO_ROOT / "vendor/abletonosc/abletonosc/track.py"
+PATCH_FILES = (
+    REPO_ROOT / "vendor/abletonosc/abletonosc/track.py",
+    REPO_ROOT / "vendor/abletonosc/abletonosc/song.py",
+)
 
 
 def _candidate_roots() -> list[Path]:
@@ -31,9 +34,23 @@ def find_abletonosc_install() -> Path | None:
     return None
 
 
+def _install_patch(install_root: Path, patch_file: Path) -> None:
+    rel = patch_file.relative_to(REPO_ROOT / "vendor/abletonosc")
+    dest = install_root / rel
+    backup = dest.with_suffix(".py.orig")
+    if not backup.exists():
+        shutil.copy2(dest, backup)
+        print(f"Backed up original to {backup}")
+
+    shutil.copy2(patch_file, dest)
+    print(f"Installed patch: {dest}")
+
+
 def main() -> int:
-    if not PATCH_FILE.is_file():
-        print(f"Patch file missing: {PATCH_FILE}", file=sys.stderr)
+    missing = [p for p in PATCH_FILES if not p.is_file()]
+    if missing:
+        for path in missing:
+            print(f"Patch file missing: {path}", file=sys.stderr)
         return 1
 
     install_root = find_abletonosc_install()
@@ -46,14 +63,9 @@ def main() -> int:
         )
         return 1
 
-    dest = install_root / "abletonosc" / "track.py"
-    backup = dest.with_suffix(".py.orig")
-    if not backup.exists():
-        shutil.copy2(dest, backup)
-        print(f"Backed up original to {backup}")
+    for patch_file in PATCH_FILES:
+        _install_patch(install_root, patch_file)
 
-    shutil.copy2(PATCH_FILE, dest)
-    print(f"Installed patch: {dest}")
     print("Restart Ableton Live and re-select the AbletonOSC control surface.")
     return 0
 

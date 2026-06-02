@@ -3,7 +3,6 @@
 # Bugs to be fixed
 
 - CI / CD
-- not so smooth progress bar
 - faster meter scan
 
 # Features to be implemented
