@@ -25,7 +25,7 @@ state to any number of browser clients over WebSocket.
 |---|---|
 | **Python 3.11+** | Tested on 3.13 |
 | **Ableton Live** | With Arrangement View content |
-| **AbletonOSC** | [Install instructions](https://github.com/ideoforms/AbletonOSC#installation). Enable it under *Preferences > Link / Tempo / MIDI > Control Surface*. |
+| **AbletonOSC** | [Install instructions](https://github.com/ideoforms/AbletonOSC#installation), then apply Remoteable's patch: `python scripts/install_abletonosc_patch.py`. Enable under *Preferences > Link / Tempo / MIDI > Control Surface*. Required for large LYRICS tracks. |
 
 AbletonOSC listens on UDP port **11000** and replies on port **11001** by
 default. Remoteable uses the same defaults.
@@ -400,7 +400,28 @@ Remoteable serves static files automatically in DEBUG mode via
 run `python manage.py collectstatic` and serve the `staticfiles/` directory in
 production.
 
-**OSC query timeouts in the log**
+**OSC query timeouts in the log / LYRICS shows 0 clips**
+Bulk arrangement clip name queries can exceed OSC/UDP size limits when a track
+has many long clip names (typical on LYRICS). Install Remoteable's AbletonOSC
+patch and restart Live:
+
+```bash
+python scripts/install_abletonosc_patch.py
+```
+
+Remoteable falls back to chunked name reads automatically once the patch is
+installed. To diagnose:
+
+```bash
+python manage.py debug_clips --track LYRICS --verbose
+OSC_DEBUG=1 python manage.py debug_clips --track LYRICS
+```
+
+This queries `start_time`, `length`, and `name` separately and reports timing,
+clip counts, and estimated OSC payload size. Set `OSC_DEBUG=1` to log incoming
+name replies (or use Django `DEBUG` logging on `engine.osc_client`).
+
+**Other OSC query timeouts**
 AbletonOSC replies have a 2-second timeout. If Ableton is under heavy load or
 the network is slow, queries may time out. The engine will retry on the next
 poll tick.

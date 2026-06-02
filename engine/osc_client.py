@@ -8,6 +8,7 @@ AbletonOSC listens on UDP port 11000 and replies on port 11001.
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import time
@@ -22,6 +23,27 @@ logger = logging.getLogger(__name__)
 
 # Default timeout when waiting for an OSC reply (seconds).
 DEFAULT_TIMEOUT = 2.0
+
+_ARRANGEMENT_CLIPS_NAME = "/live/track/get/arrangement_clips/name"
+_ARRANGEMENT_CLIPS_NAME_CHUNK = "/live/track/get/arrangement_clips/name_chunk"
+# Keep chunks small — lyric clip names can be long sentences.
+ARRANGEMENT_CLIP_NAME_CHUNK_SIZE = 40
+ARRANGEMENT_CLIP_BULK_TIMEOUT = 2.0
+ARRANGEMENT_CLIP_CHUNK_TIMEOUT = 5.0
+
+
+def _osc_debug_enabled() -> bool:
+    return os.environ.get("OSC_DEBUG", "").lower() in ("1", "true", "yes")
+
+
+def _string_args_utf8_bytes(args: list[Any]) -> int:
+    total = 0
+    for value in args:
+        if isinstance(value, str):
+            total += len(value.encode("utf-8"))
+        elif isinstance(value, bytes):
+            total += len(value)
+    return total
 
 
 @dataclass
@@ -279,10 +301,100 @@ class AbletonOSCClient:
 
     # Arrangement clips --------------------------------------------------
 
+    def _get_arrangement_clip_names_chunked(self, track_id: int) -> list[str] | None:
+        """Read arrangement clip names in slices via Remoteable's AbletonOSC patch."""
+        names: list[str] = []
+        offset = 0
+        total: int | None = None
+
+        while total is None or offset < total:
+            r = self.query(
+                _ARRANGEMENT_CLIPS_NAME_CHUNK,
+                track_id,
+                offset,
+                ARRANGEMENT_CLIP_NAME_CHUNK_SIZE,
+                timeout=ARRANGEMENT_CLIP_CHUNK_TIMEOUT,
+                warn_timeout=False,
+            )
+            if r is None or len(r) < 3:
+                if offset == 0:
+                    return None
+                logger.warning(
+                    "Chunked arrangement clip name read failed at offset %d "
+                    "for track %d",
+                    offset,
+                    track_id,
+                )
+                return None
+
+            if int(r[0]) != track_id:
+                logger.warning(
+                    "Chunk reply track_id mismatch: expected %d got %s",
+                    track_id,
+                    r[0],
+                )
+                return None
+
+            reply_offset = int(r[1])
+            reply_total = int(r[2])
+            if total is None:
+                total = reply_total
+            elif reply_total != total:
+                logger.warning(
+                    "Chunk reply total_count mismatch on track %d", track_id
+                )
+                return None
+            if reply_offset != offset:
+                logger.warning(
+                    "Chunk reply offset mismatch on track %d: expected %d got %d",
+                    track_id,
+                    offset,
+                    reply_offset,
+                )
+                return None
+
+            chunk = [str(v) for v in r[3:]]
+            names.extend(chunk)
+            offset += len(chunk)
+            if not chunk:
+                break
+
+        if total is not None and len(names) != total:
+            logger.warning(
+                "Chunked name count mismatch on track %d: got %d expected %d",
+                track_id,
+                len(names),
+                total,
+            )
+            return None
+        return names
+
     def get_arrangement_clip_names(self, track_id: int) -> list[str] | None:
-        r = self.query("/live/track/get/arrangement_clips/name", track_id)
+        r = self.query(
+            _ARRANGEMENT_CLIPS_NAME,
+            track_id,
+            timeout=ARRANGEMENT_CLIP_BULK_TIMEOUT,
+            warn_timeout=False,
+        )
         if r is not None and len(r) > 1:
             return [str(v) for v in r[1:]]
+
+        names = self._get_arrangement_clip_names_chunked(track_id)
+        if names is not None:
+            if names:
+                logger.info(
+                    "Read %d arrangement clip names via chunked API for track %d",
+                    len(names),
+                    track_id,
+                )
+            return names
+
+        logger.warning(
+            "Could not read arrangement clip names for track %d "
+            "(bulk timed out; install Remoteable AbletonOSC patch — "
+            "python scripts/install_abletonosc_patch.py)",
+            track_id,
+        )
         return None
 
     def get_arrangement_clip_start_times(self, track_id: int) -> list[float] | None:
@@ -303,6 +415,18 @@ class AbletonOSCClient:
         """Dispatch incoming OSC messages to queues or listener callbacks."""
         data = list(args)
 
+        if address == _ARRANGEMENT_CLIPS_NAME and (
+            _osc_debug_enabled() or logger.isEnabledFor(logging.DEBUG)
+        ):
+            track_id = data[0] if data else "?"
+            logger.debug(
+                "OSC recv %s track_id=%s args=%d string_utf8_bytes=%d",
+                address,
+                track_id,
+                len(data),
+                _string_args_utf8_bytes(data),
+            )
+
         # Deliver to one-shot query queue
         with self._lock:
             q = self._reply_queues.get(address)
@@ -311,6 +435,14 @@ class AbletonOSCClient:
                 q.put_nowait(data)
             except queue.Full:
                 pass
+        elif address == _ARRANGEMENT_CLIPS_NAME:
+            track_id = data[0] if data else "?"
+            logger.warning(
+                "Late OSC reply (no active query): %s track_id=%s args=%d",
+                address,
+                track_id,
+                len(data),
+            )
 
         # Deliver to persistent listeners
         with self._lock:

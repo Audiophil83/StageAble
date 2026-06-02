@@ -4,19 +4,19 @@
 
 - CI / CD
 - not so smooth progress bar
+- faster meter scan
 
 # Features to be implemented
 
 #### Mixer
 
 - ~~first shot: mute unmute some channels (with a special marker in the name?)~~
+- Real Mixer with volume slider
 
-#### Lock symbol for a client. When locked only view mode.
+#### Rescan Warning message
 
-When locked, only performance mode is available.
+#### Project scan stored in db
 
+#### Allow multiple project files
 
-
-- ~~Option 1: Or only one client can control. Others will be locked~~
-- Option 2: Locked by default. First client unlocks without warning, second client unlocks only with warning
-
+How? controlled by the backend? Automatically detected by the backend by the project name
