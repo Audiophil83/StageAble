@@ -37,6 +37,9 @@
   let clientLocked = true;
   let pendingUnlock = false;
 
+  // Project scan progress (inline banner; page stays usable)
+  let scanInProgress = false;
+
   // Client-side playhead smoothing (extrapolates between server polls)
   const PLAYHEAD_SNAP_BEATS = 0.25;
   let progressLoopActive = false;
@@ -90,6 +93,106 @@
   const $btnSetlistSave = document.getElementById("btn-setlist-save");
   const $btnSetlistDelete = document.getElementById("btn-setlist-delete");
   const $btnSetlistActivate = document.getElementById("btn-setlist-activate");
+  const $scanOverlay = document.getElementById("scan-overlay");
+  const $scanOverlayTitle = document.getElementById("scan-overlay-title");
+  const $scanProgressStatus = document.getElementById("scan-progress-status");
+  const $scanProgressLog = document.getElementById("scan-progress-log");
+  const $app = document.getElementById("app");
+
+  // ── Scan overlay (boot + rescan; blocks UI) ──────────────────────
+
+  function setScanProgressStatus(text) {
+    if ($scanProgressStatus) {
+      $scanProgressStatus.textContent = text;
+    }
+  }
+
+  function renderScanProgressLog(messages) {
+    if (!$scanProgressLog) return;
+    $scanProgressLog.innerHTML = "";
+    (messages || []).forEach(function (msg) {
+      const li = document.createElement("li");
+      li.textContent = msg;
+      $scanProgressLog.appendChild(li);
+    });
+    const last = $scanProgressLog.lastElementChild;
+    if (last) {
+      last.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function showScanProgress(options) {
+    options = options || {};
+    scanInProgress = true;
+    document.body.classList.add("scan-blocking");
+    if ($app) {
+      $app.setAttribute("aria-hidden", "true");
+    }
+    if ($scanOverlay) {
+      $scanOverlay.classList.remove("hidden");
+    }
+    if ($scanOverlayTitle && options.title) {
+      $scanOverlayTitle.textContent = options.title;
+    }
+    if (options.clear !== false) {
+      renderScanProgressLog([]);
+    }
+    setScanProgressStatus(options.status || "Scanning project…");
+    setBadge("scanning");
+  }
+
+  function hideScanProgress() {
+    scanInProgress = false;
+    document.body.classList.remove("scan-blocking");
+    if ($app) {
+      $app.removeAttribute("aria-hidden");
+    }
+    if ($scanOverlay) {
+      $scanOverlay.classList.add("hidden");
+    }
+    if ($scanOverlayTitle) {
+      $scanOverlayTitle.textContent = "Scanning project";
+    }
+  }
+
+  function refreshAfterScan() {
+    fetchSongs();
+    fetchSections();
+    fetchChords();
+    fetchLyrics();
+    if (currentView === "mixer") {
+      fetchMixerTracks();
+    }
+  }
+
+  function applyScanStatus(msg) {
+    const wasScanning = scanInProgress;
+    const messages = msg.messages || [];
+    if (messages.length) {
+      renderScanProgressLog(messages);
+      setScanProgressStatus(messages[messages.length - 1]);
+    }
+    if (msg.in_progress) {
+      showScanProgress({
+        clear: false,
+        title: "Scanning project",
+        status: messages.length
+          ? messages[messages.length - 1]
+          : "Scanning project…",
+      });
+      return;
+    }
+    scanInProgress = false;
+    if (msg.done || msg.in_progress === false) {
+      hideScanProgress();
+      if (wasScanning) {
+        refreshAfterScan();
+      }
+      if (state.connection_status) {
+        setBadge(state.connection_status);
+      }
+    }
+  }
 
   // ── Sliding Display Class ───────────────────────────────────────
 
@@ -254,11 +357,7 @@
 
     ws.onopen = function () {
       clearTimeout(reconnectTimer);
-      setBadge("connected");
-      fetchSongs();
-      fetchSections();
-      fetchChords();
-      fetchLyrics();
+      setBadge("connecting");
     };
 
     ws.onmessage = function (event) {
@@ -282,6 +381,8 @@
         setClientLocked(!!msg.locked);
       } else if (msg.type === "unlock_check") {
         handleUnlockCheck(!!msg.requires_warning);
+      } else if (msg.type === "scan_status" || msg.type === "scan_progress") {
+        applyScanStatus(msg);
       }
     };
 
@@ -940,8 +1041,10 @@
     if (currentView === "mixer") {
       syncMixerFromState();
     }
-    // Connection badge
-    setBadge(state.connection_status || "disconnected");
+    // Connection badge (scanning takes precedence while project scan runs)
+    if (!scanInProgress) {
+      setBadge(state.connection_status || "disconnected");
+    }
 
     // Error banner
     if (state.timeline_errors && state.timeline_errors.length > 0) {
@@ -1336,17 +1439,12 @@
     ) {
       return;
     }
+    showScanProgress({
+      title: "Re-scanning project",
+      status: "Re-scanning arrangement from Ableton…",
+      clear: true,
+    });
     send({ command: "rescan" });
-    // Refresh lists after a short delay
-    setTimeout(function () {
-      fetchSongs();
-      fetchSections();
-      fetchChords();
-      fetchLyrics();
-      if (currentView === "mixer") {
-        fetchMixerTracks();
-      }
-    }, 1000);
   });
 
   const $viewNav = document.getElementById("view-nav");

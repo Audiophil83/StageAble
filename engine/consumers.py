@@ -42,6 +42,17 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "state", "data": snapshot})
         await self.send_json({"type": "lock_state", "locked": True})
 
+        from .runtime import get_engine
+
+        in_progress, messages = get_engine().get_scan_status()
+        await self.send_json(
+            {
+                "type": "scan_status",
+                "in_progress": in_progress,
+                "messages": messages,
+            }
+        )
+
     async def disconnect(self, close_code):
         client_lock_disconnect(self.channel_name)
         await self.channel_layer.group_discard(WS_GROUP, self.channel_name)
@@ -144,3 +155,14 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
     async def engine_state(self, event):
         """Broadcast engine state to this client."""
         await self.send_json({"type": "state", "data": event["data"]})
+
+    async def engine_scan_progress(self, event):
+        """Broadcast arrangement scan progress to this client."""
+        await self.send_json(
+            {
+                "type": "scan_progress",
+                "in_progress": event.get("in_progress", False),
+                "done": event.get("done", False),
+                "messages": event.get("messages", []),
+            }
+        )

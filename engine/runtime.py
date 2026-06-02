@@ -16,7 +16,13 @@ from channels.layers import get_channel_layer
 
 from .config import get_app_settings
 from .osc_client import AbletonOSCClient
-from .scanner import scan_arrangement, scan_meter_map, scan_mixer_tracks, scan_tracks
+from .scanner import (
+    scan_arrangement,
+    scan_meter_map,
+    scan_mixer_tracks,
+    scan_tracks,
+)
+from .timeline import Timeline
 from .setlist_loader import load_active_setlist
 from .state import ConnectionStatus, EngineState, _event_to_dict, engine_state
 
@@ -30,6 +36,7 @@ ABLETON_OSC_RECV_PORT = 11001
 ENGINE_POLL_HZ = 20
 # Max beats advanced in one poll tick while playing (~4 beats at 20 Hz / 300 BPM).
 MAX_PLAY_STEP_BEATS = 4.0
+MAX_SCAN_LOG = 40
 
 
 class RuntimeEngine:
@@ -58,26 +65,108 @@ class RuntimeEngine:
         self._pending_cue_name: str | None = None
         self._auto_advance_deadline: float | None = None
         self._auto_advance_cue_name: str | None = None
+        self._scan_in_progress = False
+        self._scan_messages: list[str] = []
+        self._scan_lock = threading.Lock()
+
+    # ── scan progress (WebSocket clients) ─────────────────────────────
+
+    def get_scan_status(self) -> tuple[bool, list[str]]:
+        with self._lock:
+            return self._scan_in_progress, list(self._scan_messages)
+
+    def _scan_log(self, message: str) -> None:
+        with self._lock:
+            self._scan_messages.append(message)
+            if len(self._scan_messages) > MAX_SCAN_LOG:
+                self._scan_messages = self._scan_messages[-MAX_SCAN_LOG:]
+        logger.info(message)
+        self._broadcast_scan_progress()
+
+    def _set_scan_in_progress(self, active: bool, *, done: bool = False) -> None:
+        with self._lock:
+            self._scan_in_progress = active
+        self._broadcast_scan_progress(done=done)
+
+    def _broadcast_scan_progress(self, *, done: bool = False) -> None:
+        with self._lock:
+            messages = list(self._scan_messages)
+            in_progress = self._scan_in_progress and not done
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer is not None:
+                async_to_sync(channel_layer.group_send)(
+                    WS_GROUP,
+                    {
+                        "type": "engine.scan_progress",
+                        "in_progress": in_progress,
+                        "done": done,
+                        "messages": messages,
+                    },
+                )
+        except Exception:
+            logger.debug("Could not broadcast scan progress")
+
+    @staticmethod
+    def _timeline_summary(tl: Timeline) -> str:
+        return (
+            f"Timeline built: {len(tl.songs)} songs, {len(tl.sections)} sections, "
+            f"{len(tl.lyrics)} lyrics, {len(tl.chords)} chords, {len(tl.stops)} stops"
+        )
+
+    def _run_arrangement_scan(self, *, broadcast: bool) -> None:
+        """Scan arrangement; emit progress for WebSocket clients."""
+        with self._scan_lock:
+            self._set_scan_in_progress(True)
+            try:
+                self._initial_scan(broadcast=broadcast)
+            finally:
+                self._set_scan_in_progress(False, done=True)
+
+    def _schedule_arrangement_scan(self, *, broadcast: bool = True) -> None:
+        """Run a scan in a background thread (startup, rescan, settings)."""
+
+        def work() -> None:
+            self._run_arrangement_scan(broadcast=broadcast)
+
+        threading.Thread(target=work, daemon=True, name="arrangement-scan").start()
+
+    def _bootstrap_scan(self) -> None:
+        """First scan after startup — does not block HTTP or the poll loop."""
+        try:
+            if not self.osc.is_connected():
+                self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
+                logger.warning("Ableton not reachable — will retry in poll loop")
+                self._scan_log(
+                    "Ableton not reachable — will retry when Live is available"
+                )
+                return
+
+            self.state.update(connection_status=ConnectionStatus.CONNECTED)
+            self._scan_log("Connected to Ableton Live")
+            with self._scan_lock:
+                try:
+                    self._initial_scan(broadcast=True)
+                    self._scan_log(f"Runtime engine started ({ENGINE_POLL_HZ} Hz)")
+                finally:
+                    self._set_scan_in_progress(False, done=True)
+        except Exception:
+            logger.exception("Bootstrap scan failed")
+            self._scan_log("Failed to start arrangement scan")
+            self._set_scan_in_progress(False, done=True)
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
     def start(self) -> None:
-        """Start the OSC client and the polling loop in a background thread."""
+        """Start OSC + poll loops; scan the arrangement in the background."""
         if self._running:
             logger.warning("Engine already running")
             return
 
         self.state.update(connection_status=ConnectionStatus.CONNECTING)
+        self._set_scan_in_progress(True)
+        self._scan_log("Starting engine…")
         self.osc.start()
-
-        # Test connection
-        if self.osc.is_connected():
-            self.state.update(connection_status=ConnectionStatus.CONNECTED)
-            logger.info("Connected to Ableton Live")
-            self._initial_scan(broadcast=True)
-        else:
-            self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
-            logger.warning("Ableton not reachable — will retry in poll loop")
 
         self._running = True
         self._thread = threading.Thread(
@@ -90,7 +179,14 @@ class RuntimeEngine:
         )
         self._slow_poll_thread.start()
 
-        logger.info("Runtime engine started (%d Hz)", ENGINE_POLL_HZ)
+        threading.Thread(
+            target=self._bootstrap_scan, daemon=True, name="engine-bootstrap"
+        ).start()
+
+        logger.info(
+            "Runtime engine poll loop started (%d Hz); arrangement scan in background",
+            ENGINE_POLL_HZ,
+        )
 
     def stop(self) -> None:
         """Stop the engine and OSC client."""
@@ -212,7 +308,7 @@ class RuntimeEngine:
         """Re-scan the arrangement and rebuild the timeline."""
         with self._lock:
             self._cancel_auto_advance()
-        self._initial_scan(broadcast=True)
+        self._schedule_arrangement_scan(broadcast=True)
 
     def refresh_mixer_tracks_mute(self, *, broadcast: bool = True) -> bool:
         """Re-query mute from Ableton for all cached [MIX] tracks.
@@ -305,7 +401,7 @@ class RuntimeEngine:
             self.osc.start()
             if self.osc.is_connected():
                 self.state.update(connection_status=ConnectionStatus.CONNECTED)
-                self._initial_scan(broadcast=True)
+                self._schedule_arrangement_scan(broadcast=True)
             else:
                 self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
 
@@ -446,21 +542,44 @@ class RuntimeEngine:
         try:
             # Song metadata before the heavy track/clip scan. A long scan can
             # back up AbletonOSC so later /live/song/get/* queries time out.
+            self._scan_log("Reading tempo from Ableton…")
             tempo = self.osc.get_tempo()
             if tempo:
                 self.state.update(tempo=tempo)
+                self._scan_log(f"Tempo: {tempo:.1f} BPM")
 
+            self._scan_log("Scanning Ableton arrangement…")
             tl = scan_arrangement(self.osc)
+            if tl.is_valid:
+                self._scan_log(self._timeline_summary(tl))
+            elif tl.errors:
+                self._scan_log("Timeline errors: " + "; ".join(tl.errors))
 
+            self._scan_log("Scanning mixer tracks…")
             tracks = scan_tracks(self.osc)
             mixer_tracks = scan_mixer_tracks(self.osc, tracks)
             self.state.update(mixer_tracks=mixer_tracks)
+            if mixer_tracks:
+                self._scan_log(f"Mixer: {len(mixer_tracks)} [MIX] track(s)")
+            else:
+                self._scan_log("Mixer: no [MIX] tracks found")
 
             # Build meter map: time-sig + tempo at every song/section start.
             # Stored in the timeline so poll-tick lookups are free.
             cfg = get_app_settings()
             if cfg.scan_meter_map:
-                tl.meter_map = scan_meter_map(self.osc, tl)
+                positions: set[float] = {0.0}
+                for song in tl.songs:
+                    positions.add(song.start_beat)
+                for section in tl.sections:
+                    positions.add(section.start_beat)
+                n_positions = len(positions)
+                self._scan_log(f"Scanning meter map ({n_positions} positions)…")
+                tl.meter_map = scan_meter_map(
+                    self.osc, tl, progress=self._scan_log
+                )
+                entries = len(tl.meter_map) if tl.meter_map else 0
+                self._scan_log(f"Meter map: {entries} entries")
 
             self.state.update(
                 timeline=tl,
@@ -468,6 +587,7 @@ class RuntimeEngine:
             )
 
             # Read cue points (song jumps use cue markers, not SONGS clip positions)
+            self._scan_log("Reading cue points…")
             cue_raw = self.osc.get_cue_points()
             cue_points: list[dict] = []
             if cue_raw is not None:
@@ -476,7 +596,9 @@ class RuntimeEngine:
                     for name, time in cue_raw
                 ]
                 self.state.update(cue_points=cue_points)
+                self._scan_log(f"Cue points: {len(cue_points)}")
 
+            self._scan_log("Loading active setlist…")
             scan_errors = list(tl.errors)
             if tl.is_valid and cue_raw is not None:
                 cue_names = {name for name, _ in cue_raw}
@@ -503,13 +625,16 @@ class RuntimeEngine:
 
             if not tl.is_valid:
                 self.state.update(connection_status=ConnectionStatus.ERROR)
+                self._scan_log("Scan finished with timeline errors")
             elif self.osc.is_connected():
                 self.state.update(connection_status=ConnectionStatus.CONNECTED)
+                self._scan_log("Scan complete")
 
             if broadcast:
                 self._broadcast()
         except Exception:
             logger.exception("Error during arrangement scan")
+            self._scan_log("Failed to scan arrangement")
             self.state.update(
                 connection_status=ConnectionStatus.ERROR,
                 timeline_errors=["Failed to scan arrangement"],

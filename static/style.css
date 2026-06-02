@@ -89,6 +89,7 @@ header h1 {
 
 .badge-disconnected { background: var(--red); color: #fff; }
 .badge-connecting   { background: var(--orange); color: #000; }
+.badge-scanning     { background: var(--orange); color: #000; }
 .badge-connected    { background: var(--green); color: #000; }
 .badge-error        { background: var(--red); color: #fff; }
 
@@ -104,6 +105,106 @@ header h1 {
 }
 
 .error-banner.hidden { display: none; }
+
+/* ── Scan overlay (boot + rescan; blocks interaction) ───────────── */
+
+body.scan-blocking {
+  overflow: hidden;
+}
+
+body.scan-blocking #app {
+  filter: blur(5px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 10, 15, 0.55);
+  pointer-events: auto;
+}
+
+.scan-overlay.hidden {
+  display: none;
+}
+
+.scan-overlay-panel {
+  width: min(520px, 100%);
+  max-height: min(85vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+.scan-overlay-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+
+.scan-overlay-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--progress-track);
+  overflow: hidden;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.scan-overlay-bar {
+  height: 100%;
+  width: 40%;
+  border-radius: 3px;
+  background: var(--progress-fill);
+  animation: scan-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes scan-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.scan-overlay-status {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.scan-overlay-log {
+  list-style: none;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.45;
+  min-height: 0;
+}
+
+.scan-overlay-log li {
+  padding: 4px 0;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.scan-overlay-log li:last-child {
+  border-bottom: none;
+  color: var(--text);
+}
 
 /* ── Panels ─────────────────────────────────────────────────────── */
 

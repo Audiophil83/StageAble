@@ -34,11 +34,14 @@ def auto_start_engine() -> None:
         logger.info("Engine auto-start disabled (REMOTEABLE_NO_ENGINE set)")
         return
 
-    try:
-        from .runtime import get_engine
+    def _start() -> None:
+        try:
+            from .runtime import get_engine
 
-        engine = get_engine()
-        engine.start()
-        logger.info("Engine auto-started")
-    except Exception:
-        logger.exception("Failed to auto-start engine")
+            get_engine().start()
+            logger.info("Engine auto-started")
+        except Exception:
+            logger.exception("Failed to auto-start engine")
+
+    # Do not block ASGI import — serve the client while the scan runs.
+    threading.Thread(target=_start, daemon=True, name="engine-start").start()

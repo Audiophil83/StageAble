@@ -9,6 +9,7 @@ the timeline (e.g. after the user edits the arrangement).
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .osc_client import AbletonOSCClient
@@ -138,7 +139,12 @@ def read_arrangement_clips(
     return clips
 
 
-def scan_meter_map(osc: AbletonOSCClient, timeline: Timeline) -> MeterMap:
+def scan_meter_map(
+    osc: AbletonOSCClient,
+    timeline: Timeline,
+    *,
+    progress: Callable[[str], None] | None = None,
+) -> MeterMap:
     """Query time signature and tempo at each song/section start beat.
 
     Seeks the playhead temporarily; saves and restores the original position.
@@ -151,12 +157,17 @@ def scan_meter_map(osc: AbletonOSCClient, timeline: Timeline) -> MeterMap:
         positions.add(section.start_beat)
 
     sorted_positions = sorted(positions)
+    total = len(sorted_positions)
     saved_pos = osc.get_current_song_time()
 
     entries: list[MeterEntry] = []
     prev: tuple[int, int, float] | None = None
 
-    for beat in sorted_positions:
+    for i, beat in enumerate(sorted_positions):
+        if progress and total > 1:
+            step = max(1, total // 10)
+            if i == 0 or (i + 1) % step == 0 or i == total - 1:
+                progress(f"Meter map: {i + 1} / {total}")
         osc.send("/live/song/set/current_song_time", float(beat))
         if osc.get_current_song_time() is None:
             logger.warning("Lost connection during meter scan")

@@ -6,7 +6,7 @@
   <title>Remoteable — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=18">
+  <link rel="stylesheet" href="/static/style.css?v=21">
 </head>
 <body>
   <div id="app">
@@ -192,6 +192,19 @@
     </main>
   </div>
 
-  <script src="/static/app.js?v=20"></script>
+  <!-- Blocks UI during boot scan and rescan -->
+  <div id="scan-overlay" class="scan-overlay hidden" aria-modal="true" role="dialog"
+       aria-labelledby="scan-overlay-title" aria-live="polite">
+    <div class="scan-overlay-panel">
+      <h2 id="scan-overlay-title" class="scan-overlay-title">Scanning project</h2>
+      <div class="scan-overlay-track" role="progressbar" aria-label="Scan in progress">
+        <div class="scan-overlay-bar"></div>
+      </div>
+      <p id="scan-progress-status" class="scan-overlay-status">Scanning project…</p>
+      <ol id="scan-progress-log" class="scan-overlay-log"></ol>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=23"></script>
 </body>
 </html>
