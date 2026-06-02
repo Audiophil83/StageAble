@@ -39,8 +39,6 @@ class ProjectCacheAdmin(admin.ModelAdmin):
 class AppSettingsAdmin(admin.ModelAdmin):
     list_display = [
         "ableton_osc_host",
-        "default_preroll_bars",
-        "scan_meter_map",
         "updated_at",
     ]
 

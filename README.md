@@ -13,7 +13,7 @@ state to any number of browser clients over WebSocket.
 - Automatic STOP-event playback control (no Max4Live required)
 - Multi-client web UI with transport controls and setlist display
 - Keyboard shortcuts (Space = play/stop, arrows = prev/next song)
-- Song navigation via named cue points (fallback to beat-position jump with preroll)
+- Song navigation via named cue points
 - Persistent setlist management via REST API
 - Auto-reconnects to Ableton if the connection drops
 
@@ -136,8 +136,7 @@ regardless of transport state (unlike `jump_by` / `set_current_song_time`, which
 drift when stopped).
 
 - Cue point names **must match** the corresponding SONGS clip name exactly.
-- If no matching cue point exists, the engine falls back to the old beat-position
-  jump with preroll (see `DEFAULT_PREROLL_BARS`).
+- If no matching cue point exists, the jump is skipped and a warning is logged.
 
 All other tracks in your set are ignored by Remoteable (except `[MIX]` tracks for the mixer).
 
@@ -157,7 +156,6 @@ variables are only used as defaults when the settings row is first created.
 | `ableton_osc_send_port` | `11000` | Port AbletonOSC listens on |
 | `ableton_osc_recv_port` | `11001` | Port Remoteable listens on for OSC replies |
 | `engine_poll_hz` | `20` | How often (per second) the engine polls Ableton |
-| `default_preroll_bars` | `1` | Bars of preroll applied when jumping to a section or as fallback when no matching cue point exists for a song |
 
 ### Changing settings
 
@@ -178,7 +176,6 @@ the database.
 | `ABLETON_OSC_SEND_PORT` | `11000` |
 | `ABLETON_OSC_RECV_PORT` | `11001` |
 | `ENGINE_POLL_HZ` | `20` |
-| `DEFAULT_PREROLL_BARS` | `1` |
 
 ### LAN setup
 
@@ -292,8 +289,8 @@ Send JSON with a `"command"` field:
 | `play` | -- | Start Ableton transport |
 | `stop` | -- | Stop Ableton transport |
 | `seek` | `"beat": 64.0` | Move playhead to beat position |
-| `jump_to_song` | `"index": 2` | Jump to song by 0-based index (via cue point; falls back to beat-position jump with preroll) |
-| `jump_to_section` | `"start_beat": 48.0` | Jump to section start (with preroll) |
+| `jump_to_song` | `"index": 2` | Jump to song by 0-based index (via cue point) |
+| `jump_to_section` | `"start_beat": 48.0` | Jump to section start beat |
 | `rescan` | -- | Re-read arrangement from Ableton and rebuild timeline |
 
 ### REST API
@@ -313,8 +310,8 @@ All endpoints are under `/api/`. No authentication required (configurable).
 | POST | `/api/transport/play/` | -- | Start playback |
 | POST | `/api/transport/stop/` | -- | Stop playback |
 | POST | `/api/transport/seek/` | `{ "beat": 64.0 }` | Seek to beat |
-| POST | `/api/transport/jump-to-song/` | `{ "index": 0 }` | Jump to song (via cue point; falls back to beat-position jump with preroll) |
-| POST | `/api/transport/jump-to-section/` | `{ "start_beat": 48.0 }` | Jump to section with preroll |
+| POST | `/api/transport/jump-to-song/` | `{ "index": 0 }` | Jump to song (via cue point) |
+| POST | `/api/transport/jump-to-section/` | `{ "start_beat": 48.0 }` | Jump to section start beat |
 
 #### Arrangement data
 
@@ -429,15 +426,14 @@ poll tick.
 **Time signature stays 4/4 or log mentions missing `signature_*`**
 An older AbletonOSC install in *User Library/Remote Scripts/AbletonOSC* may not
 expose `/live/song/get/signature_numerator` and `signature_denominator`. Remoteable
-falls back to 4/4 for pre-roll. Update the Remote Script from
+defaults to 4/4. Update the Remote Script from
 [ideoforms/AbletonOSC](https://github.com/ideoforms/AbletonOSC), restart Live, and
 re-select the control surface.
 
 **Time signature looks wrong or never changes**
 Ableton reports the meter **at the playhead** (it updates as you move through
-time-signature markers in the arrangement). Remoteable polls this on every engine
-tick. Section pre-roll uses the meter at that section’s start beat. If the UI
-shows 3/8 but you expect 3/4, check which marker applies at the current playhead
+time-signature markers in the arrangement). Remoteable polls this on the slow
+poll loop. If the UI shows 3/8 but you expect 3/4, check which marker applies at the current playhead
 position in Live’s arrangement ruler.
 
 ---

@@ -108,9 +108,3 @@ REST_FRAMEWORK = {
 # These env vars are only used when creating the initial AppSettings row.
 # After that, configure via the Settings UI or PATCH /api/settings/.
 ABLETON_OSC_HOST = os.environ.get("ABLETON_OSC_HOST", "127.0.0.1")
-DEFAULT_PREROLL_BARS = int(os.environ.get("DEFAULT_PREROLL_BARS", "1"))
-SCAN_METER_MAP = os.environ.get("SCAN_METER_MAP", "false").lower() in (
-    "1",
-    "true",
-    "yes",
-)

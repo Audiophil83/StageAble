@@ -300,12 +300,11 @@ class RuntimeEngine:
         logger.info("Jump to song '%s' via cue point", cue_name)
 
     def cmd_jump_to_section(self, start_beat: float) -> None:
-        """Jump to a section by its start beat, applying preroll."""
+        """Jump to a section by its start beat."""
         with self._lock:
             self._cancel_auto_advance()
             self._pending_cue_name = None
-            preroll_beats = self._preroll_beats(at_beat=start_beat)
-            target = max(0.0, start_beat - preroll_beats)
+            target = max(0.0, start_beat)
             self.osc.set_current_song_time(target)
             self._sync_prev_playhead(target)
             if not self._is_transport_playing():
@@ -386,11 +385,7 @@ class RuntimeEngine:
         cfg = get_app_settings()
 
         if self.osc.host == cfg.ableton_osc_host:
-            logger.info(
-                "Engine settings applied (host=%s, preroll=%d bars)",
-                cfg.ableton_osc_host,
-                cfg.default_preroll_bars,
-            )
+            logger.info("Engine settings applied (host=%s)", cfg.ableton_osc_host)
             return
 
         was_running = self._running
@@ -419,20 +414,6 @@ class RuntimeEngine:
     def _is_transport_playing(self) -> bool:
         is_playing = self.osc.get_is_playing()
         return False if is_playing is None else is_playing
-
-    def _preroll_beats(self, at_beat: float | None = None) -> float:
-        """Preroll in beats (default = 1 bar = numerator beats at ``at_beat``)."""
-        cfg = get_app_settings()
-        num = self.state.signature_numerator
-        if at_beat is not None:
-            tl = self.state.timeline
-            if tl is not None and tl.meter_map:
-                num = tl.meter_map.at(at_beat).numerator
-            else:
-                n, _ = self.osc.get_time_signature_at(at_beat)
-                if n is not None:
-                    num = n
-        return float(num * cfg.default_preroll_bars)
 
     def _sync_time_signature_from_playhead(self) -> None:
         """Refresh meter from Ableton at the current playhead (follows TS markers)."""
@@ -577,25 +558,16 @@ class RuntimeEngine:
 
             # Build meter map: time-sig + tempo at every song/section start.
             # Stored in the timeline so poll-tick lookups are free.
-            cfg = get_app_settings()
-            if cfg.scan_meter_map:
-                positions: set[float] = {0.0}
-                for song in tl.songs:
-                    positions.add(song.start_beat)
-                for section in tl.sections:
-                    positions.add(section.start_beat)
-                n_positions = len(positions)
-                self._scan_log(f"Scanning meter map ({n_positions} positions)…")
-                try:
-                    tl.meter_map = scan_meter_map(
-                        self.osc, tl, progress=self._scan_log
-                    )
-                    entries = len(tl.meter_map) if tl.meter_map else 0
-                    self._scan_log(f"Meter map: {entries} entries")
-                    self.state.update(timeline=tl)
-                except Exception:
-                    logger.exception("Meter map scan failed")
-                    self._scan_log("Meter map scan failed — continuing without it")
+            try:
+                tl.meter_map = scan_meter_map(
+                    self.osc, tl, progress=self._scan_log
+                )
+                entries = len(tl.meter_map) if tl.meter_map else 0
+                self._scan_log(f"Meter map: {entries} entries")
+                self.state.update(timeline=tl)
+            except Exception:
+                logger.exception("Meter map scan failed")
+                self._scan_log("Meter map scan failed — continuing without it")
 
             # Read cue points (song jumps use cue markers, not SONGS clip positions)
             self._scan_log("Reading cue points…")

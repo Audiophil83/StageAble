@@ -19,23 +19,17 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class AppSettingsData:
     ableton_osc_host: str
-    default_preroll_bars: int
-    scan_meter_map: bool
 
 
 def _env_defaults() -> dict:
     return {
         "ableton_osc_host": django_settings.ABLETON_OSC_HOST,
-        "default_preroll_bars": django_settings.DEFAULT_PREROLL_BARS,
-        "scan_meter_map": django_settings.SCAN_METER_MAP,
     }
 
 
 def _to_data(obj: AppSettings | AppSettingsData) -> AppSettingsData:
     return AppSettingsData(
         ableton_osc_host=obj.ableton_osc_host,
-        default_preroll_bars=obj.default_preroll_bars,
-        scan_meter_map=obj.scan_meter_map,
     )
 
 

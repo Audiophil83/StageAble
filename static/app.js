@@ -894,8 +894,6 @@
   function populateSettingsForm() {
     if (!$settingsForm || !appSettings) return;
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
-    $settingsForm.default_preroll_bars.value = appSettings.default_preroll_bars || "";
-    $settingsForm.scan_meter_map.checked = !!appSettings.scan_meter_map;
   }
 
   function setView(view) {
@@ -1596,8 +1594,6 @@
 
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
-      default_preroll_bars: parseInt($settingsForm.default_preroll_bars.value, 10),
-      scan_meter_map: $settingsForm.scan_meter_map.checked,
     };
 
     saveSettings(payload)

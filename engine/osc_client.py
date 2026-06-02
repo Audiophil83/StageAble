@@ -229,7 +229,7 @@ class AbletonOSCClient:
     def _log_signature_unavailable(self) -> None:
         logger.info(
             "AbletonOSC does not expose /live/song/get/signature_* on this install "
-            "(older Remote Script). Using 4/4 for pre-roll. Update AbletonOSC from "
+            "(older Remote Script). Defaulting to 4/4. Update AbletonOSC from "
             "https://github.com/ideoforms/AbletonOSC"
         )
 
@@ -263,17 +263,6 @@ class AbletonOSCClient:
         if den_r is None or len(den_r) == 0:
             return num, None
         return num, int(den_r[0])
-
-    def get_time_signature_at(self, beats: float) -> tuple[int | None, int | None]:
-        """Return time signature at an arrangement position (seeks temporarily)."""
-        saved = self.get_current_song_time()
-        if saved is not None and abs(saved - beats) > 1e-6:
-            self.set_current_song_time(beats)
-        try:
-            return self.get_time_signature()
-        finally:
-            if saved is not None and abs(saved - beats) > 1e-6:
-                self.set_current_song_time(saved)
 
     def _parse_meter_at_beats_reply(
         self, r: list[Any], *, expected_count: int
