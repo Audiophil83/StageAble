@@ -13,8 +13,6 @@
 - ~~first shot: mute unmute some channels (with a special marker in the name?)~~
 - Real Mixer with volume slider
 
-#### Rescan Warning message
-
 #### Project scan stored in db
 
 #### Allow multiple project files

@@ -262,7 +262,6 @@ body.scan-blocking #app {
   justify-content: center;
   gap: 40px;
   white-space: nowrap;
-  transition: transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
   left: 50%;
   top: 0;
@@ -270,9 +269,6 @@ body.scan-blocking #app {
 }
 
 .sliding-item {
-  transition: opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1),
-              transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: transform, opacity;
   display: flex;
   align-items: center;
   justify-content: center;

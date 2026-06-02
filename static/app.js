@@ -41,9 +41,11 @@
   let scanInProgress = false;
 
   // Client-side playhead smoothing (extrapolates between server polls)
-  const PLAYHEAD_SNAP_BEATS = 0.25;
+  const PLAYHEAD_SOFT_CORRECT_BEATS = 0.5;
+  const PLAYHEAD_HARD_SNAP_BEATS = 4;
   let progressLoopActive = false;
   let progressRafId = 0;
+  let lastFrameTime = 0;
   const playhead = {
     anchorBeat: 0,
     anchorTime: 0,
@@ -205,6 +207,16 @@
       this.nextPreviewShown = false;
       this.elements = [];
       this.dataKey = "";
+      this.targetCenterIndex = 0;
+      this.measuredIndex = -1;
+      this.isVertical = false;
+      this.offsetX = 0;
+      this.offsetY = 0;
+      this.targetOffset = null;
+      this.layoutDirty = false;
+      this.lastIndexChangeTime = 0;
+      this.lastCenterIndex = -1;
+      this.animating = false;
     }
 
     update(beat) {
@@ -249,15 +261,26 @@
       }
 
       if (idx === this.activeIndex && showNext === this.nextPreviewShown) return;
-      this.activeIndex = idx;
-      this.nextPreviewShown = showNext;
 
-      this.setClasses(idx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx);
       var centerIdx = idx;
       if (idx < 0) {
         centerIdx = showNext ? nextIdx : 0;
       }
-      this.center(centerIdx, rebuilt);
+
+      if (idx >= 0 && idx !== this.activeIndex) {
+        this.lastIndexChangeTime = performance.now();
+        this.lastCenterIndex = idx;
+      }
+
+      this.activeIndex = idx;
+      this.nextPreviewShown = showNext;
+      this.setClasses(idx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx);
+      this.targetCenterIndex = centerIdx;
+      this.layoutDirty = true;
+
+      if (rebuilt) {
+        this.snapToTarget(centerIdx);
+      }
     }
 
     getItems() {
@@ -309,37 +332,90 @@
       }
     }
 
-    center(index, instant) {
-      if (index < 0 || index >= this.elements.length) return;
+    measureTargetOffset(index) {
+      if (index < 0 || index >= this.elements.length) return null;
       var el = this.elements[index];
-      var self = this;
+      if (!this.$track || !this.$container || !el.parentNode) return null;
 
-      requestAnimationFrame(function () {
-        if (!self.$track || !self.$container || !el.parentNode) return;
+      this.isVertical = this.$container.closest(".expanded") != null;
+      var trackRect = this.$track.getBoundingClientRect();
+      var itemRect = el.getBoundingClientRect();
 
-        var isVertical = self.$container.closest(".expanded") != null;
-        var trackRect = self.$track.getBoundingClientRect();
-        var itemRect = el.getBoundingClientRect();
-        var transform;
+      if (this.isVertical) {
+        var cRect = this.$container.getBoundingClientRect();
+        var yCenterInTrack =
+          itemRect.top + itemRect.height / 2 - trackRect.top;
+        return { x: 0, y: cRect.height / 2 - yCenterInTrack };
+      }
 
-        if (isVertical) {
-          var cRect = self.$container.getBoundingClientRect();
-          var yCenterInTrack = (itemRect.top + itemRect.height / 2) - trackRect.top;
-          transform = "translate(-50%, " + (cRect.height / 2 - yCenterInTrack) + "px)";
-        } else {
-          var xCenterInTrack = (itemRect.left + itemRect.width / 2) - trackRect.left;
-          transform = "translateX(" + (-xCenterInTrack) + "px)";
-        }
+      var xCenterInTrack =
+        itemRect.left + itemRect.width / 2 - trackRect.left;
+      return { x: -xCenterInTrack, y: 0 };
+    }
 
-        if (instant) {
-          self.$track.style.transition = "none";
-          self.$track.style.transform = transform;
-          self.$track.offsetHeight;
-          self.$track.style.transition = "";
-        } else {
-          self.$track.style.transform = transform;
-        }
-      });
+    snapToTarget(index) {
+      var target = this.measureTargetOffset(index);
+      if (!target) return;
+      this.offsetX = target.x;
+      this.offsetY = target.y;
+      this.targetOffset = target;
+      this.measuredIndex = index;
+      this.layoutDirty = false;
+      this.animating = false;
+      this.applyTransform();
+    }
+
+    applyTransform() {
+      if (!this.$track) return;
+      if (this.isVertical) {
+        this.$track.style.transform =
+          "translate3d(-50%, " + this.offsetY + "px, 0)";
+      } else {
+        this.$track.style.transform =
+          "translate3d(" + this.offsetX + "px, 0, 0)";
+      }
+    }
+
+    refreshTargetOffset() {
+      var target = this.measureTargetOffset(this.targetCenterIndex);
+      if (!target) return;
+      this.targetOffset = target;
+      this.measuredIndex = this.targetCenterIndex;
+      this.layoutDirty = false;
+    }
+
+    tick(dt) {
+      if (!this.elements.length) {
+        this.animating = false;
+        return;
+      }
+
+      if (this.layoutDirty || this.measuredIndex !== this.targetCenterIndex) {
+        this.refreshTargetOffset();
+      }
+      if (!this.targetOffset) {
+        this.animating = false;
+        return;
+      }
+
+      var sinceChange = performance.now() - this.lastIndexChangeTime;
+      var tau;
+      if (sinceChange < 200) {
+        tau = 0.035;
+      } else if (sinceChange < 500) {
+        tau = 0.07;
+      } else {
+        tau = 0.13;
+      }
+
+      var alpha = 1 - Math.exp(-dt / 1000 / tau);
+      var dx = this.targetOffset.x - this.offsetX;
+      var dy = this.targetOffset.y - this.offsetY;
+      this.offsetX += dx * alpha;
+      this.offsetY += dy * alpha;
+      this.applyTransform();
+
+      this.animating = Math.abs(dx) > 0.35 || Math.abs(dy) > 0.35;
     }
   }
 
@@ -452,6 +528,17 @@
         refreshSlidingDisplays();
       })
       .catch(console.error);
+  }
+
+  function invalidateSlidingLayouts() {
+    [sectionSlidingDisplay, chordsSlidingDisplay, lyricsSlidingDisplay].forEach(
+      function (display) {
+        if (!display) return;
+        display.layoutDirty = true;
+        display.measuredIndex = -1;
+        display.activeIndex = -2;
+      }
+    );
   }
 
   function refreshSlidingDisplays() {
@@ -583,6 +670,19 @@
     });
   }
 
+  function findActiveEvent(items, beat) {
+    if (!items || !items.length) return null;
+    for (var i = items.length - 1; i >= 0; i--) {
+      if (items[i].start_beat <= beat) {
+        if (items[i].end_beat == null || beat < items[i].end_beat) {
+          return items[i];
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
   function beatProgressPercent(position, startBeat, endBeat) {
     if (
       position == null ||
@@ -633,8 +733,13 @@
       playhead.anchorBeat +
       ((now - playhead.anchorTime) / 1000) * playhead.beatsPerSecond;
 
-    if (Math.abs(serverBeat - extrapolated) > PLAYHEAD_SNAP_BEATS) {
-      playhead.anchorBeat = serverBeat;
+    const drift = serverBeat - extrapolated;
+    if (Math.abs(drift) > PLAYHEAD_SOFT_CORRECT_BEATS) {
+      if (Math.abs(drift) > PLAYHEAD_HARD_SNAP_BEATS) {
+        playhead.anchorBeat = serverBeat;
+      } else {
+        playhead.anchorBeat = extrapolated + drift * 0.18;
+      }
       playhead.anchorTime = now;
     }
   }
@@ -650,7 +755,13 @@
     );
   }
 
-  function paintProgressBars() {
+  function tickSlidingDisplays(dt) {
+    if (sectionSlidingDisplay) sectionSlidingDisplay.tick(dt);
+    if (chordsSlidingDisplay) chordsSlidingDisplay.tick(dt);
+    if (lyricsSlidingDisplay) lyricsSlidingDisplay.tick(dt);
+  }
+
+  function paintLiveVisuals() {
     const beat = getDisplayBeat();
     updateProgressBars(beat);
 
@@ -664,15 +775,26 @@
     progressRafId = requestAnimationFrame(progressFrame);
   }
 
-  function progressFrame() {
+  function slidingDisplaysAnimating() {
+    return (
+      (sectionSlidingDisplay && sectionSlidingDisplay.animating) ||
+      (chordsSlidingDisplay && chordsSlidingDisplay.animating) ||
+      (lyricsSlidingDisplay && lyricsSlidingDisplay.animating)
+    );
+  }
+
+  function progressFrame(now) {
     progressRafId = 0;
     if (!progressLoopActive) return;
-    if (
-      currentView === "performance" &&
-      !document.hidden &&
-      playhead.playing
-    ) {
-      paintProgressBars();
+
+    var dt = lastFrameTime ? now - lastFrameTime : 16;
+    lastFrameTime = now;
+
+    if (currentView === "performance" && !document.hidden) {
+      if (playhead.playing || slidingDisplaysAnimating()) {
+        paintLiveVisuals();
+        tickSlidingDisplays(dt);
+      }
     }
     scheduleProgressFrame();
   }
@@ -696,7 +818,7 @@
   function updateProgressBars(position) {
 
     if ($sectionProgressFill) {
-      const sec = state.active_section;
+      const sec = findActiveEvent(sections, position);
       const sectionPct = sec
         ? beatProgressPercent(position, sec.start_beat, sec.end_beat)
         : 0;
@@ -704,20 +826,20 @@
     }
 
     if (!$songList) return;
-    const activeName = state.active_song ? state.active_song.name : null;
+    const activeSong = findActiveEvent(songs, position);
+    const activeName = activeSong ? activeSong.name : null;
     $songList.querySelectorAll("li").forEach(function (li) {
       const fill = li.querySelector(".song-progress .progress-bar-fill");
       if (!fill) return;
       let pct = 0;
       if (activeName && li.dataset.songName === activeName) {
-        const live = state.active_song;
         const start =
-          live && live.start_beat != null
-            ? live.start_beat
+          activeSong.start_beat != null
+            ? activeSong.start_beat
             : parseFloat(li.dataset.startBeat);
         const end =
-          live && live.end_beat != null
-            ? live.end_beat
+          activeSong.end_beat != null
+            ? activeSong.end_beat
             : parseFloat(li.dataset.endBeat);
         pct = beatProgressPercent(position, start, end);
       }
@@ -1076,7 +1198,10 @@
     syncPlayheadFromState();
     renderSongListIfNeeded();
     renderSongListHighlight();
-    paintProgressBars();
+    if (!state.is_playing) {
+      paintLiveVisuals();
+      tickSlidingDisplays(16);
+    }
     ensureProgressLoop();
     renderAutoAdvance();
   }
@@ -1155,7 +1280,7 @@
       });
       $songList.appendChild(li);
     });
-    paintProgressBars();
+    paintLiveVisuals();
   }
 
   function renderSongListHighlight() {
@@ -1623,11 +1748,19 @@
     $btnLyricsExpand.addEventListener("click", function () {
       $lyricsDisplayWrapper.classList.toggle("expanded");
       if (lyricsSlidingDisplay) {
+        lyricsSlidingDisplay.layoutDirty = true;
+        lyricsSlidingDisplay.measuredIndex = -1;
         lyricsSlidingDisplay.activeIndex = -2;
-        paintProgressBars();
+        paintLiveVisuals();
+        tickSlidingDisplays(16);
         setTimeout(function () {
-          lyricsSlidingDisplay.activeIndex = -2;
-          paintProgressBars();
+          if (lyricsSlidingDisplay) {
+            lyricsSlidingDisplay.layoutDirty = true;
+            lyricsSlidingDisplay.measuredIndex = -1;
+            lyricsSlidingDisplay.activeIndex = -2;
+            paintLiveVisuals();
+            tickSlidingDisplays(16);
+          }
         }, 750);
       }
     });
@@ -1646,10 +1779,9 @@
     } else if (el.webkitRequestFullscreen) {
       el.webkitRequestFullscreen();
     }
-    if (sectionSlidingDisplay) sectionSlidingDisplay.activeIndex = -2;
-    if (chordsSlidingDisplay) chordsSlidingDisplay.activeIndex = -2;
-    if (lyricsSlidingDisplay) lyricsSlidingDisplay.activeIndex = -2;
-    paintProgressBars();
+    invalidateSlidingLayouts();
+    paintLiveVisuals();
+    tickSlidingDisplays(16);
   }
 
   function exitFullscreen() {
@@ -1662,10 +1794,9 @@
         document.webkitExitFullscreen();
       }
     }
-    if (sectionSlidingDisplay) sectionSlidingDisplay.activeIndex = -2;
-    if (chordsSlidingDisplay) chordsSlidingDisplay.activeIndex = -2;
-    if (lyricsSlidingDisplay) lyricsSlidingDisplay.activeIndex = -2;
-    paintProgressBars();
+    invalidateSlidingLayouts();
+    paintLiveVisuals();
+    tickSlidingDisplays(16);
   }
 
   if ($btnFullscreen) {
@@ -1693,7 +1824,7 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) {
       syncPlayheadFromState();
-      paintProgressBars();
+      paintLiveVisuals();
     }
   });
 
