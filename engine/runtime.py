@@ -458,7 +458,9 @@ class RuntimeEngine:
 
             # Build meter map: time-sig + tempo at every song/section start.
             # Stored in the timeline so poll-tick lookups are free.
-            tl.meter_map = scan_meter_map(self.osc, tl)
+            cfg = get_app_settings()
+            if cfg.scan_meter_map:
+                tl.meter_map = scan_meter_map(self.osc, tl)
 
             self.state.update(
                 timeline=tl,

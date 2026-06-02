@@ -17,6 +17,13 @@ class AppSettings(models.Model):
         default=1,
         validators=[MinValueValidator(0), MaxValueValidator(16)],
     )
+    scan_meter_map = models.BooleanField(
+        default=False,
+        help_text=(
+            "Pre-scan time signature and tempo at every song/section boundary. "
+            "Slow on large sets; rescan after changing."
+        ),
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

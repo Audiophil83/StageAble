@@ -11,6 +11,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         fields = [
             "ableton_osc_host",
             "default_preroll_bars",
+            "scan_meter_map",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
