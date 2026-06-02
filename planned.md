@@ -9,7 +9,7 @@
 
 #### Mixer
 
-- first shot: mute unmute some channels (with a special marker in the name?)
+- ~~first shot: mute unmute some channels (with a special marker in the name?)~~
 
 #### Lock symbol for a client. When locked only view mode.
 
