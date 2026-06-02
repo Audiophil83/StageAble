@@ -378,7 +378,7 @@ body.scan-blocking #app {
 
 /* Expanded Vertical State */
 .lyrics-display-wrapper.expanded {
-  min-height: 280px;
+  min-height: 300px;
 }
 
 .lyrics-display-wrapper.expanded .btn-lyrics-expand svg {
@@ -386,24 +386,34 @@ body.scan-blocking #app {
 }
 
 .lyrics-display-wrapper.expanded #lyrics-sliding-container {
-  height: 250px;
+  height: 280px;
 }
 
 .lyrics-display-wrapper.expanded #lyrics-sliding-track {
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   white-space: normal;
 }
 
 .lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item {
   max-width: 90%;
   line-height: 1.4;
+  font-size: 26px;
+}
+
+.lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item.current {
+  font-size: 30px;
 }
 
 .lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item.prev,
 .lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item.next {
   opacity: 0.3;
   transform: scale(0.75);
+}
+
+.lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item.next2 {
+  opacity: 0.2;
+  transform: scale(0.7);
 }
 
 /* ── Progress bars (read-only, two-tone) ────────────────────────── */
@@ -1124,11 +1134,19 @@ body.fullscreen-mode .lyrics-display-wrapper {
 }
 
 body.fullscreen-mode .lyrics-display-wrapper.expanded {
-  min-height: 360px;
+  min-height: 400px;
 }
 
 body.fullscreen-mode .lyrics-display-wrapper.expanded #lyrics-sliding-container {
-  height: 320px;
+  height: 360px;
+}
+
+body.fullscreen-mode .lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item {
+  font-size: 36px;
+}
+
+body.fullscreen-mode .lyrics-display-wrapper.expanded #lyrics-sliding-track .sliding-item.current {
+  font-size: 42px;
 }
 
 body.fullscreen-mode #transport-info {

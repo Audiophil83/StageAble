@@ -548,11 +548,8 @@ class RuntimeEngine:
                 self.state.update(tempo=tempo)
                 self._scan_log(f"Tempo: {tempo:.1f} BPM")
 
-            self._scan_log("Scanning Ableton arrangement…")
             tl = scan_arrangement(self.osc)
-            if tl.is_valid:
-                self._scan_log(self._timeline_summary(tl))
-            elif tl.errors:
+            if tl.errors:
                 self._scan_log("Timeline errors: " + "; ".join(tl.errors))
 
             self._scan_log("Scanning mixer tracks…")

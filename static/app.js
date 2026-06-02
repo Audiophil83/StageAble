@@ -319,6 +319,8 @@
     }
 
     setClasses(activeIdx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx) {
+      var expandedLyrics =
+        this.itemsArrayName === "lyrics" && this.$container.closest(".expanded");
       for (var i = 0; i < this.elements.length; i++) {
         var role;
         if (i === activeIdx) role = "current";
@@ -326,6 +328,8 @@
           && items[i].start_beat >= songStartBeat) role = "prev";
         else if (activeIdx >= 0 && i === activeIdx + 1
           && items[i].start_beat < songEndBeat) role = "next";
+        else if (expandedLyrics && activeIdx >= 0 && i === activeIdx + 2
+          && items[i].start_beat < songEndBeat) role = "next2";
         else if (activeIdx === -1 && showNext && i === nextIdx) role = "next";
         else role = "offscreen";
         this.elements[i].className = "sliding-item " + role;
