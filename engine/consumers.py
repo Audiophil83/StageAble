@@ -83,6 +83,14 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
                     )
                     return
                 engine.cmd_set_track_mute(track_index, bool(muted))
+                await self.send_json(
+                    {
+                        "type": "ack",
+                        "command": cmd,
+                        "tracks": engine.get_mixer_tracks(live=False),
+                    }
+                )
+                return
             else:
                 await self.send_json(
                     {"type": "error", "message": f"Unknown command: {cmd}"}

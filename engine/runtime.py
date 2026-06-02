@@ -214,23 +214,43 @@ class RuntimeEngine:
             self._cancel_auto_advance()
         self._initial_scan(broadcast=True)
 
-    def get_mixer_tracks(self) -> list[dict]:
-        """Return mixer tracks with live mute state from Ableton."""
+    def refresh_mixer_tracks_mute(self, *, broadcast: bool = True) -> bool:
+        """Re-query mute from Ableton for all cached [MIX] tracks.
+
+        Returns True if any mute state changed. Used by the 1 Hz slow-poll loop
+        and when opening the mixer tab (``get_mixer_tracks(live=True)``).
+        """
         with self._lock:
             cached = list(self.state.mixer_tracks)
         if not cached:
-            return []
+            return False
 
-        result: list[dict] = []
+        updated: list[dict] = []
+        changed = False
         for track in cached:
-            muted = self.osc.get_track_mute(track["index"])
-            result.append(
-                {
-                    **track,
-                    "muted": muted if muted is not None else track.get("muted", False),
-                }
-            )
-        return result
+            live = self.osc.get_track_mute(track["index"])
+            muted = live if live is not None else track.get("muted", False)
+            if muted != track.get("muted"):
+                changed = True
+            updated.append({**track, "muted": muted})
+
+        if changed:
+            with self._lock:
+                self.state.update(mixer_tracks=updated)
+            if broadcast:
+                self._broadcast()
+        return changed
+
+    def get_mixer_tracks(self, *, live: bool = True) -> list[dict]:
+        """Return mixer tracks.
+
+        With ``live=True`` (default), refresh mute from Ableton first — use when
+        opening the mixer tab. With ``live=False``, return the engine cache
+        (authoritative immediately after ``cmd_set_track_mute``).
+        """
+        if live:
+            self.refresh_mixer_tracks_mute(broadcast=False)
+        return self.state.get_mixer_tracks()
 
     def cmd_set_track_mute(self, track_index: int, muted: bool) -> None:
         """Mute or unmute a [MIX] track by Ableton track index."""
@@ -247,6 +267,7 @@ class RuntimeEngine:
                 for t in self.state.mixer_tracks
             ]
             self.state.update(mixer_tracks=updated)
+        self._broadcast()
 
     def reload_active_setlist(self, *, broadcast: bool = True) -> None:
         """Reload the active setlist from the database."""
@@ -531,7 +552,7 @@ class RuntimeEngine:
     # ── slow poll (1 Hz) ────────────────────────────────────────────
 
     def _slow_poll_loop(self) -> None:
-        """Background loop for low-frequency queries (1/s): tempo + time sig."""
+        """Background loop for low-frequency queries (1/s): tempo, time sig, mixer mute."""
         while self._running:
             try:
                 if self.state.connection_status in (
@@ -544,11 +565,12 @@ class RuntimeEngine:
             time.sleep(1.0)
 
     def _slow_poll_tick(self) -> None:
-        """Query tempo and time signature from Ableton (3 OSC queries)."""
+        """Query tempo, time signature, and [MIX] track mute from Ableton."""
         tempo = self.osc.get_tempo()
         if tempo is not None and abs(tempo - self.state.tempo) > 0.01:
             self.state.update(tempo=tempo)
         self._sync_time_signature_from_playhead()
+        self.refresh_mixer_tracks_mute()
 
     # ── fast poll tick ────────────────────────────────────────────
 

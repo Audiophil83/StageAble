@@ -128,7 +128,7 @@ def mixer_track_mute(request, track_index: int):
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    return Response({"status": "ok", "tracks": engine.get_mixer_tracks()})
+    return Response({"status": "ok", "tracks": engine.get_mixer_tracks(live=False)})
 
 
 # ── Song / section data ──────────────────────────────────────────────

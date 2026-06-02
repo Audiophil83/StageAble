@@ -29,6 +29,9 @@
 
   // Mixer view state
   let mixerTracks = [];
+  let mixerFetchId = 0;
+  /** While set: ignore stale mixer_tracks from poll until server confirms. */
+  let mixerPending = null;
 
   // Client-side playhead smoothing (extrapolates between server polls)
   const PLAYHEAD_SNAP_BEATS = 0.25;
@@ -258,13 +261,15 @@
         state = msg.data;
         render();
       } else if (msg.type === "ack") {
-        if (msg.command === "set_track_mute" && currentView === "mixer") {
-          fetchMixerTracks();
+        if (msg.command === "set_track_mute" && msg.tracks) {
+          mixerPending = null;
+          applyMixerTracks(msg.tracks);
         }
       } else if (msg.type === "error") {
         console.error("Server error:", msg.message);
         if (currentView === "mixer") {
-          fetchMixerTracks();
+          mixerPending = null;
+          syncMixerFromState();
           setMixerStatus(msg.message, "error");
         }
       }
@@ -714,15 +719,57 @@
     return state.connection_status === "connected";
   }
 
+  function applyMixerTracks(tracks) {
+    mixerTracks = (tracks || []).map(function (t) {
+      return {
+        index: t.index,
+        name: t.name,
+        display_name: t.display_name,
+        muted: !!t.muted,
+      };
+    });
+    renderMixer();
+  }
+
+  function syncMixerFromState() {
+    if (!Array.isArray(state.mixer_tracks)) {
+      return;
+    }
+
+    let tracks = state.mixer_tracks;
+    if (mixerPending) {
+      const serverTrack = tracks.find(function (t) {
+        return t.index === mixerPending.index;
+      });
+      if (serverTrack && serverTrack.muted === mixerPending.muted) {
+        mixerPending = null;
+      } else {
+        tracks = tracks.map(function (t) {
+          if (t.index === mixerPending.index) {
+            return Object.assign({}, t, { muted: mixerPending.muted });
+          }
+          return t;
+        });
+      }
+    }
+    applyMixerTracks(tracks);
+  }
+
   function fetchMixerTracks() {
+    const fetchId = ++mixerFetchId;
     setMixerStatus("Loading...", "");
     return apiFetch("/api/mixer/tracks/")
       .then(function (tracks) {
-        mixerTracks = tracks || [];
-        renderMixer();
+        if (fetchId !== mixerFetchId) {
+          return;
+        }
+        applyMixerTracks(tracks);
         setMixerStatus("", "");
       })
       .catch(function (err) {
+        if (fetchId !== mixerFetchId) {
+          return;
+        }
         mixerTracks = [];
         renderMixer();
         const message =
@@ -790,15 +837,18 @@
       return;
     }
 
+    mixerFetchId += 1;
+    mixerPending = { index: trackIndex, muted: muted };
     setMixerStatus("", "");
+    applyMixerTracks(
+      mixerTracks.map(function (t) {
+        if (t.index === trackIndex) {
+          return Object.assign({}, t, { muted: muted });
+        }
+        return t;
+      })
+    );
     send({ command: "set_track_mute", track_index: trackIndex, muted: muted });
-    mixerTracks = mixerTracks.map(function (t) {
-      if (t.index === trackIndex) {
-        return Object.assign({}, t, { muted: muted });
-      }
-      return t;
-    });
-    renderMixer();
   }
 
   function setSettingsStatus(message, type) {
@@ -810,7 +860,7 @@
 
   function render() {
     if (currentView === "mixer") {
-      renderMixer();
+      syncMixerFromState();
     }
     // Connection badge
     setBadge(state.connection_status || "disconnected");

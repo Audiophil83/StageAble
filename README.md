@@ -122,6 +122,8 @@ browser client, where you can toggle each channel **Active** (audible) or
 - The prefix is stripped for display; spacing after `[MIX]` is optional
   (`[MIX]Kick` and `[MIX] Kick` both work).
 - Rescan after renaming tracks in Ableton so Remoteable picks up changes.
+- Mute state is refreshed about once per second from Ableton (same slow poll as
+  tempo/time signature), so changes made in Live’s mixer stay in sync with the UI.
 - Semantic tracks (`SONGS`, `SECTIONS`, etc.) use **whole-name** matching, so
   `[MIX] SONGS` is treated as a mixer track, not a song track.
 
