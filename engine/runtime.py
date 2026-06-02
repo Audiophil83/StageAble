@@ -15,6 +15,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from .config import get_app_settings
+from .project_cache import apply_cache_to_state, save_project_cache
 from .osc_client import AbletonOSCClient
 from .scanner import (
     scan_arrangement,
@@ -117,6 +118,8 @@ class RuntimeEngine:
     def _run_arrangement_scan(self, *, broadcast: bool) -> None:
         """Scan arrangement; emit progress for WebSocket clients."""
         with self._scan_lock:
+            with self._lock:
+                self._scan_messages = []
             self._set_scan_in_progress(True)
             try:
                 self._initial_scan(broadcast=broadcast)
@@ -131,29 +134,35 @@ class RuntimeEngine:
 
         threading.Thread(target=work, daemon=True, name="arrangement-scan").start()
 
-    def _bootstrap_scan(self) -> None:
-        """First scan after startup — does not block HTTP or the poll loop."""
+    def _bootstrap_load(self) -> None:
+        """Load cached arrangement and connect to Ableton without scanning."""
         try:
-            if not self.osc.is_connected():
+            if apply_cache_to_state(self.state):
+                self._scan_log("Loaded cached project from database")
+                self.reload_active_setlist(broadcast=False)
+            else:
+                self._scan_log(
+                    "No cached project — use Rescan in the client when Ableton is ready"
+                )
+
+            if self.osc.is_connected():
+                self.state.update(connection_status=ConnectionStatus.CONNECTED)
+                self._scan_log("Connected to Ableton Live")
+                tempo = self.osc.get_tempo()
+                if tempo:
+                    self.state.update(tempo=tempo)
+            else:
                 self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
                 logger.warning("Ableton not reachable — will retry in poll loop")
                 self._scan_log(
-                    "Ableton not reachable — will retry when Live is available"
+                    "Ableton not reachable — transport will work when Live is available"
                 )
-                return
 
-            self.state.update(connection_status=ConnectionStatus.CONNECTED)
-            self._scan_log("Connected to Ableton Live")
-            with self._scan_lock:
-                try:
-                    self._initial_scan(broadcast=True)
-                    self._scan_log(f"Runtime engine started ({ENGINE_POLL_HZ} Hz)")
-                finally:
-                    self._set_scan_in_progress(False, done=True)
+            self._scan_log(f"Runtime engine started ({ENGINE_POLL_HZ} Hz)")
+            self._broadcast()
         except Exception:
-            logger.exception("Bootstrap scan failed")
-            self._scan_log("Failed to start arrangement scan")
-            self._set_scan_in_progress(False, done=True)
+            logger.exception("Bootstrap load failed")
+            self._scan_log("Failed to load engine state")
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
@@ -164,8 +173,6 @@ class RuntimeEngine:
             return
 
         self.state.update(connection_status=ConnectionStatus.CONNECTING)
-        self._set_scan_in_progress(True)
-        self._scan_log("Starting engine…")
         self.osc.start()
 
         self._running = True
@@ -180,11 +187,11 @@ class RuntimeEngine:
         self._slow_poll_thread.start()
 
         threading.Thread(
-            target=self._bootstrap_scan, daemon=True, name="engine-bootstrap"
+            target=self._bootstrap_load, daemon=True, name="engine-bootstrap"
         ).start()
 
         logger.info(
-            "Runtime engine poll loop started (%d Hz); arrangement scan in background",
+            "Runtime engine poll loop started (%d Hz); project loaded from cache",
             ENGINE_POLL_HZ,
         )
 
@@ -634,6 +641,20 @@ class RuntimeEngine:
                 self.state.update(connection_status=ConnectionStatus.CONNECTED)
                 self._scan_log("Scan complete")
 
+            with self._lock:
+                tempo = self.state.tempo
+                cue_points = list(self.state.cue_points)
+                mixer_tracks = list(self.state.mixer_tracks)
+                timeline_errors = list(self.state.timeline_errors)
+            save_project_cache(
+                timeline=tl,
+                timeline_errors=timeline_errors,
+                tempo=tempo,
+                cue_points=cue_points,
+                mixer_tracks=mixer_tracks,
+            )
+            self.state.update(project_scanned_at=time.time())
+
             if broadcast:
                 self._broadcast()
         except Exception:
@@ -664,7 +685,9 @@ class RuntimeEngine:
                             self.state.update(
                                 connection_status=ConnectionStatus.CONNECTED
                             )
-                            self._initial_scan(broadcast=True)
+                            tempo = self.osc.get_tempo()
+                            if tempo:
+                                self.state.update(tempo=tempo)
                             logger.info("Reconnected to Ableton Live")
                 else:
                     self._poll_tick()

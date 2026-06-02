@@ -218,10 +218,10 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 
 ### How it works
 
-1. On startup, Remoteable connects to AbletonOSC and **scans the
-   arrangement**: reads all tracks, identifies the five semantic tracks by
-   name, reads their clips, reads cue points, and builds a sorted in-memory
-   **Timeline**.
+1. On startup, Remoteable connects to AbletonOSC and **loads the last
+   arrangement scan from the database** (songs, sections, lyrics, chords,
+   cue points, mixer tracks). Use **Rescan** in the client or menu bar app
+   to read the live set from Ableton and refresh the cache.
 
 2. A background thread runs the **runtime loop** at 20 Hz (configurable). Each
    tick:

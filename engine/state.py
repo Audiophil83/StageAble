@@ -64,6 +64,9 @@ class EngineState:
     # Mixer tracks (tracks named [MIX]…)
     mixer_tracks: list[dict] = field(default_factory=list)
 
+    # Last arrangement scan persisted in the database (unix timestamp)
+    project_scanned_at: Optional[float] = None
+
     # Timestamps
     last_update: float = 0.0
 
@@ -102,6 +105,8 @@ class EngineState:
                     self.timeline.is_valid if self.timeline else False
                 ),
                 "timeline_errors": self.timeline_errors,
+                "project_cached": self.timeline is not None,
+                "project_scanned_at": self.project_scanned_at,
                 "last_update": self.last_update,
             }
 

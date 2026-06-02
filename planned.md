@@ -11,7 +11,7 @@
 - ~~first shot: mute unmute some channels (with a special marker in the name?)~~
 - Real Mixer with volume slider
 
-#### Project scan stored in db
+#### ~~Project scan stored in db~~
 
 #### Allow multiple project files
 

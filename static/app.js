@@ -1833,6 +1833,15 @@
   });
 
   // ── Init ─────────────────────────────────────────────────────────
+  function loadCachedArrangement() {
+    return Promise.all([
+      fetchSongs(),
+      fetchSections(),
+      fetchChords(),
+      fetchLyrics(),
+    ]);
+  }
+
   function init() {
     sectionSlidingDisplay = new SlidingDisplay("section-sliding-container", "section-sliding-track", "sections");
     chordsSlidingDisplay = new SlidingDisplay("chords-sliding-container", "chords-sliding-track", "chords");
@@ -1840,6 +1849,7 @@
 
     setView("performance");
     applyLockState();
+    loadCachedArrangement();
     connect();
   }
 

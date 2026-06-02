@@ -41,6 +41,43 @@ class AppSettings(models.Model):
         return "App settings"
 
 
+class ProjectCache(models.Model):
+    """Singleton snapshot of the last Ableton arrangement scan."""
+
+    scanned_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the arrangement was last scanned from Ableton.",
+    )
+    tempo = models.FloatField(default=120.0)
+    is_valid = models.BooleanField(default=False)
+    timeline_errors = models.JSONField(default=list, blank=True)
+    timeline_data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Songs, sections, lyrics, chords, stops, and meter map.",
+    )
+    cue_points = models.JSONField(default=list, blank=True)
+    mixer_tracks = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Project cache"
+        verbose_name_plural = "Project cache"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    def __str__(self):
+        if self.scanned_at:
+            return f"Project cache (scanned {self.scanned_at:%Y-%m-%d %H:%M})"
+        return "Project cache (empty)"
+
+
 class Setlist(models.Model):
     """A named setlist — an ordered subset of songs."""
 

@@ -2,6 +2,7 @@
 REST API views for transport control, state queries, and setlist management.
 """
 
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
@@ -83,6 +84,7 @@ def jump_to_section(request):
     return Response({"status": "ok", "start_beat": float(start_beat)})
 
 
+@csrf_exempt
 @api_view(["POST"])
 def rescan(request):
     from .runtime import get_engine
@@ -96,18 +98,20 @@ def rescan(request):
 
 @api_view(["GET"])
 def mixer_tracks(request):
-    """Return [MIX] tracks with live mute state."""
+    """Return [MIX] tracks; refresh mute from Ableton when connected."""
     from .state import ConnectionStatus
-
-    if engine_state.connection_status != ConnectionStatus.CONNECTED:
-        return Response(
-            {"error": "Engine not connected to Ableton"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
 
     from .runtime import get_engine
 
-    return Response(get_engine().get_mixer_tracks())
+    engine = get_engine()
+    live = engine_state.connection_status == ConnectionStatus.CONNECTED
+    tracks = engine.get_mixer_tracks(live=live)
+    if not tracks and not live:
+        return Response(
+            {"error": "No cached mixer tracks — rescan the project from Ableton"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    return Response(tracks)
 
 
 @api_view(["POST"])

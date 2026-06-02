@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import sys
+import urllib.error
+import urllib.request
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -45,6 +48,7 @@ class RemoteableStatusApp(rumps.App):
             None,
             rumps.MenuItem("Open in Browser", callback=self._open_url),
             rumps.MenuItem("Copy Address", callback=self._copy_url),
+            rumps.MenuItem("Rescan Project", callback=self._rescan_project),
             None,
             rumps.MenuItem("Quit", callback=self._quit),
         ]
@@ -58,6 +62,29 @@ class RemoteableStatusApp(rumps.App):
     def _copy_url(self, _sender: object) -> None:
         copy_to_clipboard(self.url)
         rumps.notification("RemoteAble", "Address copied", self.url)
+
+    def _rescan_project(self, _sender: object) -> None:
+        endpoint = f"{self.url.rstrip('/')}/api/rescan/"
+        req = urllib.request.Request(
+            endpoint,
+            data=json.dumps({}).encode("utf-8"),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status >= 400:
+                    raise urllib.error.HTTPError(
+                        endpoint, resp.status, resp.reason, resp.headers, None
+                    )
+        except Exception as exc:
+            rumps.notification("RemoteAble", "Rescan failed", str(exc))
+            return
+        rumps.notification(
+            "RemoteAble",
+            "Rescan started",
+            "Scanning arrangement from Ableton in the background.",
+        )
 
     def _watch_server(self, _timer: object) -> None:
         if self.process.poll() is not None:
