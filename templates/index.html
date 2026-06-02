@@ -6,7 +6,7 @@
   <title>Remoteable — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=16">
+  <link rel="stylesheet" href="/static/style.css?v=18">
 </head>
 <body>
   <div id="app">
@@ -18,6 +18,16 @@
         <span id="connection-badge" class="badge badge-disconnected">disconnected</span>
       </div>
       <div class="header-right">
+        <button id="btn-lock" class="btn btn-icon btn-lock" type="button" title="Unlock controls" aria-pressed="false">
+          <svg class="icon-locked" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2"></rect>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+          </svg>
+          <svg class="icon-unlocked" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2"></rect>
+            <path d="M8 11V7a4 4 0 0 1 7.5-1"></path>
+          </svg>
+        </button>
         <nav id="view-nav" class="view-nav">
           <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
@@ -175,6 +185,6 @@
     </main>
   </div>
 
-  <script src="/static/app.js?v=16"></script>
+  <script src="/static/app.js?v=19"></script>
 </body>
 </html>

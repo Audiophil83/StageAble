@@ -33,6 +33,10 @@
   /** While set: ignore stale mixer_tracks from poll until server confirms. */
   let mixerPending = null;
 
+  // Client lock — locked by default; only Performance view when locked
+  let clientLocked = true;
+  let pendingUnlock = false;
+
   // Client-side playhead smoothing (extrapolates between server polls)
   const PLAYHEAD_SNAP_BEATS = 0.25;
   let progressLoopActive = false;
@@ -61,6 +65,8 @@
   const $btnPrev      = document.getElementById("btn-prev");
   const $btnNext      = document.getElementById("btn-next");
   const $btnRescan    = document.getElementById("btn-rescan");
+  const $btnLock      = document.getElementById("btn-lock");
+  const $transportControls = document.getElementById("transport-controls");
   const $viewPerformance = document.getElementById("view-performance");
   const $viewSetlist = document.getElementById("view-setlist");
   const $viewSettings = document.getElementById("view-settings");
@@ -272,10 +278,16 @@
           syncMixerFromState();
           setMixerStatus(msg.message, "error");
         }
+      } else if (msg.type === "lock_state") {
+        setClientLocked(!!msg.locked);
+      } else if (msg.type === "unlock_check") {
+        handleUnlockCheck(!!msg.requires_warning);
       }
     };
 
     ws.onclose = function () {
+      pendingUnlock = false;
+      setClientLocked(true);
       setBadge("disconnected");
       scheduleReconnect();
     };
@@ -659,6 +671,9 @@
   }
 
   function setView(view) {
+    if (clientLocked && view !== "performance") {
+      return;
+    }
     currentView = view;
     const isPerformance = view === "performance";
     const isSetlist = view === "setlist";
@@ -690,7 +705,7 @@
       $navSettings.classList.toggle("active", isSettings);
     }
     if ($btnRescan) {
-      $btnRescan.hidden = !isPerformance;
+      $btnRescan.hidden = clientLocked || !isPerformance;
     }
 
     ensureProgressLoop();
@@ -707,6 +722,68 @@
     if (isMixer) {
       fetchMixerTracks();
     }
+  }
+
+  function setClientLocked(locked) {
+    clientLocked = locked;
+    applyLockState();
+  }
+
+  function applyLockState() {
+    if ($btnLock) {
+      $btnLock.classList.toggle("is-unlocked", !clientLocked);
+      $btnLock.title = clientLocked ? "Unlock controls" : "Lock controls";
+      $btnLock.setAttribute("aria-pressed", clientLocked ? "false" : "true");
+    }
+    if ($navSetlist) {
+      $navSetlist.hidden = clientLocked;
+    }
+    if ($navMixer) {
+      $navMixer.hidden = clientLocked;
+    }
+    if ($navSettings) {
+      $navSettings.hidden = clientLocked;
+    }
+    if ($btnRescan) {
+      $btnRescan.hidden = clientLocked || currentView !== "performance";
+    }
+    if ($transportControls) {
+      $transportControls.hidden = clientLocked;
+    }
+    if ($songList) {
+      $songList.classList.toggle("is-locked", clientLocked);
+    }
+    if (clientLocked && currentView !== "performance") {
+      setView("performance");
+    }
+  }
+
+  function handleUnlockCheck(requiresWarning) {
+    if (!pendingUnlock) {
+      return;
+    }
+    pendingUnlock = false;
+    if (requiresWarning) {
+      if (
+        !confirm(
+          "Another client already has controls unlocked. Unlock on this device anyway?"
+        )
+      ) {
+        return;
+      }
+      send({ command: "unlock", confirmed: true });
+      return;
+    }
+    send({ command: "unlock" });
+  }
+
+  function toggleClientLock() {
+    if (!clientLocked) {
+      send({ command: "lock" });
+      return;
+    }
+    pendingUnlock = true;
+    send({ command: "check_unlock" });
   }
 
   function setMixerStatus(message, type) {
@@ -969,6 +1046,7 @@
         '<div class="progress-bar-fill"></div>' +
         "</div>";
       li.addEventListener("click", function () {
+        if (clientLocked) return;
         jumpToPerformanceIndex(i);
       });
       $songList.appendChild(li);
@@ -1272,6 +1350,10 @@
     });
   }
 
+  if ($btnLock) {
+    $btnLock.addEventListener("click", toggleClientLock);
+  }
+
   if ($settingsForm) {
     $settingsForm.addEventListener("submit", function (e) {
     e.preventDefault();
@@ -1400,14 +1482,17 @@
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
     switch (e.code) {
       case "Space":
+        if (clientLocked) return;
         e.preventDefault();
         send({ command: state.is_playing ? "stop" : "play" });
         break;
       case "ArrowRight":
+        if (clientLocked) return;
         e.preventDefault();
         $btnNext.click();
         break;
       case "ArrowLeft":
+        if (clientLocked) return;
         e.preventDefault();
         $btnPrev.click();
         break;
@@ -1512,6 +1597,7 @@
     lyricsSlidingDisplay = new SlidingDisplay("lyrics-sliding-container", "lyrics-sliding-track", "lyrics");
 
     setView("performance");
+    applyLockState();
     connect();
   }
 

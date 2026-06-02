@@ -461,6 +461,15 @@ header h1 {
   background: var(--bg-panel-hover);
 }
 
+.song-list.is-locked li {
+  cursor: default;
+  pointer-events: none;
+}
+
+.song-list.is-locked li:hover {
+  background: transparent;
+}
+
 .song-list li.active {
   background: var(--song-active);
   border-left: 3px solid var(--accent);
@@ -907,6 +916,23 @@ main {
   justify-content: center;
   padding: 10px;
   min-width: auto;
+}
+
+.btn-lock .icon-unlocked {
+  display: none;
+}
+
+.btn-lock.is-unlocked .icon-locked {
+  display: none;
+}
+
+.btn-lock.is-unlocked .icon-unlocked {
+  display: block;
+}
+
+.btn-lock.is-unlocked {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .btn-exit-fullscreen {

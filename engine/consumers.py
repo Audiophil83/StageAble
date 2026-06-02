@@ -12,6 +12,10 @@ import logging
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+from .client_lock import disconnect as client_lock_disconnect
+from .client_lock import lock as client_lock
+from .client_lock import unlock as client_unlock
+from .client_lock import unlock_requires_warning
 from .runtime import WS_GROUP
 
 logger = logging.getLogger(__name__)
@@ -36,8 +40,10 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
 
         snapshot = engine_state.snapshot()
         await self.send_json({"type": "state", "data": snapshot})
+        await self.send_json({"type": "lock_state", "locked": True})
 
     async def disconnect(self, close_code):
+        client_lock_disconnect(self.channel_name)
         await self.channel_layer.group_discard(WS_GROUP, self.channel_name)
         logger.info("WebSocket client disconnected: %s", self.channel_name)
 
@@ -74,6 +80,34 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
             elif cmd == "rescan":
                 # Rescan loads the active setlist from the DB (sync ORM).
                 await sync_to_async(engine.cmd_rescan)()
+            elif cmd == "check_unlock":
+                await self.send_json(
+                    {
+                        "type": "unlock_check",
+                        "requires_warning": unlock_requires_warning(
+                            self.channel_name
+                        ),
+                    }
+                )
+                return
+            elif cmd == "unlock":
+                if unlock_requires_warning(self.channel_name) and not content.get(
+                    "confirmed"
+                ):
+                    await self.send_json(
+                        {
+                            "type": "unlock_check",
+                            "requires_warning": True,
+                        }
+                    )
+                    return
+                client_unlock(self.channel_name)
+                await self.send_json({"type": "lock_state", "locked": False})
+                return
+            elif cmd == "lock":
+                client_lock(self.channel_name)
+                await self.send_json({"type": "lock_state", "locked": True})
+                return
             elif cmd == "set_track_mute":
                 track_index = int(content.get("track_index", -1))
                 muted = content.get("muted")
