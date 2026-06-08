@@ -1,0 +1,124 @@
+/* ── Keep Screen Awake toggle ───────────────────────────────────── */
+
+.btn-keep-awake {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  min-width: auto;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-dim, #888898);
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: var(--radius, 8px);
+  background: var(--bg-panel, #12121a);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.btn-keep-awake:hover {
+  color: var(--text, #e8e8f0);
+  border-color: var(--text-dim, #888898);
+  background: var(--bg-panel-hover, #1a1a28);
+}
+
+.btn-keep-awake:focus-visible {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 2px;
+}
+
+.btn-keep-awake.is-active {
+  color: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.btn-keep-awake.is-pending {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.btn-keep-awake.is-active .icon-sleep {
+  display: none;
+}
+
+.btn-keep-awake.is-active .icon-awake {
+  display: block;
+}
+
+.btn-keep-awake .icon-awake {
+  display: none;
+}
+
+.btn-keep-awake .icon-sleep,
+.btn-keep-awake .icon-awake {
+  flex-shrink: 0;
+}
+
+.btn-keep-awake-label {
+  line-height: 1;
+}
+
+/* Hidden fallback video — 1×1 off-screen, no layout impact */
+.keep-awake-fallback-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Non-intrusive status toast */
+.keep-awake-status {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  max-width: min(90vw, 420px);
+  padding: 10px 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text, #e8e8f0);
+  background: rgba(18, 18, 26, 0.95);
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: var(--radius, 8px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s;
+}
+
+.keep-awake-status.is-error {
+  border-color: var(--red, #ef4444);
+}
+
+.keep-awake-status.is-success {
+  border-color: var(--green, #22c55e);
+}
+
+.keep-awake-status.is-info {
+  border-color: var(--accent, #6366f1);
+}
+
+body.keep-screen-awake-active::after {
+  content: none;
+}
+
+@media (max-width: 600px) {
+  .btn-keep-awake-label {
+    display: none;
+  }
+
+  .btn-keep-awake {
+    padding: 10px;
+  }
+
+  .btn-keep-awake[aria-pressed="true"] .btn-keep-awake-label,
+  .btn-keep-awake.is-active .btn-keep-awake-label {
+    display: none;
+  }
+}

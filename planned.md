@@ -4,6 +4,7 @@
 
 - Lateny issue
 - CI / CD
+- remove build warnings
 
 # Features to be implemented
 
@@ -26,3 +27,5 @@ Frequently re-evaluating latency
 #### Logging
 
 #### Song time instead of no. of bars
+
+#### keep screen alaive

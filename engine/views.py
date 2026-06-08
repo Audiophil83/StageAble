@@ -190,6 +190,26 @@ def app_settings(request):
     return Response(serializer.data)
 
 
+@api_view(["GET", "POST"])
+def keep_awake(request):
+    """Enable/disable macOS system keep-awake (caffeinate) for local server use."""
+    from . import keep_awake as keep_awake_service
+
+    if request.method == "GET":
+        return Response(keep_awake_service.status())
+
+    enabled = request.data.get("enabled")
+    if enabled is None:
+        return Response(
+            {"error": "Missing 'enabled' parameter"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if enabled:
+        return Response(keep_awake_service.enable())
+    return Response(keep_awake_service.disable())
+
+
 class SetlistViewSet(viewsets.ModelViewSet):
     queryset = Setlist.objects.all()
 

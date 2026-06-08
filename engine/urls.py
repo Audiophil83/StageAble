@@ -34,6 +34,7 @@ urlpatterns = [
         name="mixer-track-mute",
     ),
     path("settings/", views.app_settings, name="app-settings"),
+    path("keep-awake/", views.keep_awake, name="keep-awake"),
     # Setlist CRUD
     path("", include(router.urls)),
 ]
