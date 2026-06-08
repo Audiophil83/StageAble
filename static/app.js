@@ -69,6 +69,7 @@
   const $btnStop      = document.getElementById("btn-stop");
   const $btnPrev      = document.getElementById("btn-prev");
   const $btnNext      = document.getElementById("btn-next");
+  const $btnFullscreen = document.getElementById("btn-fullscreen");
   const $btnRescan    = document.getElementById("btn-rescan");
   const $btnLock      = document.getElementById("btn-lock");
   const $transportControls = document.getElementById("transport-controls");
@@ -933,6 +934,9 @@
     if ($btnRescan) {
       $btnRescan.hidden = clientLocked || !isPerformance;
     }
+    if ($btnFullscreen) {
+      $btnFullscreen.hidden = !isPerformance;
+    }
 
     ensureProgressLoop();
 
@@ -972,6 +976,9 @@
     }
     if ($btnRescan) {
       $btnRescan.hidden = clientLocked || currentView !== "performance";
+    }
+    if ($btnFullscreen) {
+      $btnFullscreen.hidden = currentView !== "performance";
     }
     if ($transportControls) {
       $transportControls.hidden = clientLocked;
@@ -1767,7 +1774,6 @@
   }
 
   // Fullscreen mode
-  var $btnFullscreen = document.getElementById("btn-fullscreen");
   var $btnExitFullscreen = document.getElementById("btn-exit-fullscreen");
 
   function enterFullscreen() {
