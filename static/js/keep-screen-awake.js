@@ -25,7 +25,6 @@
 (function (global) {
   "use strict";
 
-  var STORAGE_KEY = "keepScreenAwake";
   var LOG_PREFIX = "[KeepScreenAwake]";
   var STATUS_HIDE_MS = 4000;
 
@@ -73,7 +72,7 @@
     this._videoSrc = options.videoSrc || FALLBACK_VIDEO_SRC;
     this._caps = detectCapabilities();
 
-    this._preferred = false;   // user wants screen awake (localStorage)
+    this._preferred = false;   // user wants screen awake (session only; default off)
     this._active = false;      // lock/video currently holding screen
     this._wakeLock = null;
     this._video = null;
@@ -194,25 +193,6 @@
       self._nativeActive = false;
       self._log("Native macOS keep-awake disabled");
     });
-  };
-
-  // ── Persistence ──────────────────────────────────────────────────
-
-  KeepScreenAwake.prototype._loadPreference = function () {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "true";
-    } catch (e) {
-      this._warn("localStorage unavailable", e);
-      return false;
-    }
-  };
-
-  KeepScreenAwake.prototype._savePreference = function (enabled) {
-    try {
-      localStorage.setItem(STORAGE_KEY, enabled ? "true" : "false");
-    } catch (e) {
-      this._warn("Could not persist preference", e);
-    }
   };
 
   // ── Wake Lock API ────────────────────────────────────────────────
@@ -372,7 +352,6 @@
 
   KeepScreenAwake.prototype.enable = function () {
     this._preferred = true;
-    this._savePreference(true);
     this._updateButton();
     return this._acquire().then(function (ok) {
       if (ok) {
@@ -390,7 +369,6 @@
 
   KeepScreenAwake.prototype.disable = function () {
     this._preferred = false;
-    this._savePreference(false);
     this._updateButton();
     return this._release().then(function () {
       this._showStatus("Screen may sleep normally.", "info");
@@ -456,8 +434,14 @@
       return this;
     }
 
-    this._preferred = this._loadPreference();
+    this._preferred = false;
     this._updateButton();
+
+    try {
+      localStorage.removeItem("keepScreenAwake");
+    } catch (e) {
+      /* ignore */
+    }
 
     this._button.addEventListener("click", this._onButtonClick);
     document.addEventListener("visibilitychange", this._onVisibilityChange);
@@ -470,15 +454,6 @@
 
     if (!this._caps.secureContext) {
       this._warn("Not a secure context — Wake Lock API unavailable");
-    }
-
-    if (this._preferred) {
-      this._log("Stored preference enabled — attempting acquire");
-      this._acquire().then(function (ok) {
-        if (!ok) {
-          this._showStatus("Tap the button to keep the screen awake.", "info");
-        }
-      }.bind(this));
     }
 
     return this;

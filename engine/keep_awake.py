@@ -4,14 +4,16 @@ macOS system keep-awake via ``caffeinate``.
 Browsers cannot suppress the macOS screen saver reliably — the Wake Lock API
 only prevents display *sleep* in many cases, not the idle screen saver.  When
 RemoteAble runs locally (typical .app usage), this module starts ``caffeinate
--dims`` on the server Mac so the screen saver and display sleep are both
-suppressed while the user has "Keep Screen Awake" enabled in the UI.
+-dims -w <pid>`` on the server Mac so the screen saver and display sleep are
+both suppressed while the user has "Keep Screen Awake" enabled in the UI.
+Caffeinate exits automatically when RemoteAble exits, including on crash.
 """
 
 from __future__ import annotations
 
 import atexit
 import logging
+import os
 import subprocess
 import sys
 import threading
@@ -38,7 +40,11 @@ def status() -> dict:
 
 
 def enable() -> dict:
-    """Start ``caffeinate -dims`` (display, idle, and screen-saver suppression)."""
+    """Start ``caffeinate -dims -w <pid>`` (display, idle, and screen-saver suppression).
+
+    The ``-w`` flag ties caffeinate to this process: when RemoteAble exits or
+    crashes, macOS releases the keep-awake assertion automatically.
+    """
     global _proc
 
     if not is_supported():
@@ -50,7 +56,7 @@ def enable() -> dict:
 
         try:
             proc = subprocess.Popen(
-                ["caffeinate", "-dims"],
+                ["caffeinate", "-dims", "-w", str(os.getpid())],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
