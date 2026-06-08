@@ -7,6 +7,24 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 root = Path(SPECPATH)
+hook_dir = str(root / "scripts" / "packaging" / "hooks")
+
+# Optional/test-only subpackages that fail to import during analysis.
+_SKIP_SUBMODULE_PREFIXES = (
+    "django.contrib.postgres",
+    "rest_framework.schemas",
+    "twisted.trial",
+    "twisted.internet.test",
+    "autobahn.asyncio",
+    "pythonosc.test",
+)
+
+
+def _include_submodule(name: str) -> bool:
+    return not any(
+        name == prefix or name.startswith(prefix + ".")
+        for prefix in _SKIP_SUBMODULE_PREFIXES
+    )
 
 project_datas = [
     (str(root / "templates"), "templates"),
@@ -30,7 +48,11 @@ for package in (
     "pythonosc",
     "rumps",
 ):
-    pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(package)
+    pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(
+        package,
+        filter_submodules=_include_submodule,
+        on_error="ignore",
+    )
     datas += pkg_datas
     binaries += pkg_binaries
     hiddenimports += pkg_hiddenimports
@@ -70,7 +92,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
-    hookspath=[],
+    hookspath=[hook_dir],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
