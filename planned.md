@@ -4,13 +4,11 @@
 
 - Lateny issue
 - CI / CD
-- remove build warnings
 
 # Features to be implemented
 
 #### Mixer
 
-- ~~first shot: mute unmute some channels (with a special marker in the name?)~~
 - Real Mixer with volume slider
 
 #### Allow multiple project files
@@ -27,5 +25,3 @@ Frequently re-evaluating latency
 #### Logging
 
 #### Song time instead of no. of bars
-
-#### keep screen alaive
