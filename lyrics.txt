@@ -1,0 +1,365 @@
+# Remoteable lyrics
+# Format: start_beat|end_beat|lyric text
+# Edit only the lyric text (after the second |). Do not change beat numbers.
+# Use \n in the text for a line break within one lyric cue.
+# Lines starting with # are ignored.
+#
+108|115|Where's the me?
+115|124|why has it come to \n
+124|129.5|the “you and me”
+129.5|134.5|the “you and me”
+134.5|139|With all chance to be
+139|149|ideals cracking
+179|185|The sublime
+185|190|let us come to the
+190|196|solidarily
+196|201|Common ground
+201|206|for the rim we feed\n
+206|212|for us to be
+212|220|Oh sweet ocean of life\n
+220|228|gather, and merge myself as part
+228|234|of the sands and drift 
+234|240|Whoever you are
+240|258|we create our
+258|268|Drifts
+268|276|Drift Away
+276|284|But now - there’s no you
+284|289|only me instead \n
+289|294|and in this loneliness
+294|297|man’s frightened
+297|302|and the only way to put himself on top
+302|306|‘s a confidence nobody cannot stop
+306|309|“Don’t fuck with me!"
+309|318|cause maybe I’ll drown you within my own river.\n
+318|323|Have you ever asked\n
+323|328|or do you find contempt reply?
+328|334|Have you overthought your ways
+334|339.5|or do you play your cards damn right?\n
+339.5|343|Have you ever judged
+343|347.5|when you don’t know the reasons why?
+347.5|355|The saddest doom in our thinking’s to
+355|366.5|take the easiest way
+374.5|384.5|Where's the me?
+384.5|396.5|Where is it?
+396.5|403|I'll be yours!
+403|409.5|I'll be all!
+409.5|416|I can be everything for you
+416|425|just see me like grains of sand resting on seaground
+425|431.5|just rest!
+448.5|458.5|Passivized by our simple minds
+458.5|468.5|hushing lullabies are killing thoughts
+468.5|475.5|conviction overruns
+475.5|478.5|and bans reflections
+478.5|488.5|***** the ending of all motion\n
+488.5|493.5|All is wrong
+493.5|498.5|the world turns upside down\n
+498.5|503.5|motionless and starving
+503.5|508.5|by its poisoned ground
+508.5|513.5|for the things to eat
+513.5|518.5|for everything though nothing
+518.5|525.5|for your own relief\n
+525.5|530.5|to take the easiest
+530.5|544|take the selfish way
+634|662|Slowly drifting
+662|690|cozy happiness
+703|715|I'm laughing out lout
+715|731|by the stunning end of all\n
+731|743|overwhelmed by
+743|758|facing the natural end of all\n
+758|766|And all is fading away from me
+766|786|No sense for what follows\n
+786|794|Though all is fading away from me\n
+794|816|still I know it is good\n
+823|827|yes it’s right 
+827|856|This is understood
+856|871|And I know
+871|886|Cause all this “fading away” makes it whole
+886|901|I won't sigh 'bout my little vanities 
+901|919|I won't sigh for this
+919|935|I won't cry about all this
+935|969|Is there more to become?
+977|983|Become
+1039|1051|Is there more to become?
+1063|1081|cozy happiness
+1081|1087|Silly questions
+1087|1111|of what could and couldn’t come
+1111|1117|What's happening soon happened
+1117|1135|And we had our run
+1143|1151|I do have these questions...
+1155|1163|For we don't have an answer why
+1163|1185|I'll create my own lullaby
+1193|1211|And tell me not to sigh
+1213|1227|Cause all this “fading away” makes it whole
+1227|1242|I won't sigh about this way of life at all
+1242|1260|I won't sigh for this
+1260|1274|I won't cry about all this 
+1274|1322|Still I don’t want to face you now!\n
+1322|1342|I won’t cry for everything to come
+1342|1378|I won’t  give up
+1552|1576|So glad I finally found hold in you
+1576|1603|the other day we met and you funnily became a part of me
+1603|1618|nights faded
+1618|1629|lost in tranquility
+1629|1642|no words said
+1642|1660|just gather this!
+1660|1690|Oh no
+1693|1717|And you erased my sorrows, all of my fears
+1720|1738|And you lit up like a sun burning all of this … burning all of this
+1739|1747|burning all of this
+1747|1761|down to ashes,
+1761|1773|old remnants
+1773|1786|cold flashes
+1786|1787|lost in memory
+1915|1933|Sight is taken of these
+1933|1951|lies drowning your body
+1951|1969|Cold shiver on the absence
+1969|1987|waiting soon to be discovered
+2037|2058|Save me from this bond!
+2098|2106|Save me from this bond!
+2106|2118|A glimpse of the sun
+2118|2132|your eyes\nhave made me blind
+2132|2146|in disguise there’s a call
+2146|2160|no more lies, break the bond
+2160|2190|break the bond
+2190|2206|mind the warmth mind the light
+2206|2218|mind her!\n
+2218|2225|it’s time to leave
+2225|2232|no time to let it go
+2232|2239|see clearly now
+2239|2246|or maybe nevermore.
+2246|2270|Come by it said come by your light
+2270|2284|false remedy behind THIS has MADE u BECOME BLIND
+2284|2295|in disguise
+2295|2309|Still you light up like a sun even after all
+2309|2323|even after all, even after all
+2323|2337|Still you light up like a sun like you always do,
+2337|2344|or as you always will...
+2631|2636|Yesterday all that I took
+2636|2644|out of my sea on my best hook
+2644|2650|a predator so large and loud
+2650|2659|my rod hit hard and nearly broke
+2659|2673|though he'd be smart this massive bloke
+2673|2687|crossed all my other lines at will
+2687|2692|A reckless beast
+2692|2696|one giant mouth
+2696|2701|pushing never holding still
+2701|2715|yet only lonesome organism
+2743|2748|I couldn't help but focusing
+2748|2757|on what I thought I cannot win
+2757|2762|cutting all lines I cut myself too
+2762|2771|cause all I've seen has been only you
+2771|2779|I cursed, I judged, shouted and screamed
+2779|2787|let out my emotions never giving in
+2787|2794|dominated over him
+2794|2813|you odd living organism
+2813|2820|To both our anger I guess I won
+2820|2827|this specimen is nearly done
+2827|2832|Looking forward never back
+2832.03|2841.03|I  know what want\n(and I wanted all that)
+2841.03|2848|This catch now looks just like a joke
+2848|2855|mirroring inside my boat
+2855|2862|I look at me, myself and I
+2862|2867|And all I've lived passes me by
+2867|2887|Cause I only live...\n
+2923|2928|Yesterday all that I took
+2933|2938|a predator so large and loud
+3019.5|3024.5|Saw myself changing
+3024.5|3027.5|been shrinking while I’ve grown
+3027.5|3031.5|been letting out excitement by
+3031.5|3034.5|relying on my own
+3034.5|3038.5|I had enough for you
+3038.5|3041.5|I may miss you too
+3041.5|3044.5|May I miss you too?
+3044.5|3052.5|I have enough of you.
+3160|3172|Once upon, there was a fire
+3172|3180|but it’s ember’s gone
+3180|3188|and rain solely cooled the soil again
+3188|3199|Down in the ground
+3199|3208|quiet seclusion feeds
+3208|3216|quiet seclusion speaks:
+3216|3230|“True love is hard to find!”
+3230|3244|“True love is hard”
+3247|3260|When time has come to question all life
+3260|3274|it’s so hard to overcome time
+3274|3288|A wish for plants like roses and vines
+3288|3304|They just take too long to rise
+3304|3318|True love is hard to find!
+3318|3332|True love is hard
+3332|3346|True love is hard to find!
+3346|3360|True love is hard to give!
+3416|3425|After all is said and done
+3425|3432|these leaves me missing you
+3432|3444|leaves me missing you
+3444|3453|Over all, all is sad and done
+3453|3460|these leaves me missing you
+3460|3472|leaves me missing you
+3500|3514|I can’t breath out of nutrition
+3514|3535|I can’t see in this darkness that may come...
+3590|3603|The mist of morning’s glorious sun
+3603|3619|at some point may rise from down below again
+3619|3631|Come, come joining as one!
+3631|3647|And maybe we can rise...
+3647|3661|True love is hard to find!
+3661|3675|True love is hard
+3703|3711|After all is said and done
+3711|3719|these leaves me missing you
+3719|3731|leaves me missing you
+3731|3739|Over all, all is sad and done
+3739|3747|these leaves me missing you
+3747|3759|leaves me missing you
+3790|3796|I can’t breath
+3796|3802|still no nutrition
+3802|3822|I can’t see in this darkness what may come...
+4060|4063|Get up
+4063|4067.5|overcoming
+4067.5|4070.5|get food
+4070.5|4084|overcoming set off
+4092|4095|do work
+4095|4099.5|overworking
+4099.5|4102.5|do deeds
+4102.5|4107|overdoing
+4107|4114|so dull there’s no escape from this
+4114|4125|so dull the way it is eroding this
+4125|4129|way back home
+4129|4132|homecoming
+4132|4139|bed sleep, rest, and …
+4139|4146|nothing helps to escape from this
+4146|4164|so dull the way it is eroding life
+4164|4180|light up your life!
+4180|4200|light up your life!
+4212|4215|Get up
+4215|4219.5|over doings
+4219.5|4222.5|get food
+4222.5|4227|over-feeding
+4227|4240|all duties
+4244|4260|work, feed, fuck, compete, work, fuck, work, repeat
+4264|4280|Lie, lies
+4280|4294|lie, lies
+4294|4328|Cause it is all\nlies
+4433|4448|I'm steady, concentrating
+4448|4460|hiding in a solid place
+4460|4472|hidden from the insecure
+4472|4484|hiding from disappointment
+4484|4499|focus on ...
+4499|4514|on my intimate plan
+4514|4524|Reaching out to every chance to
+4524|4538|hoping to get closer to
+4538|4548.5|testing every possibility
+4548.5|4565|to vainly fulfilling an intimate plan
+4584|4604|What am I striving for?
+4604|4628|Am I striving for ...
+4634|4637|... anything?
+4718|4728|Capsized are my thoughts with you
+4728|4743|Is it over just because you wanted to ...
+4743|4755|fade
+4759|4768|lead ... ?
+4774|4786|Capsized by my thoughts
+4786|4810|do not guide me wrong when I need you the most
+4810|4821.25|Ahh
+4821.25|4828|So I play with my thoughts
+4828|4833.25|weaving them to gold
+4833.25|4837|To what?
+4837|4844.5|Ashes to gold
+4844.5|4858|Ashes to gold
+5098|5106|I'm not looking for heaven,
+5106|5114|just a single breath
+5114|5122|This heavy jacket cannot keep the cold out,
+5122|5130|the cold comes from within
+5130|5135.5|I feel the tremors, a silent quake
+5135.5|5146|Every promise I make is a vow I break
+5146|5154|Don't talk about tomorrow cause I won't see the sun
+5154|5162|Just give me a moment of peace, give me more
+5162|5169.5|Take more,
+5169.5|5178|non importa che sia stupido tu dalle il suo anestetico
+5178|5185.5|Take more,
+5185.5|5194|il suo momento magico uno spazio tutto in bilico
+5194|5201.5|Take more,
+5201.5|5210|un movimento statico lo spazio intergalattico
+5210|5217.5|Take more,
+5217.5|5226|un pezzo del tuo carico per toglierla dal panico
+5247.5|5255.5|I can'even more remember, who I used to be
+5255.5|5263.5|This empty habit cannot keep the monsters out, they're consuming me
+5263.5|5271.5|I know the price, I know the cost    (There're no more vows and no more tears)
+5271.5|5279.5|I fed those monsters all that I lost
+5279.5|5287.5|Don't try to save me, don't try to reach my hand
+5287.5|5295.5|There is no turning back, so take me more
+5295.5|5303|Take more,
+5303|5311.5|non importa che sia stupido tu dalle il suo anestetico
+5311.5|5319|Take more,
+5319|5327.5|il suo momento magico uno spazio tutto in bilico
+5327.5|5335|Take more,
+5335|5343.5|un movimento statico lo spazio intergalattico
+5343.5|5351|Take more,
+5351|5359.5|un pezzo del tuo carico per toglierla dal panico
+5399|5404|I’m breaking down, can’t breathe the air, 
+5404|5408|This whole damn city, doesn't care. 
+5408|5412|You wanted a ghost, you got a shell, 
+5412|5415|Living a lie you know too well.
+5415|5420|The shadows are screaming, They're coming for me,  (they want their reward - to be heard) (highlight)
+5420|5424|They hand me the poison, a silent pray (sword)  
+5424|5428|My hands shaking, seeking demand (you hear the request) 
+5428|5431|My mind racing and whisper "take more"  
+5431|5438.5|Take more,
+5438.5|5447|non importa che sia stupido tu dalle il suo anestetico
+5447|5454.5|Take more,
+5454.5|5463|il suo momento magico uno spazio tutto in bilico
+5463|5470.5|Take more,
+5470.5|5479|un movimento statico lo spazio intergalattico
+5479|5486.5|Take more,
+5486.5|5495|un pezzo del tuo carico per toglierla dal panico
+5561|5569|Second from the sun
+5569|5577|Still so far from anyone
+5577|5585|Burning bright inside
+5585|5593|Never sees what’s hidden
+5593|5597|Clouds drawn thick like curtains
+5597|5601|Hiding all her hurting
+5601|5605|Under all that acid sky
+5605|5609|Everyone just calls her distant
+5609|5613|Keeping all the warmth inside
+5613|5617|Burning hotter than desire
+5617|5621|Nowhere left for love to hide
+5621|5625|Beautiful until you touch her
+5625|5630|But I keep staring up at Venus
+5630|5634|Tracing orbits in your eyes
+5634|5638|All that pressure
+5638|5642|All that fire\nmakes a diamond
+5642|5646|In the night\nthey say she’s cruel
+5646|5648|They say she’s ruthless
+5648|5652|They don’t see what’s in your light
+5652|5656|’Cause when I look at lonely Venus
+5656|5662|All I really see is you tonight
+5665|5673|Fighting every solar day
+5673|5681|Storms that never seem to end
+5681|5689|Still\nshe glows again
+5689|5693|Takes the hits in silence
+5693|5697|Dressed in purple violence
+5697|5701|I read stories in her phase
+5701|5705|Think of you and lose my place
+5705|5709|Moving to a different beat
+5709|5713|Proud and stubborn in defeat
+5713|5717|Just to keep a his lonely spark
+5717|5721|Where the world has left his mark
+5721|5726|And I keep staring up at Venus
+5726|5730|Tracing orbits in your eyes
+5730|5734|All that pressure
+5734|5738|All that fire\nmakes a diamond
+5738|5742|In the night\nthey say she’s fierce
+5742|5744|They say she’s ruthless
+5744|5748|They don’t see what’s in your light
+5748|5752|’Cause when I look at lonely Venus
+5752|5758|All I really see is you tonight
+5841|5849|Maybe you’re my  evening star
+5849|5857|Maybe all your battle scars
+5857|5865|Are constellations in the dark
+5954|5959|So I keep staring up at Venus
+5959|5963|Tracing orbits in your eyes
+5963|5967|All that pressure
+5967|5971|All that fire\nmakes a diamond
+5971|5975|In the night\nthey hey call her wild
+5975|5977|They call her useless
+5977|5981|They don’t feel this gentle tide
+5981|5985|’Cause when I look at burning Venus
+5985|5991|I swear I’m only seeing you inside (yeah)
+5996|6001|When I look at shining Venus
+6001|6004|I’m falling
+6004|6010|Falling through your sky

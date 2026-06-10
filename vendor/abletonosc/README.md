@@ -8,11 +8,12 @@ Meter map scans also used to require one OSC round trip per song/section
 boundary (seek + time signature + tempo). Remoteable adds a batched endpoint so
 Live seeks internally and returns all samples in one reply.
 
-This patch adds two endpoints:
+This patch adds three endpoints:
 
 | Address | Query params | Response params |
 |---|---|---|
 | `/live/track/get/arrangement_clips/name_chunk` | `track_id`, `offset`, `limit` | `track_id`, `offset`, `total_count`, `[name, ...]` |
+| `/live/track/set/arrangement_clips/name` | `track_id`, `clip_index`, `name` | *(none)* |
 | `/live/song/get/meter_at_beats` | `beat1`, `beat2`, … | `saved_ok`, `count`, `beat1`, `num1`, `den1`, `tempo1`, … |
 
 Remoteable tries the bulk `/live/track/get/arrangement_clips/name` first, then

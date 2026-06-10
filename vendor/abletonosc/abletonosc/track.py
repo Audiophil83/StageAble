@@ -142,6 +142,19 @@ class TrackHandler(AbletonOSCHandler):
             chunk = clips[offset:offset + limit]
             return (offset, total, *tuple(clip.name for clip in chunk))
 
+        def track_set_arrangement_clip_name(track, params: Tuple[Any]):
+            """Set the name of one arrangement clip by index."""
+            clip_index, name = int(params[0]), str(params[1])
+            clips = list(track.arrangement_clips)
+            if clip_index < 0 or clip_index >= len(clips):
+                self.logger.warning(
+                    "arrangement clip index out of range: %d (track has %d clips)",
+                    clip_index,
+                    len(clips),
+                )
+                return
+            clips[clip_index].name = name
+
         """
         Returns a list of clip properties, or Nil if clip is empty
         """
@@ -152,6 +165,7 @@ class TrackHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/track/get/arrangement_clips/length", create_track_callback(track_get_arrangement_clip_lengths))
         self.osc_server.add_handler("/live/track/get/arrangement_clips/start_time", create_track_callback(track_get_arrangement_clip_start_times))
         self.osc_server.add_handler("/live/track/get/arrangement_clips/name_chunk", create_track_callback(track_get_arrangement_clip_names_chunk))
+        self.osc_server.add_handler("/live/track/set/arrangement_clips/name", create_track_callback(track_set_arrangement_clip_name))
 
         def track_get_num_devices(track, _):
             return len(track.devices),

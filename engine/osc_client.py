@@ -447,6 +447,17 @@ class AbletonOSCClient:
             return None
         return names
 
+    def set_arrangement_clip_name(
+        self, track_id: int, clip_index: int, name: str
+    ) -> None:
+        """Set the name of one arrangement clip (lyric text) by index."""
+        self.send(
+            "/live/track/set/arrangement_clips/name",
+            track_id,
+            int(clip_index),
+            name,
+        )
+
     def get_arrangement_clip_names(self, track_id: int) -> list[str] | None:
         r = self.query(
             _ARRANGEMENT_CLIPS_NAME,
