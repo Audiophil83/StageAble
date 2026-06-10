@@ -13,6 +13,10 @@ class AppSettings(models.Model):
     """Singleton row storing engine configuration."""
 
     ableton_osc_host = models.CharField(max_length=255, default="127.0.0.1")
+    sliding_animation_enabled = models.BooleanField(
+        default=True,
+        help_text="Beat-aligned section/chord/lyrics slide on web clients.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

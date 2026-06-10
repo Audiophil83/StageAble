@@ -39,6 +39,7 @@ class ProjectCacheAdmin(admin.ModelAdmin):
 class AppSettingsAdmin(admin.ModelAdmin):
     list_display = [
         "ableton_osc_host",
+        "sliding_animation_enabled",
         "updated_at",
     ]
 

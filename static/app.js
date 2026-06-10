@@ -45,8 +45,8 @@
   const PLAYHEAD_HARD_SNAP_BEATS = 4;
   const PLAYHEAD_SOFT_CORRECT_BLEND = 0.5;
   const MESSAGE_AGE_MAX_MS = 500;
-  // Debug: snap only. Re-enable after beat-aligned animation (ends at start_beat).
-  const SLIDING_ANIMATION_ENABLED = false;
+  const SLIDING_ANIMATION_DURATION_MS = 50;
+  let slidingAnimationEnabled = true;
   const debugSyncEnabled =
     /(?:\?|&)debug=sync(?:&|$)/.test(location.search) ||
     localStorage.getItem("debugSync") === "1";
@@ -209,6 +209,10 @@
     }
   }
 
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
   // ── Sliding Display Class ───────────────────────────────────────
 
   class SlidingDisplay {
@@ -273,7 +277,18 @@
           && items[nextIdx].start_beat < songEndBeat;
       }
 
-      if (idx === this.activeIndex && showNext === this.nextPreviewShown) return;
+      var transition =
+        slidingAnimationEnabled && playhead.playing && !rebuilt
+          ? this.getBeatTransition(items, beat)
+          : null;
+
+      if (
+        idx === this.activeIndex &&
+        showNext === this.nextPreviewShown &&
+        !transition
+      ) {
+        return;
+      }
 
       var centerIdx = idx;
       if (idx < 0) {
@@ -289,13 +304,23 @@
 
       this.activeIndex = idx;
       this.nextPreviewShown = showNext;
-      this.setClasses(idx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx);
       this.targetCenterIndex = centerIdx;
-      this.layoutDirty = true;
 
-      if (!SLIDING_ANIMATION_ENABLED || rebuilt || indexChanged) {
-        this.snapToTarget(centerIdx);
+      if (transition) {
+        this.setTransitionClasses(
+          transition.fromIdx,
+          transition.toIdx,
+          items,
+          songStartBeat,
+          songEndBeat
+        );
+        this.applyBeatTransition(transition);
+        return;
       }
+
+      this.setClasses(idx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx);
+      this.layoutDirty = true;
+      this.snapToTarget(centerIdx);
     }
 
     getItems() {
@@ -319,6 +344,69 @@
         if (items[i].start_beat > beat) return i;
       }
       return -1;
+    }
+
+    getBeatTransition(items, beat) {
+      var bps = playhead.beatsPerSecond || (state.tempo || 120) / 60;
+      if (!bps) return null;
+
+      var leadBeats = (SLIDING_ANIMATION_DURATION_MS / 1000) * bps;
+      if (leadBeats <= 0) return null;
+
+      var nextIdx = this.findNext(items, beat);
+      if (nextIdx < 0) return null;
+
+      var nextStart = items[nextIdx].start_beat;
+      var animStartBeat = nextStart - leadBeats;
+      if (beat < animStartBeat || beat >= nextStart) return null;
+
+      var fromIdx = this.findActive(items, beat);
+      if (fromIdx < 0) return null;
+
+      if (nextStart - items[fromIdx].start_beat < leadBeats) {
+        return null;
+      }
+
+      var progress = (beat - animStartBeat) / leadBeats;
+      return {
+        fromIdx: fromIdx,
+        toIdx: nextIdx,
+        progress: Math.max(0, Math.min(1, progress)),
+      };
+    }
+
+    setTransitionClasses(fromIdx, toIdx, items, songStartBeat, songEndBeat) {
+      var expandedLyrics =
+        this.itemsArrayName === "lyrics" && this.$container.closest(".expanded");
+      for (var i = 0; i < this.elements.length; i++) {
+        var role;
+        if (i === fromIdx) role = "current";
+        else if (i === toIdx) role = "next";
+        else if (fromIdx >= 0 && i === fromIdx - 1
+          && items[i].start_beat >= songStartBeat) role = "prev";
+        else if (expandedLyrics && fromIdx >= 0 && i === fromIdx + 2
+          && items[i].start_beat < songEndBeat) role = "next2";
+        else role = "offscreen";
+        this.elements[i].className = "sliding-item " + role;
+      }
+    }
+
+    applyBeatTransition(transition) {
+      var fromOff = this.measureTargetOffset(transition.fromIdx);
+      var toOff = this.measureTargetOffset(transition.toIdx);
+      if (!fromOff || !toOff) {
+        this.snapToTarget(transition.toIdx);
+        return;
+      }
+
+      var t = easeOutCubic(transition.progress);
+      this.offsetX = fromOff.x + (toOff.x - fromOff.x) * t;
+      this.offsetY = fromOff.y + (toOff.y - fromOff.y) * t;
+      this.targetOffset = toOff;
+      this.measuredIndex = transition.toIdx;
+      this.layoutDirty = false;
+      this.animating = transition.progress < 1;
+      this.applyTransform();
     }
 
     rebuild(items) {
@@ -409,7 +497,7 @@
         return;
       }
 
-      if (!SLIDING_ANIMATION_ENABLED) {
+      if (!slidingAnimationEnabled) {
         if (this.layoutDirty || this.measuredIndex !== this.targetCenterIndex) {
           this.snapToTarget(this.targetCenterIndex);
         }
@@ -417,32 +505,9 @@
         return;
       }
 
-      if (this.layoutDirty || this.measuredIndex !== this.targetCenterIndex) {
-        this.refreshTargetOffset();
+      if (this.layoutDirty) {
+        this.snapToTarget(this.targetCenterIndex);
       }
-      if (!this.targetOffset) {
-        this.animating = false;
-        return;
-      }
-
-      var sinceChange = performance.now() - this.lastIndexChangeTime;
-      var tau;
-      if (sinceChange < 200) {
-        tau = 0.035;
-      } else if (sinceChange < 500) {
-        tau = 0.07;
-      } else {
-        tau = 0.13;
-      }
-
-      var alpha = 1 - Math.exp(-dt / 1000 / tau);
-      var dx = this.targetOffset.x - this.offsetX;
-      var dy = this.targetOffset.y - this.offsetY;
-      this.offsetX += dx * alpha;
-      this.offsetY += dy * alpha;
-      this.applyTransform();
-
-      this.animating = Math.abs(dx) > 0.35 || Math.abs(dy) > 0.35;
     }
   }
 
@@ -576,12 +641,21 @@
     if (lyricsSlidingDisplay) lyricsSlidingDisplay.update(beat);
   }
 
+  function applySlidingAnimationFromSettings() {
+    slidingAnimationEnabled = appSettings.sliding_animation_enabled !== false;
+    if (currentView === "performance") {
+      paintLiveVisuals();
+      tickSlidingDisplays(16);
+    }
+  }
+
   function fetchSettings() {
     return fetch("/api/settings/")
       .then((r) => r.json())
       .then((data) => {
         appSettings = data;
         populateSettingsForm();
+        applySlidingAnimationFromSettings();
       })
       .catch(console.error);
   }
@@ -903,10 +977,10 @@
     if (currentView === "performance" && !document.hidden) {
       const shouldPaint =
         playhead.playing ||
-        (SLIDING_ANIMATION_ENABLED && slidingDisplaysAnimating());
+        (slidingAnimationEnabled && slidingDisplaysAnimating());
       if (shouldPaint) {
         paintLiveVisuals();
-        if (SLIDING_ANIMATION_ENABLED) {
+        if (slidingAnimationEnabled) {
           tickSlidingDisplays(dt);
         }
       }
@@ -1008,6 +1082,10 @@
   function populateSettingsForm() {
     if (!$settingsForm || !appSettings) return;
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
+    if ($settingsForm.sliding_animation_enabled) {
+      $settingsForm.sliding_animation_enabled.checked =
+        appSettings.sliding_animation_enabled !== false;
+    }
   }
 
   function setView(view) {
@@ -1714,12 +1792,14 @@
 
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
+      sliding_animation_enabled: !!$settingsForm.sliding_animation_enabled.checked,
     };
 
     saveSettings(payload)
       .then(function (data) {
         appSettings = data;
         populateSettingsForm();
+        applySlidingAnimationFromSettings();
         setSettingsStatus("Saved", "success");
       })
       .catch(function (err) {
@@ -1969,6 +2049,7 @@
 
     setView("performance");
     applyLockState();
+    fetchSettings();
     loadCachedArrangement();
     connect();
   }

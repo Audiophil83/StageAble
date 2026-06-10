@@ -10,6 +10,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         model = AppSettings
         fields = [
             "ableton_osc_host",
+            "sliding_animation_enabled",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
