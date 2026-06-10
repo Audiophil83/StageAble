@@ -213,6 +213,9 @@
     return 1 - Math.pow(1 - t, 3);
   }
 
+  const CAROUSEL_MAX_PREV = 1;
+  const CAROUSEL_MAX_NEXT = 3;
+
   // ── Sliding Display Class ───────────────────────────────────────
 
   class SlidingDisplay {
@@ -375,19 +378,146 @@
       };
     }
 
-    setTransitionClasses(fromIdx, toIdx, items, songStartBeat, songEndBeat) {
+    isLimitedCarousel() {
+      return (
+        this.itemsArrayName === "sections" || this.itemsArrayName === "chords"
+      );
+    }
+
+    nextRoleForOffset(offset) {
+      if (offset === 1) return "next";
+      if (offset === 2) return "next2";
+      if (offset === 3) return "next3";
+      return "offscreen";
+    }
+
+    resolveItemRole(i, activeIdx, items, songStartBeat, songEndBeat, opts) {
+      opts = opts || {};
+      var showNext = opts.showNext;
+      var nextIdx = opts.nextIdx;
       var expandedLyrics =
         this.itemsArrayName === "lyrics" && this.$container.closest(".expanded");
+      var limited = this.isLimitedCarousel();
+
+      if (activeIdx >= 0 && i === activeIdx) return "current";
+
+      if (
+        activeIdx >= 0 &&
+        i === activeIdx - 1 &&
+        items[i].start_beat >= songStartBeat
+      ) {
+        return "prev";
+      }
+
+      if (limited && activeIdx >= 0) {
+        if (
+          i > activeIdx &&
+          i <= activeIdx + CAROUSEL_MAX_NEXT &&
+          items[i].start_beat < songEndBeat
+        ) {
+          return this.nextRoleForOffset(i - activeIdx);
+        }
+        return "offscreen";
+      }
+
+      if (
+        activeIdx >= 0 &&
+        i === activeIdx + 1 &&
+        items[i].start_beat < songEndBeat
+      ) {
+        return "next";
+      }
+      if (
+        expandedLyrics &&
+        activeIdx >= 0 &&
+        i === activeIdx + 2 &&
+        items[i].start_beat < songEndBeat
+      ) {
+        return "next2";
+      }
+      if (activeIdx === -1 && showNext && i === nextIdx) return "next";
+      return "offscreen";
+    }
+
+    trimNextItemsToFit(activeIdx) {
+      if (!this.isLimitedCarousel() || activeIdx < 0 || !this.$container) {
+        return;
+      }
+
+      var containerW = this.$container.getBoundingClientRect().width;
+      if (!containerW) return;
+
+      var gap = 40;
+      var currentEl = this.elements[activeIdx];
+      if (!currentEl) return;
+
+      var currentW = currentEl.getBoundingClientRect().width;
+      var rightBudget = Math.max(0, containerW / 2 - currentW / 2 - gap);
+      var visibleOffsets = [];
+
+      for (var offset = 1; offset <= CAROUSEL_MAX_NEXT; offset++) {
+        var idx = activeIdx + offset;
+        var el = this.elements[idx];
+        if (!el || el.classList.contains("offscreen")) continue;
+        visibleOffsets.push(offset);
+      }
+
+      var self = this;
+      function nextWidth(offsets) {
+        var total = 0;
+        for (var k = 0; k < offsets.length; k++) {
+          var nextEl = self.elements[activeIdx + offsets[k]];
+          if (!nextEl) continue;
+          total += nextEl.getBoundingClientRect().width;
+          if (k > 0) total += gap;
+        }
+        return total;
+      }
+
+      while (visibleOffsets.length && nextWidth(visibleOffsets) > rightBudget) {
+        var removed = visibleOffsets.pop();
+        this.elements[activeIdx + removed].className = "sliding-item offscreen";
+      }
+    }
+
+    setTransitionClasses(fromIdx, toIdx, items, songStartBeat, songEndBeat) {
       for (var i = 0; i < this.elements.length; i++) {
-        var role;
+        var role = "offscreen";
         if (i === fromIdx) role = "current";
         else if (i === toIdx) role = "next";
-        else if (fromIdx >= 0 && i === fromIdx - 1
-          && items[i].start_beat >= songStartBeat) role = "prev";
-        else if (expandedLyrics && fromIdx >= 0 && i === fromIdx + 2
-          && items[i].start_beat < songEndBeat) role = "next2";
-        else role = "offscreen";
+        else if (
+          fromIdx >= 0 &&
+          i === fromIdx - 1 &&
+          items[i].start_beat >= songStartBeat
+        ) {
+          role = "prev";
+        } else if (this.isLimitedCarousel()) {
+          if (
+            i === toIdx + 1 &&
+            toIdx + 1 < items.length &&
+            items[i].start_beat < songEndBeat
+          ) {
+            role = "next2";
+          } else if (
+            i === toIdx + 2 &&
+            toIdx + 2 < items.length &&
+            items[i].start_beat < songEndBeat
+          ) {
+            role = "next3";
+          }
+        } else if (
+          this.itemsArrayName === "lyrics" &&
+          this.$container.closest(".expanded") &&
+          fromIdx >= 0 &&
+          i === fromIdx + 2 &&
+          items[i].start_beat < songEndBeat
+        ) {
+          role = "next2";
+        }
         this.elements[i].className = "sliding-item " + role;
+      }
+      if (this.isLimitedCarousel()) {
+        this.trimNextItemsToFit(fromIdx);
       }
     }
 
@@ -422,20 +552,39 @@
     }
 
     setClasses(activeIdx, items, beat, songStartBeat, songEndBeat, showNext, nextIdx) {
-      var expandedLyrics =
-        this.itemsArrayName === "lyrics" && this.$container.closest(".expanded");
-      for (var i = 0; i < this.elements.length; i++) {
-        var role;
-        if (i === activeIdx) role = "current";
-        else if (activeIdx >= 0 && i === activeIdx - 1
-          && items[i].start_beat >= songStartBeat) role = "prev";
-        else if (activeIdx >= 0 && i === activeIdx + 1
-          && items[i].start_beat < songEndBeat) role = "next";
-        else if (expandedLyrics && activeIdx >= 0 && i === activeIdx + 2
-          && items[i].start_beat < songEndBeat) role = "next2";
-        else if (activeIdx === -1 && showNext && i === nextIdx) role = "next";
-        else role = "offscreen";
-        this.elements[i].className = "sliding-item " + role;
+      if (this.isLimitedCarousel() && activeIdx === -1 && showNext) {
+        for (var i = 0; i < this.elements.length; i++) {
+          var previewRole = "offscreen";
+          if (
+            i >= nextIdx &&
+            i < nextIdx + CAROUSEL_MAX_NEXT &&
+            items[i].start_beat < songEndBeat
+          ) {
+            previewRole =
+              i === nextIdx
+                ? "current"
+                : this.nextRoleForOffset(i - nextIdx);
+          }
+          this.elements[i].className = "sliding-item " + previewRole;
+        }
+        this.trimNextItemsToFit(nextIdx);
+        return;
+      }
+
+      for (var j = 0; j < this.elements.length; j++) {
+        var role = this.resolveItemRole(
+          j,
+          activeIdx,
+          items,
+          songStartBeat,
+          songEndBeat,
+          { showNext: showNext, nextIdx: nextIdx }
+        );
+        this.elements[j].className = "sliding-item " + role;
+      }
+
+      if (this.isLimitedCarousel()) {
+        this.trimNextItemsToFit(activeIdx);
       }
     }
 
