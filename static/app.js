@@ -41,8 +41,20 @@
   let scanInProgress = false;
 
   // Client-side playhead smoothing (extrapolates between server polls)
-  const PLAYHEAD_SOFT_CORRECT_BEATS = 0.5;
+  const PLAYHEAD_SOFT_CORRECT_BEATS = 0.1;
   const PLAYHEAD_HARD_SNAP_BEATS = 4;
+  const PLAYHEAD_SOFT_CORRECT_BLEND = 0.5;
+  const MESSAGE_AGE_MAX_MS = 500;
+  // Debug: snap only. Re-enable after beat-aligned animation (ends at start_beat).
+  const SLIDING_ANIMATION_ENABLED = false;
+  const debugSyncEnabled =
+    /(?:\?|&)debug=sync(?:&|$)/.test(location.search) ||
+    localStorage.getItem("debugSync") === "1";
+  let $syncDebugOverlay = null;
+  const syncDebug = {
+    sectionLagMs: null,
+    chordLagMs: null,
+  };
   let progressLoopActive = false;
   let progressRafId = 0;
   let lastFrameTime = 0;
@@ -268,9 +280,11 @@
         centerIdx = showNext ? nextIdx : 0;
       }
 
-      if (idx >= 0 && idx !== this.activeIndex) {
+      var indexChanged = idx >= 0 && idx !== this.activeIndex;
+      if (indexChanged) {
         this.lastIndexChangeTime = performance.now();
         this.lastCenterIndex = idx;
+        recordIndexChangeLag(this, items, idx, beat);
       }
 
       this.activeIndex = idx;
@@ -279,7 +293,7 @@
       this.targetCenterIndex = centerIdx;
       this.layoutDirty = true;
 
-      if (rebuilt) {
+      if (!SLIDING_ANIMATION_ENABLED || rebuilt || indexChanged) {
         this.snapToTarget(centerIdx);
       }
     }
@@ -391,6 +405,14 @@
 
     tick(dt) {
       if (!this.elements.length) {
+        this.animating = false;
+        return;
+      }
+
+      if (!SLIDING_ANIMATION_ENABLED) {
+        if (this.layoutDirty || this.measuredIndex !== this.targetCenterIndex) {
+          this.snapToTarget(this.targetCenterIndex);
+        }
         this.animating = false;
         return;
       }
@@ -709,13 +731,23 @@
   }
 
   function playheadContextKey() {
-    const song = state.active_song ? state.active_song.name : "";
-    const section = state.active_section ? state.active_section.name : "";
-    return song + "|" + section;
+    return state.active_song ? state.active_song.name : "";
+  }
+
+  function beatWithMessageAge(serverBeat) {
+    const lastUpdate = state.last_update || 0;
+    if (!lastUpdate) return serverBeat;
+    const ageMs = Math.max(
+      0,
+      Math.min(MESSAGE_AGE_MAX_MS, Date.now() - lastUpdate * 1000)
+    );
+    const bps = (state.tempo || 120) / 60;
+    return serverBeat + (ageMs / 1000) * bps;
   }
 
   function syncPlayheadFromState() {
-    const serverBeat = state.transport_position || 0;
+    const rawBeat = state.transport_position || 0;
+    const serverBeat = state.is_playing ? beatWithMessageAge(rawBeat) : rawBeat;
     const now = performance.now();
     const key = playheadContextKey();
 
@@ -729,7 +761,7 @@
     playhead.playing = !!state.is_playing;
 
     if (!playhead.playing) {
-      playhead.anchorBeat = serverBeat;
+      playhead.anchorBeat = rawBeat;
       playhead.anchorTime = now;
       return;
     }
@@ -743,7 +775,8 @@
       if (Math.abs(drift) > PLAYHEAD_HARD_SNAP_BEATS) {
         playhead.anchorBeat = serverBeat;
       } else {
-        playhead.anchorBeat = extrapolated + drift * 0.18;
+        playhead.anchorBeat =
+          extrapolated + drift * PLAYHEAD_SOFT_CORRECT_BLEND;
       }
       playhead.anchorTime = now;
     }
@@ -760,6 +793,74 @@
     );
   }
 
+  function getMessageAgeMs() {
+    const lastUpdate = state.last_update || 0;
+    if (!lastUpdate) return 0;
+    return Math.max(
+      0,
+      Math.min(MESSAGE_AGE_MAX_MS, Date.now() - lastUpdate * 1000)
+    );
+  }
+
+  function getPlayheadDriftBeats() {
+    if (!playhead.playing) return 0;
+    const rawBeat = state.transport_position || 0;
+    const serverBeat = beatWithMessageAge(rawBeat);
+    const now = performance.now();
+    const extrapolated =
+      playhead.anchorBeat +
+      ((now - playhead.anchorTime) / 1000) * playhead.beatsPerSecond;
+    return serverBeat - extrapolated;
+  }
+
+  function recordIndexChangeLag(display, items, idx, beat) {
+    if (!debugSyncEnabled || idx < 0) return;
+    const bps = (state.tempo || 120) / 60;
+    if (!bps) return;
+    const lagMs = ((beat - items[idx].start_beat) / bps) * 1000;
+    if (display.itemsArrayName === "sections") {
+      syncDebug.sectionLagMs = lagMs;
+    } else if (display.itemsArrayName === "chords") {
+      syncDebug.chordLagMs = lagMs;
+    }
+  }
+
+  function ensureSyncDebugOverlay() {
+    if (!debugSyncEnabled) return;
+    if ($syncDebugOverlay) return;
+    $syncDebugOverlay = document.createElement("div");
+    $syncDebugOverlay.id = "sync-debug-overlay";
+    $syncDebugOverlay.style.cssText =
+      "position:fixed;bottom:8px;left:8px;z-index:9999;padding:8px 10px;" +
+      "font:11px/1.45 monospace;background:rgba(0,0,0,0.82);color:#9f9;" +
+      "border:1px solid #363;border-radius:6px;pointer-events:none;white-space:pre;";
+    document.body.appendChild($syncDebugOverlay);
+  }
+
+  function updateSyncDebugOverlay() {
+    if (!debugSyncEnabled) return;
+    ensureSyncDebugOverlay();
+    const beat = getDisplayBeat();
+    const serverBeat = state.transport_position || 0;
+    const sectionIdx = sectionSlidingDisplay
+      ? sectionSlidingDisplay.findActive(sections, beat)
+      : -1;
+    const chordIdx = chordsSlidingDisplay
+      ? chordsSlidingDisplay.findActive(chords, beat)
+      : -1;
+    const fmtLag = function (ms) {
+      return ms == null ? "--" : ms.toFixed(0) + "ms";
+    };
+    $syncDebugOverlay.textContent =
+      "sync debug\n" +
+      "displayBeat: " + beat.toFixed(3) + "\n" +
+      "serverBeat:  " + serverBeat.toFixed(3) + "\n" +
+      "messageAge:  " + getMessageAgeMs().toFixed(0) + "ms\n" +
+      "drift:       " + getPlayheadDriftBeats().toFixed(3) + " beats\n" +
+      "sectionIdx:  " + sectionIdx + "  lag@change: " + fmtLag(syncDebug.sectionLagMs) + "\n" +
+      "chordIdx:    " + chordIdx + "  lag@change: " + fmtLag(syncDebug.chordLagMs);
+  }
+
   function tickSlidingDisplays(dt) {
     if (sectionSlidingDisplay) sectionSlidingDisplay.tick(dt);
     if (chordsSlidingDisplay) chordsSlidingDisplay.tick(dt);
@@ -773,6 +874,10 @@
     if (sectionSlidingDisplay) sectionSlidingDisplay.update(beat);
     if (chordsSlidingDisplay) chordsSlidingDisplay.update(beat);
     if (lyricsSlidingDisplay) lyricsSlidingDisplay.update(beat);
+
+    if (debugSyncEnabled) {
+      updateSyncDebugOverlay();
+    }
   }
 
   function scheduleProgressFrame() {
@@ -796,9 +901,17 @@
     lastFrameTime = now;
 
     if (currentView === "performance" && !document.hidden) {
-      if (playhead.playing || slidingDisplaysAnimating()) {
+      const shouldPaint =
+        playhead.playing ||
+        (SLIDING_ANIMATION_ENABLED && slidingDisplaysAnimating());
+      if (shouldPaint) {
         paintLiveVisuals();
-        tickSlidingDisplays(dt);
+        if (SLIDING_ANIMATION_ENABLED) {
+          tickSlidingDisplays(dt);
+        }
+      }
+      if (debugSyncEnabled) {
+        updateSyncDebugOverlay();
       }
     }
     scheduleProgressFrame();
@@ -1848,6 +1961,11 @@
     sectionSlidingDisplay = new SlidingDisplay("section-sliding-container", "section-sliding-track", "sections");
     chordsSlidingDisplay = new SlidingDisplay("chords-sliding-container", "chords-sliding-track", "chords");
     lyricsSlidingDisplay = new SlidingDisplay("lyrics-sliding-container", "lyrics-sliding-track", "lyrics");
+
+    if (debugSyncEnabled) {
+      ensureSyncDebugOverlay();
+      updateSyncDebugOverlay();
+    }
 
     setView("performance");
     applyLockState();
