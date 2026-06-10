@@ -11,6 +11,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         fields = [
             "ableton_osc_host",
             "sliding_animation_enabled",
+            "sliding_animation_duration_ms",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]

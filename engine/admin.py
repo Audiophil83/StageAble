@@ -40,6 +40,7 @@ class AppSettingsAdmin(admin.ModelAdmin):
     list_display = [
         "ableton_osc_host",
         "sliding_animation_enabled",
+        "sliding_animation_duration_ms",
         "updated_at",
     ]
 

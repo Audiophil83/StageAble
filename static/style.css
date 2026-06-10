@@ -688,6 +688,12 @@ main {
   cursor: pointer;
 }
 
+.form-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
 .settings-actions {
   display: flex;
   align-items: center;

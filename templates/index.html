@@ -204,6 +204,12 @@
                 Sliding animations (sections, chords, lyrics)
               </label>
             </div>
+            <div class="form-group">
+              <label for="setting-sliding-duration">Slide duration (ms)</label>
+              <input id="setting-sliding-duration" name="sliding_animation_duration_ms" type="number"
+                     min="0" max="2000" step="10" inputmode="numeric">
+              <p class="form-hint">Animation ends at each beat. Use 0 to snap instantly.</p>
+            </div>
             <div class="settings-actions">
               <button id="btn-settings-save" class="btn btn-play" type="submit">Save</button>
               <span id="settings-status" class="settings-status"></span>

@@ -11,7 +11,7 @@ class Migration(migrations.Migration):
             model_name="appsettings",
             name="sliding_animation_enabled",
             field=models.BooleanField(
-                default=True,
+                default=False,
                 help_text="Beat-aligned section/chord/lyrics slide on web clients.",
             ),
         ),

@@ -5,7 +5,7 @@ The canonical data source is always Ableton's arrangement — these models
 provide a way to save/load named setlists that reference songs by name.
 """
 
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -14,8 +14,13 @@ class AppSettings(models.Model):
 
     ableton_osc_host = models.CharField(max_length=255, default="127.0.0.1")
     sliding_animation_enabled = models.BooleanField(
-        default=True,
+        default=False,
         help_text="Beat-aligned section/chord/lyrics slide on web clients.",
+    )
+    sliding_animation_duration_ms = models.PositiveIntegerField(
+        default=100,
+        validators=[MinValueValidator(0), MaxValueValidator(2000)],
+        help_text="Milliseconds for slide-in; animation ends at each event beat.",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

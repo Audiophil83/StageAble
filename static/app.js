@@ -45,8 +45,8 @@
   const PLAYHEAD_HARD_SNAP_BEATS = 4;
   const PLAYHEAD_SOFT_CORRECT_BLEND = 0.5;
   const MESSAGE_AGE_MAX_MS = 500;
-  const SLIDING_ANIMATION_DURATION_MS = 50;
-  let slidingAnimationEnabled = true;
+  let slidingAnimationEnabled = false;
+  let slidingAnimationDurationMs = 100;
   const debugSyncEnabled =
     /(?:\?|&)debug=sync(?:&|$)/.test(location.search) ||
     localStorage.getItem("debugSync") === "1";
@@ -350,7 +350,7 @@
       var bps = playhead.beatsPerSecond || (state.tempo || 120) / 60;
       if (!bps) return null;
 
-      var leadBeats = (SLIDING_ANIMATION_DURATION_MS / 1000) * bps;
+      var leadBeats = (slidingAnimationDurationMs / 1000) * bps;
       if (leadBeats <= 0) return null;
 
       var nextIdx = this.findNext(items, beat);
@@ -642,7 +642,11 @@
   }
 
   function applySlidingAnimationFromSettings() {
-    slidingAnimationEnabled = appSettings.sliding_animation_enabled !== false;
+    slidingAnimationEnabled = appSettings.sliding_animation_enabled === true;
+    const duration = parseInt(appSettings.sliding_animation_duration_ms, 10);
+    slidingAnimationDurationMs = Number.isFinite(duration)
+      ? Math.max(0, Math.min(2000, duration))
+      : 100;
     if (currentView === "performance") {
       paintLiveVisuals();
       tickSlidingDisplays(16);
@@ -1084,7 +1088,13 @@
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
     if ($settingsForm.sliding_animation_enabled) {
       $settingsForm.sliding_animation_enabled.checked =
-        appSettings.sliding_animation_enabled !== false;
+        appSettings.sliding_animation_enabled === true;
+    }
+    if ($settingsForm.sliding_animation_duration_ms) {
+      $settingsForm.sliding_animation_duration_ms.value =
+        appSettings.sliding_animation_duration_ms != null
+          ? appSettings.sliding_animation_duration_ms
+          : 100;
     }
   }
 
@@ -1790,9 +1800,16 @@
     e.preventDefault();
     setSettingsStatus("Saving...", "");
 
+    const durationRaw = parseInt(
+      $settingsForm.sliding_animation_duration_ms.value,
+      10
+    );
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
       sliding_animation_enabled: !!$settingsForm.sliding_animation_enabled.checked,
+      sliding_animation_duration_ms: Number.isFinite(durationRaw)
+        ? Math.max(0, Math.min(2000, durationRaw))
+        : 100,
     };
 
     saveSettings(payload)
