@@ -2,10 +2,13 @@
 
 # Bugs to be fixed
 
-- Lateny issue
 - CI / CD
+- Transport controls are a bit strange
 
 # Features to be implemented
+
+#### Update Mechanism
+- Open Question: What about abletonOSC?
 
 #### Mixer
 
@@ -15,7 +18,7 @@
 
 How? controlled by the backend? Automatically detected by the backend by the project name
 
-#### Latency compensation. 
+#### Latency compensation.
 
 Per client. Round trip test to calculate the latency. 
 Frequently re-evaluating latency
@@ -25,3 +28,4 @@ Frequently re-evaluating latency
 #### Logging
 
 #### Song time instead of no. of bars
+
