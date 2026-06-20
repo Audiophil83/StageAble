@@ -125,11 +125,17 @@ def stop_daphne(process: subprocess.Popen[str]) -> None:
         process.wait()
 
 
-def run_status_ui(url: str, display: str, process: subprocess.Popen[str]) -> None:
+def run_status_ui(
+    url: str,
+    display: str,
+    process: subprocess.Popen[str],
+    bind_host: str,
+    port: int,
+) -> None:
     """Show a small desktop window with the server address."""
     from engine.status_ui import run
 
-    run(url, display, process)
+    run(url, display, process, bind_host, port)
 
 
 def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> int:
@@ -141,7 +147,7 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
 
     if show_ui:
         try:
-            run_status_ui(url, display, process)
+            run_status_ui(url, display, process, bind_host, port)
         finally:
             stop_daphne(process)
         return process.returncode or 0

@@ -31,7 +31,14 @@ def copy_to_clipboard(text: str) -> None:
 
 
 class RemoteableStatusApp(rumps.App):
-    def __init__(self, url: str, display: str, process: Popen[str]) -> None:
+    def __init__(
+        self,
+        url: str,
+        display: str,
+        process: Popen[str],
+        bind_host: str,
+        port: int,
+    ) -> None:
         icon = app_icon_path()
         super().__init__(
             "RemoteAble",
@@ -41,6 +48,8 @@ class RemoteableStatusApp(rumps.App):
         self.url = url
         self.display = display
         self.process = process
+        self.bind_host = bind_host
+        self.port = port
 
         self.address_item = rumps.MenuItem(f"Running at {display}")
         self.menu = [
@@ -48,6 +57,7 @@ class RemoteableStatusApp(rumps.App):
             None,
             rumps.MenuItem("Open in Browser", callback=self._open_url),
             rumps.MenuItem("Copy Address", callback=self._copy_url),
+            rumps.MenuItem("Refresh Address", callback=self._refresh_address),
             rumps.MenuItem("Rescan Project", callback=self._rescan_project),
             None,
             rumps.MenuItem("Quit", callback=self._quit),
@@ -62,6 +72,15 @@ class RemoteableStatusApp(rumps.App):
     def _copy_url(self, _sender: object) -> None:
         copy_to_clipboard(self.url)
         rumps.notification("RemoteAble", "Address copied", self.url)
+
+    def _refresh_address(self, _sender: object) -> None:
+        from engine.serve import build_urls
+
+        display, url = build_urls(self.bind_host, self.port)
+        self.display = display
+        self.url = url
+        self.address_item.title = f"Running at {display}"
+        rumps.notification("RemoteAble", "Address refreshed", url)
 
     def _rescan_project(self, _sender: object) -> None:
         endpoint = f"{self.url.rstrip('/')}/api/rescan/"
@@ -101,5 +120,11 @@ class RemoteableStatusApp(rumps.App):
         rumps.quit_application()
 
 
-def run(url: str, display: str, process: Popen[str]) -> None:
-    RemoteableStatusApp(url, display, process).run()
+def run(
+    url: str,
+    display: str,
+    process: Popen[str],
+    bind_host: str,
+    port: int,
+) -> None:
+    RemoteableStatusApp(url, display, process, bind_host, port).run()
