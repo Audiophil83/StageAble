@@ -441,7 +441,7 @@ class RuntimeEngine:
         self.osc.transport_play()
         self._pending_cue_name = None
         self._pending_position = None
-        logger.info("Auto-cue: playing '%s'", cue_name)
+        logger.info("Auto-play: playing '%s'", cue_name)
 
     def _setlist_index_for_song(self, song_name: str | None) -> int | None:
         if not song_name:
@@ -457,53 +457,55 @@ class RuntimeEngine:
     def _schedule_auto_advance(self, setlist_index: int) -> None:
         active = self.state.active_setlist
         if not active:
-            logger.info("Auto-cue skipped — no active setlist")
+            logger.info("Setlist advance skipped — no active setlist")
             return
         entries = active.get("entries") or []
         if setlist_index < 0 or setlist_index >= len(entries):
             logger.warning(
-                "Auto-cue skipped — setlist index %d out of range", setlist_index
+                "Setlist advance skipped — setlist index %d out of range",
+                setlist_index,
             )
             return
         entry = entries[setlist_index]
-        if not entry.get("auto_cue_next"):
-            logger.info(
-                "Auto-cue disabled for '%s' — enable 'Auto-cue next song' in setlist",
-                entry.get("song_name"),
-            )
-            return
         next_index = setlist_index + 1
         if next_index >= len(entries):
             logger.info(
-                "Auto-cue skipped — '%s' is the last song in the setlist",
+                "Setlist advance skipped — '%s' is the last song in the setlist",
                 entry.get("song_name"),
             )
             return
         next_entry = entries[next_index]
         if next_entry.get("missing"):
             logger.warning(
-                "Cannot auto-cue missing song '%s'",
+                "Cannot cue next song — missing from arrangement '%s'",
                 next_entry.get("song_name"),
             )
             return
         next_name = next_entry.get("song_name")
         if not self._has_cue_point(next_name):
             logger.warning(
-                "Cannot auto-cue — no cue point named '%s'",
+                "Cannot cue next song — no cue point named '%s'",
                 next_name,
             )
             return
-        gap = float(entry.get("gap_seconds") or 0.0)
-        play_delay = max(gap, AUTO_CUE_MIN_PLAY_DELAY)
-        self._auto_advance_cue_name = next_name
-        self._auto_advance_deadline = time.time() + play_delay
 
         self._jump_to_setlist_index_no_cancel(next_index)
-        logger.info(
-            "Auto-cue: jumped to '%s', play in %.2fs",
-            next_name,
-            play_delay,
-        )
+
+        if entry.get("auto_cue_next"):
+            gap = float(entry.get("gap_seconds") or 0.0)
+            play_delay = max(gap, AUTO_CUE_MIN_PLAY_DELAY)
+            self._auto_advance_cue_name = next_name
+            self._auto_advance_deadline = time.time() + play_delay
+            logger.info(
+                "Setlist advance: cued '%s', auto-play in %.2fs",
+                next_name,
+                play_delay,
+            )
+        else:
+            logger.info(
+                "Setlist advance: cued '%s' — press Play when ready",
+                next_name,
+            )
 
     def _process_auto_advance(self) -> dict | None:
         if self._auto_advance_deadline is None or self._auto_advance_cue_name is None:

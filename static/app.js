@@ -25,6 +25,7 @@
   let editorSetlist = { id: null, name: "", is_active: false, entries: [] };
   let dragSource = null;
   let lastSongListKey = null;
+  let lastHighlightedListIndex = null;
   let editorDropZonesReady = false;
 
   // Mixer view state
@@ -1575,6 +1576,7 @@
       : "tl-" + songs.length;
     if (key !== lastSongListKey) {
       lastSongListKey = key;
+      lastHighlightedListIndex = null;
       renderSongList();
     }
   }
@@ -1584,7 +1586,7 @@
     const aa = state.auto_advance;
     if (aa && aa.active) {
       $autoAdvanceInfo.textContent =
-        "Next: " +
+        "Auto-playing " +
         (aa.next_song_name || "?") +
         " in " +
         aa.seconds_remaining +
@@ -1627,7 +1629,7 @@
         (i + 1) +
         '</span><span class="song-label">' +
         escHtml(name) +
-        "</span>" +
+        '</span><span class="song-status-badge">Cued</span>' +
         durationHtml +
         "</div>" +
         '<div class="progress-bar song-progress" aria-hidden="true">' +
@@ -1648,14 +1650,27 @@
     if (state.active_setlist) {
       activeIdx = findPerformanceListIndex(state.active_setlist_index);
     }
+    const isPlaying = !!state.is_playing;
+    let activeLi = null;
     items.forEach(function (li) {
       const idx = parseInt(li.dataset.index, 10);
-      if (idx === activeIdx) {
-        li.classList.add("active");
-      } else {
-        li.classList.remove("active");
+      const isActive = idx === activeIdx;
+      li.classList.toggle("active", isActive);
+      li.classList.toggle("playing", isActive && isPlaying);
+      const badge = li.querySelector(".song-status-badge");
+      if (badge) {
+        badge.textContent = isActive && isPlaying ? "Playing" : "Cued";
+      }
+      if (isActive) {
+        activeLi = li;
       }
     });
+    if (activeLi && activeIdx !== lastHighlightedListIndex) {
+      lastHighlightedListIndex = activeIdx;
+      activeLi.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } else if (activeIdx == null) {
+      lastHighlightedListIndex = null;
+    }
   }
 
   function renderSetlistEditor() {
@@ -1737,7 +1752,7 @@
         '<label class="auto-cue-label">' +
         '<input type="checkbox" class="auto-cue-checkbox"' +
         (autoCue ? " checked" : "") +
-        "> Auto-cue next song</label>" +
+        "> Auto-play next song</label>" +
         '<span class="gap-control' +
         (autoCue ? "" : " hidden") +
         '"><label>Wait (s)</label>' +
@@ -2067,6 +2082,7 @@
         .then(function () {
           setSetlistEditorStatus("Activated", "success");
           lastSongListKey = null;
+          lastHighlightedListIndex = null;
           renderSongListIfNeeded();
         })
         .catch(function () {

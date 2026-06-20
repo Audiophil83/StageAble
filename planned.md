@@ -2,6 +2,7 @@
 
 # Bugs to be fixed
 
+- IP never changes
 - CI / CD
 - Transport controls are a bit strange
 

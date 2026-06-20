@@ -547,12 +547,14 @@ body.scan-blocking #app {
 .song-list li {
   padding: 10px 14px 8px;
   border-radius: 6px;
+  border-left: 4px solid transparent;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: background 0.1s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   font-size: 14px;
+  opacity: 0.72;
 }
 
 .song-list .song-row {
@@ -579,12 +581,53 @@ body.scan-blocking #app {
 }
 
 .song-list li.active {
-  background: var(--song-active);
-  border-left: 3px solid var(--accent);
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.18);
+  border-left-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.35);
+}
+
+.song-list li.active.playing {
+  border-left-color: var(--green);
+  box-shadow:
+    inset 0 0 0 1px rgba(34, 197, 94, 0.35),
+    0 0 12px rgba(34, 197, 94, 0.12);
+}
+
+.song-list li.active .song-label {
+  font-weight: 700;
+  color: var(--text);
 }
 
 .song-list li.active .progress-bar-fill {
   background: var(--accent-hover);
+}
+
+.song-list li.active.playing .progress-bar-fill {
+  background: var(--green);
+}
+
+.song-list .song-status-badge {
+  display: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.song-list li.active .song-status-badge {
+  display: inline-block;
+  background: rgba(99, 102, 241, 0.25);
+  color: var(--accent-hover);
+}
+
+.song-list li.active.playing .song-status-badge {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--green);
 }
 
 .song-list .song-index {
@@ -597,6 +640,7 @@ body.scan-blocking #app {
 .song-list .song-label {
   flex: 1;
   margin-left: 8px;
+  min-width: 0;
 }
 
 .song-list .song-duration {
