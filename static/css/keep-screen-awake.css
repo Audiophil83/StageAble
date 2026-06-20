@@ -60,16 +60,17 @@
   line-height: 1;
 }
 
-/* Hidden fallback video — 1×1 off-screen, no layout impact */
+/* Hidden fallback video — tiny but not compositor-suspended (iOS rejects z-index:-1) */
 .keep-awake-fallback-video {
   position: fixed;
   top: 0;
   left: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+  width: 48px;
+  height: 48px;
+  opacity: 0.01;
   pointer-events: none;
-  z-index: -1;
+  z-index: 2147483646;
+  object-fit: contain;
 }
 
 /* Non-intrusive status toast */
