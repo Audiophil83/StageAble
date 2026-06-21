@@ -8,10 +8,12 @@
 
 # Features to be implemented
 
-#### Better visual song selection
-* selecting a song should be more visually indicated
-* the end of a song in a setlist automatically jumps to the next song
-    ** user only has to press play, not select the song
+#### Mixer presets
+Implement a way to store the mixer settings. 
+Opening the mixer should show the tracks from Ableton live.
+Selecting a preset from a dropbox directly applies the mixer setting in Live.
+User should be able to store the current setting with specifying a name. 
+UI wise it should be similar to the save load in the setlist editor.
 
 #### Song time instead of no. of bars
 
