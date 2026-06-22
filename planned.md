@@ -8,6 +8,12 @@
 
 # Features to be implemented
 
+#### Versioning system
+Implement a way to automatically version this app. 
+Each new feature should increment the major version, 
+a bugfix should increment the minor version. 
+Investigate if there is a system that automatically does this from git commits.
+
 #### Mixer presets
 Implement a way to store the mixer settings. 
 Opening the mixer should show the tracks from Ableton live.

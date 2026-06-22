@@ -31,6 +31,23 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        run: |
+          REMOTEABLE_VERSION="$(python3 scripts/versioning/next_version.py)"
+          echo "value=$REMOTEABLE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "REMOTEABLE_VERSION=$REMOTEABLE_VERSION" >> "$GITHUB_ENV"
+          python3 scripts/versioning/next_version.py --write
+
+      - name: Create and push version tag
+        run: |
+          git config user.name "Gitea Actions"
+          git config user.email "actions@gitea.local"
+          git tag -a "v${REMOTEABLE_VERSION}" -m "Release v${REMOTEABLE_VERSION}"
+          git push origin "v${REMOTEABLE_VERSION}"
 
       - name: Verify Python
         run: |
@@ -49,7 +66,7 @@ jobs:
         run: .venv/bin/pip install --no-cache-dir -r requirements.txt pyinstaller pillow
 
       - name: Build RemoteAble.app
-        run: DJANGO_SETTINGS_MODULE=remoteable.settings .venv/bin/python scripts/build_mac_app.py
+        run: DJANGO_SETTINGS_MODULE=remoteable.settings REMOTEABLE_VERSION=${{ steps.version.outputs.value }} .venv/bin/python scripts/build_mac_app.py
 
       - name: Zip app bundle
         run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
@@ -58,7 +75,7 @@ jobs:
         uses: https://gitea.com/actions/gitea-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: build-${{ github.run_number }}-${{ github.sha }}
-          name: RemoteAble ${{ github.run_number }}
-          body: Automated build from ${{ github.sha }}
+          tag: v${{ steps.version.outputs.value }}
+          name: RemoteAble v${{ steps.version.outputs.value }}
+          body: Automated release v${{ steps.version.outputs.value }} from ${{ github.sha }}
           files: dist/RemoteAble-macOS.zip

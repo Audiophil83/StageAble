@@ -1,12 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for the RemoteAble macOS app bundle."""
 
+import os
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 root = Path(SPECPATH)
+app_version = os.environ.get("REMOTEABLE_VERSION", "0.0.0-dev")
 hook_dir = str(root / "scripts" / "packaging" / "hooks")
 
 # Optional/test-only subpackages that fail to import during analysis.
@@ -139,5 +141,9 @@ app = BUNDLE(
     name="RemoteAble.app",
     icon=str(root / "assets" / "RemoteAble.icns"),
     bundle_identifier="com.remoteable.app",
-    info_plist={"LSUIElement": True},
+    info_plist={
+        "LSUIElement": True,
+        "CFBundleShortVersionString": app_version,
+        "CFBundleVersion": app_version,
+    },
 )
