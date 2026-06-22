@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 
 import rumps
 
+from engine.version import get_version
+
 if TYPE_CHECKING:
     from subprocess import Popen
 
@@ -54,6 +56,7 @@ class RemoteableStatusApp(rumps.App):
         self.address_item = rumps.MenuItem(f"Running at {display}")
         self.menu = [
             self.address_item,
+            rumps.MenuItem(f"Version {get_version()}", callback=None),
             None,
             rumps.MenuItem("Open in Browser", callback=self._open_url),
             rumps.MenuItem("Copy Address", callback=self._copy_url),

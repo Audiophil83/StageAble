@@ -8,7 +8,12 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
 root = Path(SPECPATH)
-app_version = os.environ.get("REMOTEABLE_VERSION", "0.0.0-dev")
+version_file = root / "VERSION"
+app_version = os.environ.get("REMOTEABLE_VERSION", "").strip()
+if not app_version and version_file.is_file():
+    app_version = version_file.read_text(encoding="utf-8").strip()
+if not app_version:
+    app_version = "0.0.0-dev"
 hook_dir = str(root / "scripts" / "packaging" / "hooks")
 
 # Optional/test-only subpackages that fail to import during analysis.
@@ -32,6 +37,7 @@ project_datas = [
     (str(root / "templates"), "templates"),
     (str(root / "static"), "static"),
     (str(root / "assets"), "assets"),
+    (str(root / "VERSION"), "."),
 ]
 
 hiddenimports = collect_submodules("engine") + collect_submodules("remoteable")

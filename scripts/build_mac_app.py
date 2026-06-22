@@ -9,6 +9,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "RemoteAble.spec"
 DIST_APP = ROOT / "dist" / "RemoteAble.app"
+VERSION_FILE = ROOT / "VERSION"
+
+
+def read_version() -> str:
+    if VERSION_FILE.is_file():
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+        if version:
+            return version
+    return "0.0.0-dev"
 
 
 def main() -> int:
@@ -23,10 +33,14 @@ def main() -> int:
         print("RemoteAble.app can only be built on macOS.", file=sys.stderr)
         return 1
 
+    env = os.environ.copy()
+    env.setdefault("REMOTEABLE_VERSION", read_version())
+
     subprocess.run(
         [sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)],
         cwd=ROOT,
         check=True,
+        env=env,
     )
 
     if not DIST_APP.is_dir():
