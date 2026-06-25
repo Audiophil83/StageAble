@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from .models import AppSettings, Setlist, SetlistEntry
+from .models import AppSettings, MixerPreset, Setlist, SetlistEntry
 
 
 class AppSettingsSerializer(serializers.ModelSerializer):
@@ -15,6 +15,13 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+
+class MixerPresetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MixerPreset
+        fields = ["id", "name", "tracks", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class SetlistEntrySerializer(serializers.ModelSerializer):

@@ -7,8 +7,13 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from .models import AppSettings, Setlist
-from .serializers import AppSettingsSerializer, SetlistCreateSerializer, SetlistSerializer
+from .models import AppSettings, MixerPreset, Setlist
+from .serializers import (
+    AppSettingsSerializer,
+    MixerPresetSerializer,
+    SetlistCreateSerializer,
+    SetlistSerializer,
+)
 from .state import engine_state
 
 
@@ -248,3 +253,18 @@ class SetlistViewSet(viewsets.ModelViewSet):
         setlist.save()
         self._reload_active_setlist()
         return Response(SetlistSerializer(setlist).data)
+
+
+class MixerPresetViewSet(viewsets.ModelViewSet):
+    queryset = MixerPreset.objects.all()
+    serializer_class = MixerPresetSerializer
+
+    @action(detail=True, methods=["post"])
+    def apply(self, request, pk=None):
+        """Apply this preset's mute states to Ableton Live."""
+        preset = self.get_object()
+        from .runtime import get_engine
+
+        engine = get_engine()
+        tracks = engine.cmd_apply_mixer_preset(preset.tracks)
+        return Response({"status": "ok", "tracks": tracks})

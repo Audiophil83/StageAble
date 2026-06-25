@@ -840,6 +840,10 @@ main {
   margin-bottom: 8px;
 }
 
+.mixer-toolbar {
+  margin-top: 8px;
+}
+
 .mixer-intro {
   font-size: 14px;
   color: var(--text-dim);

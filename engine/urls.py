@@ -7,6 +7,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r"setlists", views.SetlistViewSet, basename="setlist")
+router.register(r"mixer-presets", views.MixerPresetViewSet, basename="mixer-preset")
 
 urlpatterns = [
     # Engine state

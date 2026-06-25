@@ -371,6 +371,45 @@ class RuntimeEngine:
             self.state.update(mixer_tracks=updated)
         self._broadcast()
 
+    def cmd_apply_mixer_preset(self, preset_tracks: list[dict]) -> list[dict]:
+        """Apply mute states from a saved preset to all [MIX] tracks in Ableton."""
+        preset_by_index = {
+            t["index"]: bool(t["muted"])
+            for t in preset_tracks
+            if "index" in t and "muted" in t
+        }
+        preset_by_name = {
+            t["name"]: bool(t["muted"])
+            for t in preset_tracks
+            if "name" in t and "muted" in t
+        }
+
+        with self._lock:
+            cached = list(self.state.mixer_tracks)
+
+        if not cached:
+            return []
+
+        updated: list[dict] = []
+        for track in cached:
+            idx = track["index"]
+            name = track.get("name", "")
+            if idx in preset_by_index:
+                muted = preset_by_index[idx]
+            elif name in preset_by_name:
+                muted = preset_by_name[name]
+            else:
+                muted = track.get("muted", False)
+
+            if muted != track.get("muted"):
+                self.osc.set_track_mute(idx, muted)
+            updated.append({**track, "muted": muted})
+
+        with self._lock:
+            self.state.update(mixer_tracks=updated)
+        self._broadcast()
+        return updated
+
     def reload_active_setlist(self, *, broadcast: bool = True) -> None:
         """Reload the active setlist from the database."""
         with self._lock:

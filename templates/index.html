@@ -184,6 +184,20 @@
         <section id="mixer-panel" class="panel mixer-panel">
           <h2>Mixer</h2>
           <p class="mixer-intro">Tracks named <code>[MIX]…</code> in Ableton appear here. Rescan after renaming tracks.</p>
+          <div class="setlist-toolbar mixer-toolbar">
+            <div class="setlist-toolbar-left">
+              <input id="mixer-preset-name" class="setlist-name-input" type="text" placeholder="Preset name">
+              <select id="mixer-preset-load" class="setlist-load-select">
+                <option value="">Load preset…</option>
+              </select>
+            </div>
+            <div class="setlist-toolbar-actions">
+              <button id="btn-mixer-preset-new" class="btn btn-secondary" type="button">New</button>
+              <button id="btn-mixer-preset-save" class="btn btn-play" type="button">Save</button>
+              <button id="btn-mixer-preset-delete" class="btn btn-stop" type="button">Delete</button>
+            </div>
+          </div>
+          <p id="mixer-preset-status" class="setlist-editor-status"></p>
           <p id="mixer-status" class="mixer-status"></p>
           <ul id="mixer-track-list" class="mixer-track-list"></ul>
         </section>

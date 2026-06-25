@@ -14,13 +14,6 @@ Each new feature should increment the major version,
 a bugfix should increment the minor version. 
 Investigate if there is a system that automatically does this from git commits.
 
-#### Mixer presets
-Implement a way to store the mixer settings. 
-Opening the mixer should show the tracks from Ableton live.
-Selecting a preset from a dropbox directly applies the mixer setting in Live.
-User should be able to store the current setting with specifying a name. 
-UI wise it should be similar to the save load in the setlist editor.
-
 #### Song time instead of no. of bars
 
 #### Rehearsing sections

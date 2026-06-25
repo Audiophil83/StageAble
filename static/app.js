@@ -33,6 +33,9 @@
   let mixerFetchId = 0;
   /** While set: ignore stale mixer_tracks from poll until server confirms. */
   let mixerPending = null;
+  let savedMixerPresets = [];
+  let editorMixerPreset = { id: null, name: "" };
+  let mixerPresetApplying = false;
 
   // Client lock — locked by default; only Performance view when locked
   let clientLocked = true;
@@ -96,6 +99,12 @@
   const $navSettings = document.getElementById("nav-settings");
   const $mixerTrackList = document.getElementById("mixer-track-list");
   const $mixerStatus = document.getElementById("mixer-status");
+  const $mixerPresetName = document.getElementById("mixer-preset-name");
+  const $mixerPresetLoad = document.getElementById("mixer-preset-load");
+  const $mixerPresetStatus = document.getElementById("mixer-preset-status");
+  const $btnMixerPresetNew = document.getElementById("btn-mixer-preset-new");
+  const $btnMixerPresetSave = document.getElementById("btn-mixer-preset-save");
+  const $btnMixerPresetDelete = document.getElementById("btn-mixer-preset-delete");
   const $settingsForm = document.getElementById("settings-form");
   const $settingsStatus = document.getElementById("settings-status");
   const $autoAdvanceInfo = document.getElementById("auto-advance-info");
@@ -1301,6 +1310,7 @@
       });
     }
     if (isMixer) {
+      fetchMixerPresets();
       fetchMixerTracks();
     }
   }
@@ -1396,6 +1406,9 @@
     if (!Array.isArray(state.mixer_tracks)) {
       return;
     }
+    if (mixerPresetApplying) {
+      return;
+    }
 
     let tracks = state.mixer_tracks;
     if (mixerPending) {
@@ -1440,6 +1453,97 @@
               ? err.detail
               : "Failed to load mixer tracks";
         setMixerStatus(message, "error");
+      });
+  }
+
+  function fetchMixerPresets() {
+    return apiFetch("/api/mixer-presets/")
+      .then(function (data) {
+        savedMixerPresets = data;
+        populateMixerPresetLoadSelect();
+      })
+      .catch(console.error);
+  }
+
+  function populateMixerPresetLoadSelect() {
+    if (!$mixerPresetLoad) return;
+    const current = $mixerPresetLoad.value;
+    $mixerPresetLoad.innerHTML = '<option value="">Load preset…</option>';
+    savedMixerPresets.forEach(function (preset) {
+      const opt = document.createElement("option");
+      opt.value = preset.id;
+      opt.textContent = preset.name;
+      $mixerPresetLoad.appendChild(opt);
+    });
+    if (current) $mixerPresetLoad.value = current;
+  }
+
+  function resetEditorMixerPreset() {
+    editorMixerPreset = { id: null, name: "" };
+    if ($mixerPresetName) $mixerPresetName.value = "";
+    if ($mixerPresetLoad) $mixerPresetLoad.value = "";
+  }
+
+  function loadEditorMixerPreset(data) {
+    editorMixerPreset = { id: data.id, name: data.name };
+    if ($mixerPresetName) $mixerPresetName.value = data.name;
+    if ($mixerPresetLoad) $mixerPresetLoad.value = String(data.id);
+  }
+
+  function setMixerPresetStatus(message, type) {
+    if (!$mixerPresetStatus) return;
+    $mixerPresetStatus.textContent = message || "";
+    $mixerPresetStatus.className =
+      "setlist-editor-status" + (type ? " " + type : "");
+  }
+
+  function buildMixerPresetPayload() {
+    return {
+      name: ($mixerPresetName && $mixerPresetName.value.trim()) || "Untitled",
+      tracks: mixerTracks.map(function (t) {
+        return {
+          index: t.index,
+          name: t.name,
+          muted: !!t.muted,
+        };
+      }),
+    };
+  }
+
+  function applyMixerPreset(id) {
+    if (!id) return Promise.resolve();
+    if (!isMixerConnected()) {
+      setMixerPresetStatus("Not connected to Ableton", "error");
+      return Promise.reject(new Error("not connected"));
+    }
+    mixerPresetApplying = true;
+    setMixerPresetStatus("Applying...", "");
+    return apiFetch("/api/mixer-presets/" + id + "/apply/", { method: "POST" })
+      .then(function (data) {
+        mixerPending = null;
+        if (data.tracks) {
+          applyMixerTracks(data.tracks);
+        }
+        const preset = savedMixerPresets.find(function (p) {
+          return String(p.id) === String(id);
+        });
+        if (preset) {
+          loadEditorMixerPreset(preset);
+        }
+        setMixerPresetStatus("Applied", "success");
+      })
+      .catch(function (err) {
+        const message =
+          err && err.error
+            ? err.error
+            : err && typeof err === "object"
+              ? Object.values(err).flat().join(" ")
+              : "Failed to apply preset";
+        setMixerPresetStatus(message, "error");
+        throw err;
+      })
+      .finally(function () {
+        mixerPresetApplying = false;
       });
   }
 
@@ -1990,6 +2094,83 @@
             : "Failed to save settings";
         setSettingsStatus(message, "error");
       });
+    });
+  }
+
+  if ($mixerPresetLoad) {
+    $mixerPresetLoad.addEventListener("change", function () {
+      const id = $mixerPresetLoad.value;
+      if (!id) return;
+      applyMixerPreset(id).catch(console.error);
+    });
+  }
+
+  if ($btnMixerPresetNew) {
+    $btnMixerPresetNew.addEventListener("click", function () {
+      resetEditorMixerPreset();
+      setMixerPresetStatus("New preset", "");
+    });
+  }
+
+  if ($btnMixerPresetSave) {
+    $btnMixerPresetSave.addEventListener("click", function () {
+      if (!isMixerConnected()) {
+        setMixerPresetStatus("Not connected to Ableton", "error");
+        return;
+      }
+      setMixerPresetStatus("Saving...", "");
+      fetchMixerTracks()
+        .then(function () {
+          if (!mixerTracks.length) {
+            setMixerPresetStatus("No mixer tracks to save", "error");
+            return;
+          }
+          const payload = buildMixerPresetPayload();
+          const req = editorMixerPreset.id
+            ? apiFetch("/api/mixer-presets/" + editorMixerPreset.id + "/", {
+                method: "PUT",
+                body: payload,
+              })
+            : apiFetch("/api/mixer-presets/", { method: "POST", body: payload });
+          return req
+            .then(function (data) {
+              loadEditorMixerPreset(data);
+              return fetchMixerPresets();
+            })
+            .then(function () {
+              setMixerPresetStatus("Saved", "success");
+            });
+        })
+        .catch(function (err) {
+          const message =
+            err && typeof err === "object"
+              ? Object.values(err).flat().join(" ")
+              : "Failed to save";
+          setMixerPresetStatus(message, "error");
+        });
+    });
+  }
+
+  if ($btnMixerPresetDelete) {
+    $btnMixerPresetDelete.addEventListener("click", function () {
+      if (!editorMixerPreset.id) {
+        resetEditorMixerPreset();
+        return;
+      }
+      if (!confirm('Delete preset "' + editorMixerPreset.name + '"?')) return;
+      apiFetch("/api/mixer-presets/" + editorMixerPreset.id + "/", {
+        method: "DELETE",
+      })
+        .then(function () {
+          resetEditorMixerPreset();
+          return fetchMixerPresets();
+        })
+        .then(function () {
+          setMixerPresetStatus("Deleted", "success");
+        })
+        .catch(function () {
+          setMixerPresetStatus("Failed to delete", "error");
+        });
     });
   }
 

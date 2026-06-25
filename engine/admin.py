@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AppSettings, ProjectCache, Setlist, SetlistEntry
+from .models import AppSettings, MixerPreset, ProjectCache, Setlist, SetlistEntry
 
 
 class SetlistEntryInline(admin.TabularInline):
@@ -12,6 +12,11 @@ class SetlistEntryInline(admin.TabularInline):
 class SetlistAdmin(admin.ModelAdmin):
     list_display = ["name", "is_active", "updated_at"]
     inlines = [SetlistEntryInline]
+
+
+@admin.register(MixerPreset)
+class MixerPresetAdmin(admin.ModelAdmin):
+    list_display = ["name", "updated_at"]
 
 
 @admin.register(ProjectCache)

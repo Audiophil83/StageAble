@@ -102,6 +102,25 @@ class Setlist(models.Model):
         super().save(*args, **kwargs)
 
 
+class MixerPreset(models.Model):
+    """Saved mute states for [MIX] tracks in Ableton."""
+
+    name = models.CharField(max_length=200)
+    tracks = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of {index, name, muted} for each [MIX] track.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class SetlistEntry(models.Model):
     """A single entry in a setlist, referencing a song by name."""
 
