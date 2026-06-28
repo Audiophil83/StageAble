@@ -13,14 +13,17 @@ Implement a way to automatically version this app.
 Each new feature should increment the major version, 
 a bugfix should increment the minor version. 
 Investigate if there is a system that automatically does this from git commits.
+----> Not sure if and how it works
 
 #### Song time instead of no. of bars
+----> Still unsure how this is supposed to work
 
 #### Rehearsing sections
 * start playing from a selected section
 * rehearsal mode
 * loop a section
 * loop multiple sections
+----> On branch, needs more testing
 
 #### Update Mechanism
 * Spark?
@@ -38,6 +41,7 @@ How? controlled by the backend? Automatically detected by the backend by the pro
 
 Per client. Round trip test to calculate the latency. 
 Frequently re-evaluating latency
+-----> Still needed? 
 
 #### User management
 
