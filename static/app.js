@@ -37,6 +37,9 @@
   let editorMixerPreset = { id: null, name: "" };
   let mixerPresetApplying = false;
 
+  // Rehearsal view state
+  let rehearsalSelection = [];
+
   // Client lock — locked by default; only Performance view when locked
   let clientLocked = true;
   let pendingUnlock = false;
@@ -93,9 +96,11 @@
   const $viewSetlist = document.getElementById("view-setlist");
   const $viewSettings = document.getElementById("view-settings");
   const $viewMixer = document.getElementById("view-mixer");
+  const $viewRehearsal = document.getElementById("view-rehearsal");
   const $navPerformance = document.getElementById("nav-performance");
   const $navSetlist = document.getElementById("nav-setlist");
   const $navMixer = document.getElementById("nav-mixer");
+  const $navRehearsal = document.getElementById("nav-rehearsal");
   const $navSettings = document.getElementById("nav-settings");
   const $mixerTrackList = document.getElementById("mixer-track-list");
   const $mixerStatus = document.getElementById("mixer-status");
@@ -105,6 +110,11 @@
   const $btnMixerPresetNew = document.getElementById("btn-mixer-preset-new");
   const $btnMixerPresetSave = document.getElementById("btn-mixer-preset-save");
   const $btnMixerPresetDelete = document.getElementById("btn-mixer-preset-delete");
+  const $rehearsalSectionList = document.getElementById("rehearsal-section-list");
+  const $rehearsalSongContext = document.getElementById("rehearsal-song-context");
+  const $btnRehearsalLoop = document.getElementById("btn-rehearsal-loop");
+  const $btnRehearsalStop = document.getElementById("btn-rehearsal-stop");
+  const $rehearsalStatus = document.getElementById("rehearsal-status");
   const $settingsForm = document.getElementById("settings-form");
   const $settingsStatus = document.getElementById("settings-status");
   const $autoAdvanceInfo = document.getElementById("auto-advance-info");
@@ -187,6 +197,9 @@
     fetchLyrics();
     if (currentView === "mixer") {
       fetchMixerTracks();
+    }
+    if (currentView === "rehearsal") {
+      renderRehearsalList();
     }
   }
 
@@ -1257,14 +1270,37 @@
     }
   }
 
-  function setView(view) {
+  function confirmExitRehearsal() {
+    return confirm(
+      "Leave Rehearsal mode?\n\nThis will turn off the arrangement loop in Ableton and reset the loop bracket to the full project length."
+    );
+  }
+
+  function exitRehearsalMode() {
+    send({ command: "rehearse_exit" });
+    rehearsalSelection = [];
+  }
+
+  function setView(view, options) {
+    options = options || {};
     if (clientLocked && view !== "performance") {
       return;
+    }
+    if (
+      currentView === "rehearsal" &&
+      view !== "rehearsal" &&
+      !options.skipRehearsalExit
+    ) {
+      if (!confirmExitRehearsal()) {
+        return;
+      }
+      exitRehearsalMode();
     }
     currentView = view;
     const isPerformance = view === "performance";
     const isSetlist = view === "setlist";
     const isMixer = view === "mixer";
+    const isRehearsal = view === "rehearsal";
     const isSettings = view === "settings";
 
     if ($viewPerformance) {
@@ -1275,6 +1311,9 @@
     }
     if ($viewMixer) {
       $viewMixer.hidden = !isMixer;
+    }
+    if ($viewRehearsal) {
+      $viewRehearsal.hidden = !isRehearsal;
     }
     if ($viewSettings) {
       $viewSettings.hidden = !isSettings;
@@ -1287,6 +1326,9 @@
     }
     if ($navMixer) {
       $navMixer.classList.toggle("active", isMixer);
+    }
+    if ($navRehearsal) {
+      $navRehearsal.classList.toggle("active", isRehearsal);
     }
     if ($navSettings) {
       $navSettings.classList.toggle("active", isSettings);
@@ -1313,6 +1355,11 @@
       fetchMixerPresets();
       fetchMixerTracks();
     }
+    if (isRehearsal) {
+      fetchSections().then(function () {
+        renderRehearsalList();
+      });
+    }
   }
 
   function setClientLocked(locked) {
@@ -1331,6 +1378,9 @@
     }
     if ($navMixer) {
       $navMixer.hidden = clientLocked;
+    }
+    if ($navRehearsal) {
+      $navRehearsal.hidden = clientLocked;
     }
     if ($navSettings) {
       $navSettings.hidden = clientLocked;
@@ -1596,6 +1646,210 @@
     });
   }
 
+  function setRehearsalStatus(message) {
+    if (!$rehearsalStatus) return;
+    $rehearsalStatus.textContent = message || "";
+  }
+
+  function getRehearsalSections() {
+    const song = state.active_song;
+    if (!song || song.start_beat == null) {
+      return [];
+    }
+    const songEnd = song.end_beat != null ? song.end_beat : Infinity;
+    return sections.filter(function (sec) {
+      return sec.start_beat >= song.start_beat && sec.start_beat < songEnd;
+    });
+  }
+
+  function rehearsalBeatKey(beat) {
+    return String(Math.round(beat * 10000) / 10000);
+  }
+
+  function isRehearsalBeatSelected(beat) {
+    const key = rehearsalBeatKey(beat);
+    return rehearsalSelection.some(function (b) {
+      return rehearsalBeatKey(b) === key;
+    });
+  }
+
+  function toggleRehearsalSelection(startBeat) {
+    const list = getRehearsalSections();
+    const beats = list.map(function (s) {
+      return s.start_beat;
+    });
+    let idx = -1;
+    for (let i = 0; i < beats.length; i++) {
+      if (rehearsalBeatKey(beats[i]) === rehearsalBeatKey(startBeat)) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) return;
+
+    if (rehearsalSelection.length === 0) {
+      rehearsalSelection = [startBeat];
+      updateRehearsalToolbar();
+      renderRehearsalList();
+      return;
+    }
+
+    const selIndices = rehearsalSelection
+      .map(function (b) {
+        for (let i = 0; i < beats.length; i++) {
+          if (rehearsalBeatKey(beats[i]) === rehearsalBeatKey(b)) return i;
+        }
+        return -1;
+      })
+      .filter(function (i) {
+        return i >= 0;
+      })
+      .sort(function (a, b) {
+        return a - b;
+      });
+
+    if (isRehearsalBeatSelected(startBeat)) {
+      if (selIndices.length === 1) {
+        rehearsalSelection = [];
+      } else if (
+        idx === selIndices[0] ||
+        idx === selIndices[selIndices.length - 1]
+      ) {
+        rehearsalSelection = selIndices
+          .filter(function (i) {
+            return i !== idx;
+          })
+          .map(function (i) {
+            return beats[i];
+          });
+      }
+      updateRehearsalToolbar();
+      renderRehearsalList();
+      return;
+    }
+
+    const minIdx = selIndices[0];
+    const maxIdx = selIndices[selIndices.length - 1];
+    if (idx === minIdx - 1 || idx === maxIdx + 1) {
+      rehearsalSelection = selIndices
+        .concat([idx])
+        .sort(function (a, b) {
+          return a - b;
+        })
+        .map(function (i) {
+          return beats[i];
+        });
+    } else {
+      rehearsalSelection = [startBeat];
+    }
+    updateRehearsalToolbar();
+    renderRehearsalList();
+  }
+
+  function updateRehearsalToolbar() {
+    if ($btnRehearsalLoop) {
+      $btnRehearsalLoop.disabled = rehearsalSelection.length === 0;
+    }
+  }
+
+  function renderRehearsalList() {
+    if (!$rehearsalSectionList) return;
+
+    const song = state.active_song;
+    if ($rehearsalSongContext) {
+      if (song && song.name) {
+        $rehearsalSongContext.textContent = "Sections in: " + song.name;
+      } else {
+        $rehearsalSongContext.textContent =
+          "Play or cue a song to see its sections.";
+      }
+    }
+
+    const list = getRehearsalSections();
+    const loopingBeats = {};
+    if (state.rehearsal && state.rehearsal.sections) {
+      state.rehearsal.sections.forEach(function (sec) {
+        loopingBeats[rehearsalBeatKey(sec.start_beat)] = true;
+      });
+    }
+
+    $rehearsalSectionList.innerHTML = "";
+    if (!list.length) {
+      const empty = document.createElement("li");
+      empty.className = "rehearsal-empty";
+      empty.textContent =
+        song && song.name
+          ? "No sections in this song."
+          : "No sections to show.";
+      $rehearsalSectionList.appendChild(empty);
+      updateRehearsalToolbar();
+      return;
+    }
+
+    list.forEach(function (sec) {
+      const li = document.createElement("li");
+      li.className = "rehearsal-section-row";
+      const beatKey = rehearsalBeatKey(sec.start_beat);
+      if (isRehearsalBeatSelected(sec.start_beat)) {
+        li.classList.add("is-selected");
+      }
+      if (loopingBeats[beatKey]) {
+        li.classList.add("is-looping");
+      }
+      if (
+        state.active_section &&
+        rehearsalBeatKey(state.active_section.start_beat) === beatKey
+      ) {
+        li.classList.add("is-active");
+      }
+
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.className = "rehearsal-section-check";
+      check.checked = isRehearsalBeatSelected(sec.start_beat);
+      check.addEventListener("change", function () {
+        toggleRehearsalSelection(sec.start_beat);
+      });
+
+      const info = document.createElement("div");
+      info.className = "rehearsal-section-info";
+      const durationBeats =
+        sec.end_beat != null ? sec.end_beat - sec.start_beat : null;
+      info.innerHTML =
+        '<div class="rehearsal-section-name">' +
+        escHtml(sec.name) +
+        "</div>" +
+        '<div class="rehearsal-section-duration">' +
+        formatBeatDuration(durationBeats) +
+        "</div>";
+
+      const playBtn = document.createElement("button");
+      playBtn.type = "button";
+      playBtn.className = "btn btn-secondary btn-rehearsal-play";
+      playBtn.textContent = "Play";
+      playBtn.addEventListener("click", function () {
+        send({ command: "rehearse_play", start_beat: sec.start_beat });
+      });
+
+      li.appendChild(check);
+      li.appendChild(info);
+      li.appendChild(playBtn);
+      $rehearsalSectionList.appendChild(li);
+    });
+
+    if (state.rehearsal && state.rehearsal.loop_enabled) {
+      const names = (state.rehearsal.sections || [])
+        .map(function (s) {
+          return s.name;
+        })
+        .join(", ");
+      setRehearsalStatus("Looping: " + (names || "selected sections"));
+    } else {
+      setRehearsalStatus("");
+    }
+    updateRehearsalToolbar();
+  }
+
   function toggleMixerMute(trackIndex, muted) {
     if (!isMixerConnected()) {
       setMixerStatus("Not connected to Ableton", "error");
@@ -1626,6 +1880,9 @@
   function render() {
     if (currentView === "mixer") {
       syncMixerFromState();
+    }
+    if (currentView === "rehearsal") {
+      renderRehearsalList();
     }
     // Connection badge (scanning takes precedence while project scan runs)
     if (!scanInProgress) {
@@ -2102,6 +2359,23 @@
       const id = $mixerPresetLoad.value;
       if (!id) return;
       applyMixerPreset(id).catch(console.error);
+    });
+  }
+
+  if ($btnRehearsalLoop) {
+    $btnRehearsalLoop.addEventListener("click", function () {
+      if (rehearsalSelection.length === 0) return;
+      send({
+        command: "rehearse_loop",
+        start_beats: rehearsalSelection.slice(),
+      });
+    });
+  }
+
+  if ($btnRehearsalStop) {
+    $btnRehearsalStop.addEventListener("click", function () {
+      send({ command: "rehearse_stop" });
+      rehearsalSelection = [];
     });
   }
 

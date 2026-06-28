@@ -88,6 +88,26 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
             elif cmd == "jump_to_section":
                 beat = float(content.get("start_beat", 0))
                 engine.cmd_jump_to_section(beat)
+            elif cmd == "rehearse_play":
+                start_beat = content.get("start_beat")
+                if start_beat is None:
+                    await self.send_json(
+                        {"type": "error", "message": "Missing 'start_beat' field"}
+                    )
+                    return
+                engine.cmd_rehearse_play(float(start_beat))
+            elif cmd == "rehearse_loop":
+                start_beats = content.get("start_beats")
+                if not start_beats:
+                    await self.send_json(
+                        {"type": "error", "message": "Missing 'start_beats' field"}
+                    )
+                    return
+                engine.cmd_rehearse_loop([float(b) for b in start_beats])
+            elif cmd == "rehearse_stop":
+                engine.cmd_rehearse_stop()
+            elif cmd == "rehearse_exit":
+                engine.cmd_rehearse_exit()
             elif cmd == "rescan":
                 # Rescan loads the active setlist from the DB (sync ORM).
                 await sync_to_async(engine.cmd_rescan)()

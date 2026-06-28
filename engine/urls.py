@@ -22,6 +22,10 @@ urlpatterns = [
         views.jump_to_section,
         name="jump-to-section",
     ),
+    path("rehearsal/play/", views.rehearse_play, name="rehearse-play"),
+    path("rehearsal/loop/", views.rehearse_loop, name="rehearse-loop"),
+    path("rehearsal/stop/", views.rehearse_stop, name="rehearse-stop"),
+    path("rehearsal/exit/", views.rehearse_exit, name="rehearse-exit"),
     # Arrangement
     path("songs/", views.song_list, name="song-list"),
     path("sections/", views.section_list, name="section-list"),

@@ -199,8 +199,47 @@ class AbletonOSCClient:
         else:
             self.send("/live/song/set/current_song_time", float(beats))
 
+    def set_song_time_absolute(self, beats: float) -> None:
+        """Set arrangement position directly (not a relative jump)."""
+        self.send("/live/song/set/current_song_time", float(beats))
+
     def jump_by(self, beats: float) -> None:
         self.send("/live/song/jump_by", float(beats))
+
+    # Loop ---------------------------------------------------------------
+
+    def get_loop(self) -> bool | None:
+        r = self.query("/live/song/get/loop")
+        if r is not None and len(r) > 0:
+            return bool(int(r[0]))
+        return None
+
+    def get_loop_start(self) -> float | None:
+        r = self.query("/live/song/get/loop_start")
+        if r is not None and len(r) > 0:
+            return float(r[0])
+        return None
+
+    def get_loop_length(self) -> float | None:
+        r = self.query("/live/song/get/loop_length")
+        if r is not None and len(r) > 0:
+            return float(r[0])
+        return None
+
+    def set_loop(self, enabled: bool) -> None:
+        self.send("/live/song/set/loop", 1 if enabled else 0)
+
+    def set_loop_start(self, beats: float) -> None:
+        self.send("/live/song/set/loop_start", float(beats))
+
+    def set_loop_length(self, beats: float) -> None:
+        self.send("/live/song/set/loop_length", float(beats))
+
+    def get_song_length(self) -> float | None:
+        r = self.query("/live/song/get/song_length")
+        if r is not None and len(r) > 0:
+            return float(r[0])
+        return None
 
     # Cue points ---------------------------------------------------------
 

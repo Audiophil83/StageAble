@@ -941,6 +941,112 @@ main {
   padding: 16px 0;
 }
 
+/* ── Rehearsal ───────────────────────────────────────────────────── */
+
+.rehearsal-panel h2 {
+  margin-bottom: 8px;
+}
+
+.rehearsal-intro {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.rehearsal-intro code {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rehearsal-song-context {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 12px;
+  min-height: 20px;
+}
+
+.rehearsal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rehearsal-status {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  min-height: 18px;
+}
+
+.rehearsal-section-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rehearsal-section-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-panel-hover);
+  border-radius: 8px;
+  border: 2px solid transparent;
+}
+
+.rehearsal-section-row.is-selected {
+  border-color: var(--accent);
+}
+
+.rehearsal-section-row.is-active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rehearsal-section-row.is-looping {
+  border-color: var(--green);
+}
+
+.rehearsal-section-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.rehearsal-section-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rehearsal-section-name {
+  font-size: 16px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rehearsal-section-duration {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.btn-rehearsal-play {
+  flex-shrink: 0;
+  min-width: 64px;
+}
+
+.rehearsal-empty {
+  color: var(--text-dim);
+  font-size: 14px;
+  padding: 8px 0;
+}
+
 .setlist-editor-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

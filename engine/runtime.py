@@ -227,7 +227,140 @@ class RuntimeEngine:
     def cmd_stop(self) -> None:
         with self._lock:
             self._cancel_auto_advance()
+            if self.state.rehearsal:
+                self._exit_rehearsal_mode_locked(stop_transport=False)
             self.osc.transport_stop()
+
+    def _clear_rehearsal_state_locked(self) -> None:
+        """Clear rehearsal metadata only (lock held)."""
+        self.state.update(rehearsal=None)
+
+    def _exit_rehearsal_mode_locked(self, *, stop_transport: bool = False) -> None:
+        """Disable loop, reset bracket to full arrangement, clear state (lock held)."""
+        if stop_transport:
+            self.osc.transport_stop()
+        self.osc.set_loop(False)
+        song_length = self.osc.get_song_length()
+        if song_length is not None and song_length > 0:
+            self.osc.set_loop_start(0.0)
+            self.osc.set_loop_length(float(song_length))
+        self._clear_rehearsal_state_locked()
+        logger.info("Exited rehearsal mode (loop off, bracket reset)")
+
+    def _rehearse_seek_and_play_locked(self, target: float) -> None:
+        """Seek to an absolute beat and start or continue transport (lock held)."""
+        target = max(0.0, float(target))
+        self._pending_cue_name = None
+        self._pending_position = None
+        self.osc.set_song_time_absolute(target)
+        self._sync_prev_playhead(target)
+        if not self._is_transport_playing():
+            # When stopped, seek may not stick until re-applied right before play.
+            self.osc.set_song_time_absolute(target)
+            self.osc.transport_play()
+
+    def cmd_rehearse_stop(self) -> None:
+        """Stop transport and exit rehearsal loop setup."""
+        with self._lock:
+            self._cancel_auto_advance()
+            self._exit_rehearsal_mode_locked(stop_transport=True)
+        self._broadcast()
+
+    def cmd_rehearse_exit(self) -> None:
+        """Leave rehearsal: disable loop and reset bracket to full arrangement."""
+        with self._lock:
+            self._exit_rehearsal_mode_locked(stop_transport=False)
+        self._broadcast()
+
+    def cmd_rehearse_play(self, start_beat: float) -> None:
+        """Seek to a section start and play without looping."""
+        with self._lock:
+            self._cancel_auto_advance()
+            self._clear_rehearsal_state_locked()
+            self.osc.set_loop(False)
+            self._rehearse_seek_and_play_locked(start_beat)
+        logger.info("Rehearse play from beat %.2f", start_beat)
+        self._broadcast()
+
+    def _resolve_contiguous_sections(
+        self, start_beats: list[float]
+    ) -> list:
+        """Return timeline section events for contiguous start_beats."""
+        if not start_beats:
+            raise ValueError("No sections selected")
+
+        tl = self.state.timeline
+        if tl is None:
+            raise ValueError("No timeline loaded")
+
+        all_sections = tl.all_sections()
+        if not all_sections:
+            raise ValueError("No sections in arrangement")
+
+        beat_to_idx: dict[float, int] = {}
+        for i, sec in enumerate(all_sections):
+            key = round(sec.start_beat, 4)
+            beat_to_idx[key] = i
+
+        indices: list[int] = []
+        for beat in start_beats:
+            key = round(float(beat), 4)
+            if key not in beat_to_idx:
+                raise ValueError(f"Unknown section at beat {beat}")
+            indices.append(beat_to_idx[key])
+
+        indices.sort()
+        for i in range(len(indices) - 1):
+            if indices[i + 1] != indices[i] + 1:
+                raise ValueError("Selected sections must be contiguous")
+
+        return [all_sections[i] for i in indices]
+
+    def cmd_rehearse_loop(self, start_beats: list[float]) -> None:
+        """Loop one or more contiguous sections via Ableton loop locators."""
+        with self._lock:
+            self._cancel_auto_advance()
+            self._pending_cue_name = None
+            sections = self._resolve_contiguous_sections(start_beats)
+
+            loop_start = sections[0].start_beat
+            loop_end = sections[-1].end_beat
+            if loop_end is None:
+                raise ValueError(
+                    f"Section '{sections[-1].name}' has no end beat"
+                )
+            loop_length = loop_end - loop_start
+            if loop_length <= 0:
+                raise ValueError("Invalid loop length")
+
+            self.osc.set_loop_start(loop_start)
+            self.osc.set_loop_length(loop_length)
+            self.osc.set_loop(True)
+            self._rehearse_seek_and_play_locked(loop_start)
+
+            rehearsal = {
+                "active": True,
+                "loop_enabled": True,
+                "loop_start": round(loop_start, 4),
+                "loop_end": round(loop_end, 4),
+                "sections": [
+                    {
+                        "name": sec.name,
+                        "start_beat": round(sec.start_beat, 4),
+                        "end_beat": (
+                            round(sec.end_beat, 4) if sec.end_beat else None
+                        ),
+                    }
+                    for sec in sections
+                ],
+            }
+            self.state.update(rehearsal=rehearsal)
+
+        names = ", ".join(sec.name for sec in sections)
+        logger.info(
+            "Rehearse loop: %s (%.2f–%.2f beats)", names, loop_start, loop_end
+        )
+        self._broadcast()
 
     def _sync_prev_playhead(self, beat: float | None = None) -> None:
         """Reset poll baseline after a seek/cue so STOP detection does not fire."""

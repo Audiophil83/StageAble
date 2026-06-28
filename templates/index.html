@@ -6,7 +6,7 @@
   <title>Remoteable — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=26">
+  <link rel="stylesheet" href="/static/style.css?v=27">
   <link rel="stylesheet" href="/static/css/keep-screen-awake.css?v=2">
 </head>
 <body>
@@ -59,6 +59,7 @@
           <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
           <button id="nav-mixer" class="btn btn-nav-tab" type="button" data-view="mixer">Mixer</button>
+          <button id="nav-rehearsal" class="btn btn-nav-tab" type="button" data-view="rehearsal">Rehearsal</button>
           <button id="nav-settings" class="btn btn-nav-tab" type="button" data-view="settings">Settings</button>
         </nav>
         <button id="btn-rescan" class="btn btn-secondary" title="Re-scan arrangement">Rescan</button>
@@ -203,6 +204,20 @@
         </section>
       </div>
 
+      <div id="view-rehearsal" hidden>
+        <section id="rehearsal-panel" class="panel rehearsal-panel">
+          <h2>Rehearsal</h2>
+          <p class="rehearsal-intro">Sections from the <code>SECTIONS</code> track in Ableton. Rescan after editing clips. <strong>Play</strong> jumps to the section and starts. <strong>Loop</strong> sets Ableton&apos;s loop bracket around the selection. <strong>Stop</strong> stops playback and resets the loop bracket.</p>
+          <p id="rehearsal-song-context" class="rehearsal-song-context"></p>
+          <div class="rehearsal-toolbar">
+            <button id="btn-rehearsal-loop" class="btn btn-play" type="button" disabled>Loop</button>
+            <button id="btn-rehearsal-stop" class="btn btn-stop" type="button">Stop</button>
+          </div>
+          <p id="rehearsal-status" class="rehearsal-status"></p>
+          <ul id="rehearsal-section-list" class="rehearsal-section-list"></ul>
+        </section>
+      </div>
+
       <div id="view-settings" hidden>
         <section id="settings-panel" class="panel settings-panel">
           <h2>Engine Settings</h2>
@@ -250,6 +265,6 @@
   <div id="keep-awake-status" class="keep-awake-status hidden" role="status" aria-live="polite"></div>
 
   <script src="/static/js/keep-screen-awake.js?v=5"></script>
-  <script src="/static/app.js?v=25"></script>
+  <script src="/static/app.js?v=28"></script>
 </body>
 </html>

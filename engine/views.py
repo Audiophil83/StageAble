@@ -89,6 +89,53 @@ def jump_to_section(request):
     return Response({"status": "ok", "start_beat": float(start_beat)})
 
 
+@api_view(["POST"])
+def rehearse_play(request):
+    start_beat = request.data.get("start_beat")
+    if start_beat is None:
+        return Response(
+            {"error": "Missing 'start_beat' parameter"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    from .runtime import get_engine
+
+    get_engine().cmd_rehearse_play(float(start_beat))
+    return Response({"status": "ok", "start_beat": float(start_beat)})
+
+
+@api_view(["POST"])
+def rehearse_loop(request):
+    start_beats = request.data.get("start_beats")
+    if not start_beats:
+        return Response(
+            {"error": "Missing 'start_beats' parameter"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    from .runtime import get_engine
+
+    try:
+        get_engine().cmd_rehearse_loop([float(b) for b in start_beats])
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"status": "ok", "start_beats": [float(b) for b in start_beats]})
+
+
+@api_view(["POST"])
+def rehearse_stop(request):
+    from .runtime import get_engine
+
+    get_engine().cmd_rehearse_stop()
+    return Response({"status": "ok"})
+
+
+@api_view(["POST"])
+def rehearse_exit(request):
+    from .runtime import get_engine
+
+    get_engine().cmd_rehearse_exit()
+    return Response({"status": "ok"})
+
+
 @csrf_exempt
 @api_view(["POST"])
 def rescan(request):

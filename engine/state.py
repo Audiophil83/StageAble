@@ -64,6 +64,9 @@ class EngineState:
     # Mixer tracks (tracks named [MIX]…)
     mixer_tracks: list[dict] = field(default_factory=list)
 
+    # Rehearsal mode (section loop)
+    rehearsal: Optional[dict] = None
+
     # Last arrangement scan persisted in the database (unix timestamp)
     project_scanned_at: Optional[float] = None
 
@@ -101,6 +104,7 @@ class EngineState:
                 "auto_advance": self.auto_advance,
                 "mixer_tracks": list(self.mixer_tracks),
                 "cue_points": self.cue_points,
+                "rehearsal": self.rehearsal,
                 "timeline_valid": (
                     self.timeline.is_valid if self.timeline else False
                 ),
