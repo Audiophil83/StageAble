@@ -10,7 +10,12 @@ from typing import Callable
 
 from django.core.management.base import CommandError
 
-from engine.project_cache import load_project_cache, save_project_cache
+from engine.project_cache import (
+    load_project_cache,
+    resolve_project_identity_from_settings,
+    save_project_cache,
+)
+from engine.state import engine_state
 from engine.scanner import (
     TRACK_CHORDS,
     TRACK_CONTROL,
@@ -163,8 +168,15 @@ def rows_from_timeline_events(events) -> list[EventRow]:
     return rows
 
 
+def _active_project_identity() -> str | None:
+    project = engine_state.active_project
+    if project:
+        return project.get("identity")
+    return resolve_project_identity_from_settings()
+
+
 def rows_from_cache_section(section: str) -> list[EventRow]:
-    payload = load_project_cache()
+    payload = load_project_cache(_active_project_identity())
     if payload is None:
         raise CommandError(
             "No project cache found — scan the arrangement in Remoteable first, "
@@ -303,7 +315,8 @@ def resolve_track_specs(track_filter: list[str] | None) -> list[TrackSpec]:
 
 
 def apply_cache_updates(updates_by_section: dict[str, dict[float, str]]) -> dict[str, int]:
-    payload = load_project_cache()
+    identity = _active_project_identity()
+    payload = load_project_cache(identity)
     if payload is None:
         return {}
 
@@ -344,13 +357,19 @@ def apply_cache_updates(updates_by_section: dict[str, dict[float, str]]) -> dict
             changed_counts[section] = changed
 
     if changed_counts:
-        save_project_cache(
-            timeline=timeline,
-            timeline_errors=payload["timeline_errors"],
-            tempo=payload["tempo"],
-            cue_points=payload["cue_points"],
-            mixer_tracks=payload["mixer_tracks"],
-        )
+        project = payload.get("project") or {}
+        effective_identity = identity or project.get("identity")
+        if effective_identity:
+            save_project_cache(
+                identity=effective_identity,
+                name=project.get("name", ""),
+                file_path=project.get("file_path", ""),
+                timeline=timeline,
+                timeline_errors=payload["timeline_errors"],
+                tempo=payload["tempo"],
+                cue_points=payload["cue_points"],
+                mixer_tracks=payload["mixer_tracks"],
+            )
     return changed_counts
 
 

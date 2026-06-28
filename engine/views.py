@@ -4,6 +4,7 @@ REST API views for transport control, state queries, and setlist management.
 
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
@@ -15,6 +16,25 @@ from .serializers import (
     SetlistSerializer,
 )
 from .state import engine_state
+
+
+def _active_project_id() -> int | None:
+    project = engine_state.active_project
+    if project:
+        return project.get("id")
+    return None
+
+
+def _require_active_project_id() -> int | None:
+    project_id = _active_project_id()
+    if project_id is None:
+        from .project_cache import resolve_project_identity_from_settings, get_or_create_project_record
+
+        identity = resolve_project_identity_from_settings()
+        if identity:
+            project = get_or_create_project_record(identity=identity)
+            return project.id
+    return project_id
 
 
 # ── Engine state & transport ──────────────────────────────────────────
@@ -263,7 +283,14 @@ def keep_awake(request):
 
 
 class SetlistViewSet(viewsets.ModelViewSet):
-    queryset = Setlist.objects.all()
+    serializer_class = SetlistSerializer
+
+    def get_queryset(self):
+        project_id = _active_project_id()
+        qs = Setlist.objects.all()
+        if project_id is not None:
+            qs = qs.filter(project_id=project_id)
+        return qs
 
     def get_serializer_class(self):
         if self.action in ("create", "update", "partial_update"):
@@ -271,7 +298,12 @@ class SetlistViewSet(viewsets.ModelViewSet):
         return SetlistSerializer
 
     def perform_create(self, serializer):
-        setlist = serializer.save()
+        project_id = _require_active_project_id()
+        if project_id is None:
+            raise ValidationError(
+                "No active project — connect to Ableton or rescan first."
+            )
+        setlist = serializer.save(project_id=project_id)
         if setlist.is_active:
             self._reload_active_setlist()
 
@@ -303,8 +335,22 @@ class SetlistViewSet(viewsets.ModelViewSet):
 
 
 class MixerPresetViewSet(viewsets.ModelViewSet):
-    queryset = MixerPreset.objects.all()
     serializer_class = MixerPresetSerializer
+
+    def get_queryset(self):
+        project_id = _active_project_id()
+        qs = MixerPreset.objects.all()
+        if project_id is not None:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        project_id = _require_active_project_id()
+        if project_id is None:
+            raise ValidationError(
+                "No active project — connect to Ableton or rescan first."
+            )
+        serializer.save(project_id=project_id)
 
     @action(detail=True, methods=["post"])
     def apply(self, request, pk=None):

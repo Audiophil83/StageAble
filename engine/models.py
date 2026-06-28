@@ -5,6 +5,8 @@ The canonical data source is always Ableton's arrangement — these models
 provide a way to save/load named setlists that reference songs by name.
 """
 
+import os
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -21,6 +23,14 @@ class AppSettings(models.Model):
         default=100,
         validators=[MinValueValidator(0), MaxValueValidator(2000)],
         help_text="Milliseconds for slide-in; animation ends at each event beat.",
+    )
+    last_active_project = models.ForeignKey(
+        "ProjectCache",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Last Ableton project loaded by the engine (offline fallback).",
     )
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -40,8 +50,26 @@ class AppSettings(models.Model):
 
 
 class ProjectCache(models.Model):
-    """Singleton snapshot of the last Ableton arrangement scan."""
+    """Cached arrangement scan for one Ableton Live set."""
 
+    name = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Live set filename from Ableton (song.name).",
+    )
+    file_path = models.CharField(
+        max_length=1024,
+        blank=True,
+        default="",
+        help_text="Full path to the .als file (song.file_path); empty if unsaved.",
+    )
+    identity = models.CharField(
+        max_length=1100,
+        unique=True,
+        db_index=True,
+        help_text="Stable lookup key derived from file_path or name.",
+    )
     scanned_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -62,29 +90,42 @@ class ProjectCache(models.Model):
     class Meta:
         verbose_name = "Project cache"
         verbose_name_plural = "Project cache"
-
-    def save(self, *args, **kwargs):
-        self.pk = 1
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        pass
+        ordering = ["-updated_at"]
 
     def __str__(self):
+        label = self.display_name
         if self.scanned_at:
-            return f"Project cache (scanned {self.scanned_at:%Y-%m-%d %H:%M})"
-        return "Project cache (empty)"
+            return f"{label} (scanned {self.scanned_at:%Y-%m-%d %H:%M})"
+        return label
+
+    @property
+    def display_name(self) -> str:
+        raw = ""
+        if self.file_path:
+            raw = os.path.basename(self.file_path)
+        elif self.name:
+            raw = self.name
+        if raw:
+            if raw.lower().endswith(".als"):
+                return raw[:-4]
+            return raw
+        return "Untitled"
 
 
 class Setlist(models.Model):
     """A named setlist — an ordered subset of songs."""
 
+    project = models.ForeignKey(
+        ProjectCache,
+        on_delete=models.CASCADE,
+        related_name="setlists",
+    )
     name = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(
         default=False,
-        help_text="Only one setlist should be active at a time.",
+        help_text="Only one setlist should be active per project.",
     )
 
     class Meta:
@@ -94,17 +135,21 @@ class Setlist(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        # Enforce single active setlist
-        if self.is_active:
-            Setlist.objects.filter(is_active=True).exclude(pk=self.pk).update(
-                is_active=False
-            )
+        if self.is_active and self.project_id:
+            Setlist.objects.filter(
+                is_active=True, project_id=self.project_id
+            ).exclude(pk=self.pk).update(is_active=False)
         super().save(*args, **kwargs)
 
 
 class MixerPreset(models.Model):
     """Saved mute states for [MIX] tracks in Ableton."""
 
+    project = models.ForeignKey(
+        ProjectCache,
+        on_delete=models.CASCADE,
+        related_name="mixer_presets",
+    )
     name = models.CharField(max_length=200)
     tracks = models.JSONField(
         default=list,

@@ -82,7 +82,9 @@ class SongHandler(AbletonOSCHandler):
         properties_r = [
             "can_redo",
             "can_undo",
+            "file_path",
             "is_playing",
+            "name",
             "song_length",
             "session_record_status"
         ]

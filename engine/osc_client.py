@@ -70,6 +70,7 @@ class AbletonOSCClient:
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _query_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _signature_osc_supported: bool | None = field(default=None, init=False, repr=False)
+    _project_osc_supported: bool | None = field(default=None, init=False, repr=False)
     _running: bool = field(default=False, init=False, repr=False)
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ class AbletonOSCClient:
         if self._running:
             return
         self._signature_osc_supported = None
+        self._project_osc_supported = None
         self._client = SimpleUDPClient(self.host, self.send_port)
         dispatcher = Dispatcher()
         dispatcher.set_default_handler(self._handle_reply)
@@ -264,6 +266,48 @@ class AbletonOSCClient:
         if r is not None and len(r) > 0:
             return float(r[0])
         return None
+
+    def _log_project_identity_unavailable(self) -> None:
+        logger.info(
+            "AbletonOSC does not expose /live/song/get/name or /file_path on this "
+            "install. Install Remoteable's patch: python scripts/install_abletonosc_patch.py"
+        )
+
+    def get_project_name(self) -> str | None:
+        """Return the Live set filename (empty string if unsaved)."""
+        if self._project_osc_supported is False:
+            return None
+        r = self.query("/live/song/get/name", timeout=0.5, warn_timeout=False)
+        if r is None or len(r) == 0:
+            if self._project_osc_supported is None:
+                self._log_project_identity_unavailable()
+            self._project_osc_supported = False
+            return None
+        self._project_osc_supported = True
+        return str(r[0])
+
+    def get_project_file_path(self) -> str | None:
+        """Return the full path to the .als file, or None if unavailable/unsaved."""
+        if self._project_osc_supported is False:
+            return None
+        r = self.query("/live/song/get/file_path", timeout=0.5, warn_timeout=False)
+        if r is None or len(r) == 0:
+            return None
+        self._project_osc_supported = True
+        path = str(r[0])
+        return path if path else None
+
+    def get_project_identity(self) -> tuple[str, str, str] | None:
+        """Return (identity, name, file_path) for the open Live set."""
+        name = self.get_project_name()
+        if name is None and self._project_osc_supported is False:
+            return None
+        file_path = self.get_project_file_path() or ""
+        name = name or ""
+        from .project_cache import compute_project_identity
+
+        identity = compute_project_identity(file_path, name)
+        return identity, name, file_path
 
     def _log_signature_unavailable(self) -> None:
         logger.info(

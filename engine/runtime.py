@@ -15,7 +15,17 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from .config import get_app_settings
-from .project_cache import apply_cache_to_state, save_project_cache
+from .project_cache import (
+    apply_cache_payload_to_state,
+    apply_cache_to_state,
+    clear_project_state,
+    get_or_create_project_record,
+    load_last_active_project_cache,
+    load_project_cache,
+    project_to_state_dict,
+    save_project_cache,
+    set_last_active_project,
+)
 from .osc_client import AbletonOSCClient
 from .scanner import (
     scan_arrangement,
@@ -69,6 +79,7 @@ class RuntimeEngine:
         self._scan_in_progress = False
         self._scan_messages: list[str] = []
         self._scan_lock = threading.Lock()
+        self._current_project_identity: str | None = None
 
     # ── scan progress (WebSocket clients) ─────────────────────────────
 
@@ -137,8 +148,26 @@ class RuntimeEngine:
     def _bootstrap_load(self) -> None:
         """Load cached arrangement and connect to Ableton without scanning."""
         try:
-            if apply_cache_to_state(self.state):
-                self._scan_log("Loaded cached project from database")
+            loaded = False
+            if self.osc.is_connected():
+                loaded = self._apply_project_from_osc(broadcast=False)
+            if not loaded:
+                payload = load_last_active_project_cache()
+                if payload is not None:
+                    apply_cache_payload_to_state(self.state, payload)
+                    self._current_project_identity = payload["project"]["identity"]
+                    self._scan_log(
+                        f"Loaded cached project: {payload['project']['display_name']}"
+                    )
+                    loaded = True
+                elif apply_cache_to_state(self.state):
+                    project = self.state.active_project
+                    if project:
+                        self._current_project_identity = project["identity"]
+                    self._scan_log("Loaded cached project from database")
+                    loaded = True
+
+            if loaded:
                 self.reload_active_setlist(broadcast=False)
             else:
                 self._scan_log(
@@ -547,7 +576,12 @@ class RuntimeEngine:
         """Reload the active setlist from the database."""
         with self._lock:
             self._cancel_auto_advance()
-            active = load_active_setlist(self.state.timeline)
+            project_id = (
+                self.state.active_project.get("id")
+                if self.state.active_project
+                else None
+            )
+            active = load_active_setlist(self.state.timeline, project_id=project_id)
             self.state.update(active_setlist=active, active_setlist_index=None)
         if broadcast:
             self._broadcast()
@@ -702,6 +736,18 @@ class RuntimeEngine:
     def _initial_scan(self, *, broadcast: bool = False) -> None:
         """Read arrangement data and build the timeline."""
         try:
+            project_info = self.osc.get_project_identity()
+            if project_info:
+                identity, name, file_path = project_info
+                project = get_or_create_project_record(
+                    identity=identity,
+                    name=name,
+                    file_path=file_path,
+                )
+                self._current_project_identity = identity
+                self.state.update(active_project=project_to_state_dict(project))
+                set_last_active_project(project)
+
             # Song metadata before the heavy track/clip scan. A long scan can
             # back up AbletonOSC so later /live/song/get/* queries time out.
             self._scan_log("Reading tempo from Ableton…")
@@ -792,13 +838,38 @@ class RuntimeEngine:
                 cue_points = list(self.state.cue_points)
                 mixer_tracks = list(self.state.mixer_tracks)
                 timeline_errors = list(self.state.timeline_errors)
-            save_project_cache(
-                timeline=tl,
-                timeline_errors=timeline_errors,
-                tempo=tempo,
-                cue_points=cue_points,
-                mixer_tracks=mixer_tracks,
-            )
+                active_project = self.state.active_project
+
+            identity = active_project["identity"] if active_project else None
+            name = active_project.get("name", "") if active_project else ""
+            file_path = active_project.get("file_path", "") if active_project else ""
+
+            if identity is None:
+                project_info = self.osc.get_project_identity()
+                if project_info:
+                    identity, name, file_path = project_info
+                    project = get_or_create_project_record(
+                        identity=identity,
+                        name=name,
+                        file_path=file_path,
+                    )
+                    self.state.update(active_project=project_to_state_dict(project))
+                    self._current_project_identity = identity
+
+            if identity:
+                project = save_project_cache(
+                    identity=identity,
+                    name=name,
+                    file_path=file_path,
+                    timeline=tl,
+                    timeline_errors=timeline_errors,
+                    tempo=tempo,
+                    cue_points=cue_points,
+                    mixer_tracks=mixer_tracks,
+                )
+                if project:
+                    self.state.update(active_project=project_to_state_dict(project))
+                    self._current_project_identity = identity
             self.state.update(project_scanned_at=time.time())
 
             if broadcast:
@@ -834,6 +905,7 @@ class RuntimeEngine:
                             tempo = self.osc.get_tempo()
                             if tempo:
                                 self.state.update(tempo=tempo)
+                            self._apply_project_from_osc(broadcast=True)
                             logger.info("Reconnected to Ableton Live")
                 else:
                     self._poll_tick()
@@ -865,12 +937,56 @@ class RuntimeEngine:
             time.sleep(1.0)
 
     def _slow_poll_tick(self) -> None:
-        """Query tempo, time signature, and [MIX] track mute from Ableton."""
+        """Query tempo, time signature, mixer mute, and project identity from Ableton."""
         tempo = self.osc.get_tempo()
         if tempo is not None and abs(tempo - self.state.tempo) > 0.01:
             self.state.update(tempo=tempo)
         self._sync_time_signature_from_playhead()
         self.refresh_mixer_tracks_mute()
+        self._check_project_switch()
+
+    def _apply_project_from_osc(self, *, broadcast: bool = True) -> bool:
+        """Detect the open Live set and load its cached scan data."""
+        project_info = self.osc.get_project_identity()
+        if project_info is None:
+            return False
+        identity, name, file_path = project_info
+
+        if identity == self._current_project_identity and self.state.timeline is not None:
+            return True
+
+        switched = identity != self._current_project_identity
+        self._current_project_identity = identity
+        project = get_or_create_project_record(
+            identity=identity,
+            name=name,
+            file_path=file_path,
+        )
+        set_last_active_project(project)
+        project_dict = project_to_state_dict(project)
+
+        payload = load_project_cache(identity)
+        if payload is not None:
+            apply_cache_payload_to_state(self.state, payload)
+            if switched:
+                self._scan_log(f"Switched to project: {project.display_name}")
+        else:
+            clear_project_state(self.state, project=project_dict)
+            if switched:
+                self._scan_log(
+                    f"Opened project: {project.display_name} — use Rescan to load arrangement"
+                )
+
+        self.reload_active_setlist(broadcast=False)
+        if broadcast and switched:
+            self._broadcast()
+        return payload is not None
+
+    def _check_project_switch(self) -> None:
+        """Detect when Ableton opens a different Live set."""
+        if self._scan_in_progress:
+            return
+        self._apply_project_from_osc(broadcast=True)
 
     # ── fast poll tick ────────────────────────────────────────────
 

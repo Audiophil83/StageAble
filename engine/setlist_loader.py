@@ -19,13 +19,16 @@ def _timeline_index_for_song(timeline: Timeline | None, song_name: str) -> int |
     return None
 
 
-def load_active_setlist(timeline: Timeline | None) -> dict[str, Any] | None:
+def load_active_setlist(
+    timeline: Timeline | None,
+    *,
+    project_id: int | None = None,
+) -> dict[str, Any] | None:
     """Return the active setlist with entries resolved against *timeline*."""
-    setlist = (
-        Setlist.objects.filter(is_active=True)
-        .prefetch_related("entries")
-        .first()
-    )
+    qs = Setlist.objects.filter(is_active=True)
+    if project_id is not None:
+        qs = qs.filter(project_id=project_id)
+    setlist = qs.prefetch_related("entries").first()
     if setlist is None:
         return None
 

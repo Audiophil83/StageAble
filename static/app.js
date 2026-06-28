@@ -90,6 +90,7 @@
   const $btnNext      = document.getElementById("btn-next");
   const $btnFullscreen = document.getElementById("btn-fullscreen");
   const $btnRescan    = document.getElementById("btn-rescan");
+  const $projectName  = document.getElementById("project-name");
   const $btnLock      = document.getElementById("btn-lock");
   const $transportControls = document.getElementById("transport-controls");
   const $viewPerformance = document.getElementById("view-performance");
@@ -1887,6 +1888,15 @@
     // Connection badge (scanning takes precedence while project scan runs)
     if (!scanInProgress) {
       setBadge(state.connection_status || "disconnected");
+    }
+
+    if ($projectName) {
+      const project = state.active_project;
+      const label = project && project.display_name ? project.display_name : "—";
+      $projectName.textContent = label;
+      $projectName.title = project && project.file_path
+        ? project.file_path
+        : "Active Ableton project";
     }
 
     // Error banner

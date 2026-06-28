@@ -70,6 +70,9 @@ class EngineState:
     # Last arrangement scan persisted in the database (unix timestamp)
     project_scanned_at: Optional[float] = None
 
+    # Active Ableton project (from OSC identity or loaded cache)
+    active_project: Optional[dict] = None
+
     # Timestamps
     last_update: float = 0.0
 
@@ -111,6 +114,7 @@ class EngineState:
                 "timeline_errors": self.timeline_errors,
                 "project_cached": self.timeline is not None,
                 "project_scanned_at": self.project_scanned_at,
+                "active_project": self.active_project,
                 "last_update": self.last_update,
             }
 
