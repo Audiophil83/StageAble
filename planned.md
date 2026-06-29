@@ -18,13 +18,6 @@ Investigate if there is a system that automatically does this from git commits.
 #### Song time instead of no. of bars
 ----> Still unsure how this is supposed to work
 
-#### Rehearsing sections
-* start playing from a selected section
-* rehearsal mode
-* loop a section
-* loop multiple sections
-----> On branch, needs more testing
-
 #### Update Mechanism
 * Spark?
 * Open Question: What about abletonOSC?
