@@ -33,10 +33,6 @@ Investigate if there is a system that automatically does this from git commits.
 
 * Real Mixer with volume slider
 
-#### Allow multiple project files
-
-How? controlled by the backend? Automatically detected by the backend by the project name
-
 #### Latency compensation.
 
 Per client. Round trip test to calculate the latency. 

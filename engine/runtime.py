@@ -7,6 +7,7 @@ to all connected WebSocket clients.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from typing import Optional
@@ -19,13 +20,14 @@ from .project_cache import (
     apply_cache_payload_to_state,
     apply_cache_to_state,
     clear_project_state,
-    get_or_create_project_record,
     load_last_active_project_cache,
     load_project_cache,
     project_to_state_dict,
+    resolve_or_relocate_project_record,
     save_project_cache,
     set_last_active_project,
 )
+from .models import ProjectCache
 from .osc_client import AbletonOSCClient
 from .scanner import (
     scan_arrangement,
@@ -733,20 +735,57 @@ class RuntimeEngine:
             "next_song_name": next_name,
         }
 
+    def _identity_display_name(self, identity: str) -> str:
+        if identity.startswith("unsaved:"):
+            name = identity[len("unsaved:") :]
+        else:
+            name = os.path.basename(identity)
+        if name.lower().endswith(".als"):
+            return name[:-4]
+        return name or "Untitled"
+
+    def _resolve_project_record(
+        self,
+        *,
+        identity: str,
+        name: str,
+        file_path: str,
+        previous_identity: str | None,
+    ) -> tuple[ProjectCache, bool]:
+        probe = self.osc.get_arrangement_probe()
+        cue_points = probe[0] if probe else None
+        in_memory_timeline = self.state.timeline
+        return resolve_or_relocate_project_record(
+            identity=identity,
+            name=name,
+            file_path=file_path,
+            previous_identity=previous_identity,
+            cue_points=cue_points,
+            in_memory_timeline=in_memory_timeline,
+        )
+
     def _initial_scan(self, *, broadcast: bool = False) -> None:
         """Read arrangement data and build the timeline."""
         try:
             project_info = self.osc.get_project_identity()
             if project_info:
                 identity, name, file_path = project_info
-                project = get_or_create_project_record(
+                previous_identity = self._current_project_identity
+                project, relocated = self._resolve_project_record(
                     identity=identity,
                     name=name,
                     file_path=file_path,
+                    previous_identity=previous_identity,
                 )
                 self._current_project_identity = identity
                 self.state.update(active_project=project_to_state_dict(project))
                 set_last_active_project(project)
+                if relocated and previous_identity:
+                    self._scan_log(
+                        f"Relocated project: "
+                        f"{self._identity_display_name(previous_identity)} -> "
+                        f"{project.display_name}"
+                    )
 
             # Song metadata before the heavy track/clip scan. A long scan can
             # back up AbletonOSC so later /live/song/get/* queries time out.
@@ -848,10 +887,11 @@ class RuntimeEngine:
                 project_info = self.osc.get_project_identity()
                 if project_info:
                     identity, name, file_path = project_info
-                    project = get_or_create_project_record(
+                    project, _relocated = self._resolve_project_record(
                         identity=identity,
                         name=name,
                         file_path=file_path,
+                        previous_identity=self._current_project_identity,
                     )
                     self.state.update(active_project=project_to_state_dict(project))
                     self._current_project_identity = identity
@@ -952,16 +992,18 @@ class RuntimeEngine:
             return False
         identity, name, file_path = project_info
 
-        if identity == self._current_project_identity and self.state.timeline is not None:
+        previous_identity = self._current_project_identity
+        if identity == previous_identity and self.state.timeline is not None:
             return True
 
-        switched = identity != self._current_project_identity
-        self._current_project_identity = identity
-        project = get_or_create_project_record(
+        switched = identity != previous_identity
+        project, relocated = self._resolve_project_record(
             identity=identity,
             name=name,
             file_path=file_path,
+            previous_identity=previous_identity,
         )
+        self._current_project_identity = identity
         set_last_active_project(project)
         project_dict = project_to_state_dict(project)
 
@@ -969,13 +1011,27 @@ class RuntimeEngine:
         if payload is not None:
             apply_cache_payload_to_state(self.state, payload)
             if switched:
-                self._scan_log(f"Switched to project: {project.display_name}")
+                if relocated and previous_identity:
+                    self._scan_log(
+                        f"Relocated project: "
+                        f"{self._identity_display_name(previous_identity)} -> "
+                        f"{project.display_name}"
+                    )
+                else:
+                    self._scan_log(f"Switched to project: {project.display_name}")
         else:
             clear_project_state(self.state, project=project_dict)
             if switched:
-                self._scan_log(
-                    f"Opened project: {project.display_name} — use Rescan to load arrangement"
-                )
+                if relocated and previous_identity:
+                    self._scan_log(
+                        f"Relocated project: "
+                        f"{self._identity_display_name(previous_identity)} -> "
+                        f"{project.display_name}"
+                    )
+                else:
+                    self._scan_log(
+                        f"Opened project: {project.display_name} — use Rescan to load arrangement"
+                    )
 
         self.reload_active_setlist(broadcast=False)
         if broadcast and switched:

@@ -85,6 +85,13 @@ class ProjectCache(models.Model):
     )
     cue_points = models.JSONField(default=list, blank=True)
     mixer_tracks = models.JSONField(default=list, blank=True)
+    arrangement_fingerprint = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Hash of song/section names and start beats for rename/move detection.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

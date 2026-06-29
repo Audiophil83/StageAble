@@ -7,7 +7,9 @@ matching cache when the open project changes.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
 from typing import TYPE_CHECKING, Any
 
 from django.db import close_old_connections
@@ -31,6 +33,221 @@ def compute_project_identity(file_path: str, name: str) -> str:
     if name:
         return f"unsaved:{name}"
     return "unsaved:unknown"
+
+
+def compute_arrangement_fingerprint(timeline_data: dict[str, Any]) -> str:
+    """Deterministic hash of song and section names with start beats."""
+    parts: list[str] = []
+    for song in timeline_data.get("songs") or []:
+        parts.append(f"s:{song['name']}@{song['start_beat']}")
+    for section in timeline_data.get("sections") or []:
+        parts.append(f"sec:{section['name']}@{section['start_beat']}")
+    if not parts:
+        return ""
+    parts.sort()
+    digest = hashlib.sha256("\n".join(parts).encode()).hexdigest()
+    return digest[:32]
+
+
+def compute_cue_fingerprint(cue_points: list[tuple[str, float]]) -> str:
+    """Hash cue marker names and times for lightweight live matching."""
+    if not cue_points:
+        return ""
+    parts = [f"{name}@{round(time, 4)}" for name, time in sorted(cue_points)]
+    digest = hashlib.sha256("\n".join(parts).encode()).hexdigest()
+    return digest[:32]
+
+
+def fingerprint_from_timeline(timeline: Timeline) -> str:
+    """Return arrangement fingerprint for a live Timeline."""
+    return compute_arrangement_fingerprint(timeline_to_data(timeline))
+
+
+def _cue_points_from_cache(project: ProjectCache) -> frozenset[tuple[str, float]]:
+    return frozenset(
+        (str(cp["name"]), round(float(cp["time"]), 4))
+        for cp in (project.cue_points or [])
+    )
+
+
+def _arrangement_matches(
+    project: ProjectCache,
+    *,
+    in_memory_timeline: Timeline | None = None,
+    cue_points: frozenset[tuple[str, float]] | None = None,
+) -> bool:
+    if in_memory_timeline is not None:
+        fp = fingerprint_from_timeline(in_memory_timeline)
+        if fp and project.arrangement_fingerprint and fp == project.arrangement_fingerprint:
+            return True
+        if fp and project.timeline_data and fp == compute_arrangement_fingerprint(
+            project.timeline_data
+        ):
+            return True
+
+    if cue_points and project.cue_points:
+        if cue_points == _cue_points_from_cache(project):
+            return True
+
+    return False
+
+
+def _save_as_path_match(
+    previous_identity: str, new_file_path: str, new_name: str
+) -> bool:
+    if not previous_identity.startswith("unsaved:"):
+        return False
+    if not new_file_path:
+        return False
+    unsaved_name = previous_identity[len("unsaved:") :]
+    if unsaved_name.lower().endswith(".als"):
+        unsaved_name = unsaved_name[:-4]
+    base = os.path.basename(new_file_path)
+    if base.lower().endswith(".als"):
+        base = base[:-4]
+    if base == unsaved_name:
+        return True
+    if new_name:
+        normalized = new_name
+        if normalized.lower().endswith(".als"):
+            normalized = normalized[:-4]
+        return base == normalized
+    return False
+
+
+
+def find_relocation_candidate(
+    *,
+    new_identity: str,
+    new_name: str = "",
+    new_file_path: str = "",
+    previous_identity: str | None = None,
+    cue_points: frozenset[tuple[str, float]] | None = None,
+    in_memory_timeline: Timeline | None = None,
+) -> ProjectCache | None:
+    """Return an existing project row to relocate when identity changed."""
+    close_old_connections()
+    try:
+        if ProjectCache.objects.filter(identity=new_identity).exists():
+            return None
+
+        previous: ProjectCache | None = None
+        if previous_identity and previous_identity != new_identity:
+            previous = ProjectCache.objects.filter(identity=previous_identity).first()
+
+        if previous is not None and _arrangement_matches(
+            previous,
+            in_memory_timeline=in_memory_timeline,
+            cue_points=cue_points,
+        ):
+            return previous
+
+        if (
+            previous is not None
+            and previous_identity
+            and previous_identity.startswith("unsaved:")
+            and _save_as_path_match(previous_identity, new_file_path, new_name)
+            and _arrangement_matches(
+                previous,
+                in_memory_timeline=in_memory_timeline,
+                cue_points=cue_points,
+            )
+        ):
+            return previous
+
+        probe_fp = (
+            fingerprint_from_timeline(in_memory_timeline)
+            if in_memory_timeline is not None
+            else ""
+        )
+        if not probe_fp:
+            return None
+
+        matches = list(
+            ProjectCache.objects.filter(arrangement_fingerprint=probe_fp).exclude(
+                identity=new_identity
+            )
+        )
+        if len(matches) != 1:
+            return None
+
+        candidate = matches[0]
+        if not _arrangement_matches(
+            candidate,
+            in_memory_timeline=in_memory_timeline,
+            cue_points=cue_points,
+        ):
+            return None
+
+        return candidate
+    finally:
+        close_old_connections()
+
+
+def relocate_project_record(
+    project: ProjectCache,
+    *,
+    identity: str,
+    name: str = "",
+    file_path: str = "",
+) -> ProjectCache:
+    """Update identity/path on an existing row (setlists stay linked)."""
+    close_old_connections()
+    try:
+        old_identity = project.identity
+        project.identity = identity
+        if name:
+            project.name = name
+        if file_path:
+            project.file_path = file_path
+        project.save(update_fields=["identity", "name", "file_path", "updated_at"])
+        logger.info("Relocated project cache: %s -> %s", old_identity, identity)
+        return project
+    finally:
+        close_old_connections()
+
+
+def resolve_or_relocate_project_record(
+    *,
+    identity: str,
+    name: str = "",
+    file_path: str = "",
+    previous_identity: str | None = None,
+    cue_points: frozenset[tuple[str, float]] | None = None,
+    in_memory_timeline: Timeline | None = None,
+) -> tuple[ProjectCache, bool]:
+    """Get or create a project, relocating an existing row when appropriate."""
+    close_old_connections()
+    try:
+        if ProjectCache.objects.filter(identity=identity).exists():
+            return get_or_create_project_record(
+                identity=identity, name=name, file_path=file_path
+            ), False
+
+        candidate = find_relocation_candidate(
+            new_identity=identity,
+            new_name=name,
+            new_file_path=file_path,
+            previous_identity=previous_identity,
+            cue_points=cue_points,
+            in_memory_timeline=in_memory_timeline,
+        )
+        if candidate is not None:
+            return (
+                relocate_project_record(
+                    candidate, identity=identity, name=name, file_path=file_path
+                ),
+                True,
+            )
+
+        return (
+            get_or_create_project_record(
+                identity=identity, name=name, file_path=file_path
+            ),
+            False,
+        )
+    finally:
+        close_old_connections()
 
 
 def project_to_state_dict(project: ProjectCache) -> dict[str, Any]:
@@ -216,6 +433,7 @@ def save_project_cache(
         project.timeline_data = timeline_to_data(timeline)
         project.cue_points = list(cue_points)
         project.mixer_tracks = list(mixer_tracks)
+        project.arrangement_fingerprint = fingerprint_from_timeline(timeline)
         project.save()
         set_last_active_project(project)
         logger.info(

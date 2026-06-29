@@ -257,6 +257,18 @@ class AbletonOSCClient:
                 result.append((str(r[i]), float(r[i + 1])))
         return result
 
+    def get_arrangement_probe(
+        self,
+    ) -> tuple[frozenset[tuple[str, float]], str] | None:
+        """Lightweight cue-point probe for rename/move detection."""
+        cue_raw = self.get_cue_points()
+        if cue_raw is None:
+            return None
+        cue_set = frozenset((name, round(time, 4)) for name, time in cue_raw)
+        from .project_cache import compute_cue_fingerprint
+
+        return cue_set, compute_cue_fingerprint(cue_raw)
+
     def cue_point_jump(self, name_or_index: str | int) -> None:
         """Jump to a cue point by name (str) or index (int)."""
         self.send("/live/song/cue_point/jump", name_or_index)
