@@ -25,10 +25,11 @@ state to any number of browser clients over WebSocket.
 |---|---|
 | **Python 3.11+** | Tested on 3.13 |
 | **Ableton Live** | With Arrangement View content |
-| **AbletonOSC** | [Install instructions](https://github.com/ideoforms/AbletonOSC#installation), then apply Remoteable's patch: `python scripts/install_abletonosc_patch.py`. Enable under *Preferences > Link / Tempo / MIDI > Control Surface*. Required for large LYRICS tracks. |
+| **RemoteAble Bridge** | Ableton Live control surface bundled with this repo (a trimmed, self-contained fork of AbletonOSC — no separate AbletonOSC install needed). Install from the menu bar app (**Install Ableton Bridge…**) or with `python scripts/install_bridge.py`, then enable **RemoteAble** under *Preferences > Link / Tempo / MIDI > Control Surface*. |
 
-AbletonOSC listens on UDP port **11000** and replies on port **11001** by
-default. Remoteable uses the same defaults.
+The bridge listens on UDP port **11000** and replies on port **11001** by
+default. Remoteable uses the same defaults, and remains compatible with a stock
+AbletonOSC install if you prefer to use that instead.
 
 ---
 
@@ -153,7 +154,7 @@ variables are only used as defaults when the settings row is first created.
 | Field | Default | Description |
 |---|---|---|
 | `ableton_osc_host` | `127.0.0.1` | IP address of the machine running Ableton |
-| `ableton_osc_send_port` | `11000` | Port AbletonOSC listens on |
+| `ableton_osc_send_port` | `11000` | Port the Live control surface listens on |
 | `ableton_osc_recv_port` | `11001` | Port Remoteable listens on for OSC replies |
 | `engine_poll_hz` | `20` | How often (per second) the engine polls Ableton |
 
@@ -215,7 +216,8 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 
 ### How it works
 
-1. On startup, Remoteable connects to AbletonOSC and **loads the last
+1. On startup, Remoteable connects to the Live control surface (RemoteAble
+   Bridge) and **loads the last
    arrangement scan from the database** (songs, sections, lyrics, chords,
    cue points, mixer tracks). Use **Rescan** in the client or menu bar app
    to read the live set from Ableton and refresh the cache.
@@ -388,8 +390,8 @@ remoteable/
 Your Ableton set must have exactly one track named `SONGS` (case-insensitive).
 
 **Engine shows "disconnected"**
-Make sure Ableton is running with AbletonOSC enabled. Check that UDP ports
-11000/11001 are not blocked by a firewall.
+Make sure Ableton is running with the **RemoteAble** control surface enabled.
+Check that UDP ports 11000/11001 are not blocked by a firewall.
 
 **Static files not loading (404)**
 Remoteable serves static files automatically in DEBUG mode via
@@ -399,14 +401,14 @@ production.
 
 **OSC query timeouts in the log / LYRICS shows 0 clips**
 Bulk arrangement clip name queries can exceed OSC/UDP size limits when a track
-has many long clip names (typical on LYRICS). Install Remoteable's AbletonOSC
-patch and restart Live:
+has many long clip names (typical on LYRICS). Install RemoteAble Bridge and
+restart Live:
 
 ```bash
-python scripts/install_abletonosc_patch.py
+python scripts/install_bridge.py
 ```
 
-Remoteable falls back to chunked name reads automatically once the patch is
+Remoteable falls back to chunked name reads automatically once the bridge is
 installed. To diagnose:
 
 ```bash
@@ -419,16 +421,15 @@ clip counts, and estimated OSC payload size. Set `OSC_DEBUG=1` to log incoming
 name replies (or use Django `DEBUG` logging on `engine.osc_client`).
 
 **Other OSC query timeouts**
-AbletonOSC replies have a 2-second timeout. If Ableton is under heavy load or
+OSC replies have a 2-second timeout. If Ableton is under heavy load or
 the network is slow, queries may time out. The engine will retry on the next
 poll tick.
 
 **Time signature stays 4/4 or log mentions missing `signature_*`**
-An older AbletonOSC install in *User Library/Remote Scripts/AbletonOSC* may not
-expose `/live/song/get/signature_numerator` and `signature_denominator`. Remoteable
-defaults to 4/4. Update the Remote Script from
-[ideoforms/AbletonOSC](https://github.com/ideoforms/AbletonOSC), restart Live, and
-re-select the control surface.
+An older Remote Script may not expose `/live/song/get/signature_numerator` and
+`signature_denominator`. Remoteable defaults to 4/4. Reinstall RemoteAble Bridge
+(`python scripts/install_bridge.py`), restart Live, and re-select the control
+surface.
 
 **Time signature looks wrong or never changes**
 Ableton reports the meter **at the playhead** (it updates as you move through

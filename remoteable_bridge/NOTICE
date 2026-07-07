@@ -1,0 +1,33 @@
+RemoteAble Bridge
+=================
+
+RemoteAble Bridge is the Ableton Live control surface (Remote Script) used by the
+RemoteAble application. It is a trimmed and rebranded fork of AbletonOSC.
+
+------------------------------------------------------------------------------
+AbletonOSC
+------------------------------------------------------------------------------
+Upstream:   https://github.com/ideoforms/AbletonOSC
+Based on:   commit 0ca68214bd62c9b5cb641ca34006cfd70ba94430
+License:    MIT (see ./LICENSE)
+Copyright:  Daniel John Jones and contributors
+
+Modifications made in this fork:
+  - Trimmed to only the Song and Track handlers plus the OSC server plumbing
+    (application/clip/clip_slot/device/scene/view/midimap handlers removed).
+  - Added RemoteAble batched endpoints in song.py / track.py:
+      /live/song/get/meter_at_beats
+      /live/song/get/name
+      /live/song/get/file_path
+      /live/track/get/arrangement_clips/name_chunk
+      /live/track/set/arrangement_clips/name
+  - Renamed package, logger, and log file to RemoteAble Bridge.
+
+------------------------------------------------------------------------------
+python-osc (bundled in ./pythonosc)
+------------------------------------------------------------------------------
+Upstream:   https://github.com/attwad/python-osc
+License:    Public Domain (Unlicense)
+
+This bundled copy is vendored from AbletonOSC and is used by the OSC server so
+the control surface has no external dependencies inside Live's Python runtime.

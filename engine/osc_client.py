@@ -1,8 +1,9 @@
 """
-AbletonOSC client — thin wrapper around python-osc for communicating with
-Ableton Live via the AbletonOSC remote script.
+OSC client — thin wrapper around python-osc for communicating with Ableton
+Live via the RemoteAble Bridge remote script (a trimmed fork of AbletonOSC).
 
-AbletonOSC listens on UDP port 11000 and replies on port 11001.
+The bridge listens on UDP port 11000 and replies on port 11001. This client is
+wire-compatible with stock AbletonOSC as well.
 """
 
 from __future__ import annotations
@@ -281,8 +282,8 @@ class AbletonOSCClient:
 
     def _log_project_identity_unavailable(self) -> None:
         logger.info(
-            "AbletonOSC does not expose /live/song/get/name or /file_path on this "
-            "install. Install Remoteable's patch: python scripts/install_abletonosc_patch.py"
+            "/live/song/get/name or /file_path not available. Install/update "
+            "RemoteAble Bridge: python scripts/install_bridge.py"
         )
 
     def get_project_name(self) -> str | None:
@@ -323,9 +324,9 @@ class AbletonOSCClient:
 
     def _log_signature_unavailable(self) -> None:
         logger.info(
-            "AbletonOSC does not expose /live/song/get/signature_* on this install "
-            "(older Remote Script). Defaulting to 4/4. Update AbletonOSC from "
-            "https://github.com/ideoforms/AbletonOSC"
+            "/live/song/get/signature_* not available on this Remote Script. "
+            "Defaulting to 4/4. Install/update RemoteAble Bridge: "
+            "python scripts/install_bridge.py"
         )
 
     def _signature_query_timeout(self) -> float:
@@ -338,7 +339,7 @@ class AbletonOSCClient:
         Live's ``signature_*`` properties follow the playhead — not a single
         project-wide value when the arrangement has meter changes.
 
-        Older AbletonOSC builds do not register these endpoints; we detect that
+        Older Remote Scripts do not register these endpoints; we detect that
         once and fall back to engine defaults (4/4) without repeated warnings.
         """
         if self._signature_osc_supported is False:
@@ -417,7 +418,7 @@ class AbletonOSCClient:
     ) -> list[tuple[float, int, int, float]] | None:
         """Sample tempo and time signature at many beats in one OSC round trip.
 
-        Requires Remoteable's AbletonOSC ``song.py`` patch. Returns ``None`` if
+        Requires RemoteAble Bridge (``song.py``). Returns ``None`` if
         the endpoint is missing or the reply is malformed.
         """
         if not beats:
@@ -475,7 +476,7 @@ class AbletonOSCClient:
     # Arrangement clips --------------------------------------------------
 
     def _get_arrangement_clip_names_chunked(self, track_id: int) -> list[str] | None:
-        """Read arrangement clip names in slices via Remoteable's AbletonOSC patch."""
+        """Read arrangement clip names in slices via RemoteAble Bridge."""
         names: list[str] = []
         offset = 0
         total: int | None = None
@@ -575,8 +576,8 @@ class AbletonOSCClient:
 
         logger.warning(
             "Could not read arrangement clip names for track %d "
-            "(bulk timed out; install Remoteable AbletonOSC patch — "
-            "python scripts/install_abletonosc_patch.py)",
+            "(bulk timed out; install/update RemoteAble Bridge — "
+            "python scripts/install_bridge.py)",
             track_id,
         )
         return None

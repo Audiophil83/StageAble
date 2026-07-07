@@ -38,6 +38,8 @@ project_datas = [
     (str(root / "static"), "static"),
     (str(root / "assets"), "assets"),
     (str(root / "VERSION"), "."),
+    # The Ableton Live control surface, installed on demand via the menu bar.
+    (str(root / "remoteable_bridge"), "remoteable_bridge"),
 ]
 
 hiddenimports = collect_submodules("engine") + collect_submodules("remoteable")

@@ -225,7 +225,8 @@ class Command(BaseCommand):
         try:
             if not osc.is_connected():
                 raise CommandError(
-                    "AbletonOSC not reachable — is Live running with AbletonOSC enabled?"
+                    "Live control surface not reachable — is Live running with "
+                    "RemoteAble Bridge enabled?"
                 )
 
             track_id, track_name = _resolve_track_id(osc, track_arg)
@@ -274,7 +275,7 @@ class Command(BaseCommand):
         timeout: float,
     ) -> QueryResult | None:
         """Probe name_chunk and, if supported, read all names via the client helper."""
-        self.stdout.write("\nArrangement clip name_chunk (Remoteable AbletonOSC patch):\n")
+        self.stdout.write("\nArrangement clip name_chunk (RemoteAble Bridge):\n")
 
         t0 = time.monotonic()
         probe = osc.query(
@@ -289,7 +290,7 @@ class Command(BaseCommand):
         if probe is None:
             self.stdout.write(
                 f"  probe offset=0 limit=1     MISSING  {probe_ms:7.0f} ms\n"
-                "  Install patch: python scripts/install_abletonosc_patch.py"
+                "  Install the bridge: python scripts/install_bridge.py"
             )
             return None
 
@@ -322,8 +323,8 @@ class Command(BaseCommand):
         *,
         timeout: float,
     ) -> None:
-        """Probe the batched meter endpoint added by Remoteable's song.py patch."""
-        self.stdout.write("\nMeter at beats (Remoteable AbletonOSC patch):\n")
+        """Probe the batched meter endpoint provided by RemoteAble Bridge."""
+        self.stdout.write("\nMeter at beats (RemoteAble Bridge):\n")
 
         t0 = time.monotonic()
         probe = osc.query(_METER_AT_BEATS, 0.0, 4.0, 8.0, timeout=timeout, warn_timeout=False)
@@ -331,7 +332,7 @@ class Command(BaseCommand):
         if probe is None:
             self.stdout.write(
                 f"  probe beats 0 4 8        MISSING  {elapsed_ms:7.0f} ms\n"
-                "  Install patch: python scripts/install_abletonosc_patch.py"
+                "  Install the bridge: python scripts/install_bridge.py"
             )
             return
 
@@ -452,13 +453,13 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Chunked name_chunk API recovered {chunk_full.clip_count} "
-                        "clip names — install patch is working."
+                        "clip names — RemoteAble Bridge is working."
                     )
                 )
             elif chunk_full is None or not chunk_full.ok:
                 self.stdout.write(
                     self.style.WARNING(
-                        "Run: python scripts/install_abletonosc_patch.py "
+                        "Run: python scripts/install_bridge.py "
                         "(then restart Live)"
                     )
                 )
@@ -547,8 +548,8 @@ class Command(BaseCommand):
         elif not start.ok and not length.ok and not name.ok:
             self.stdout.write(
                 self.style.ERROR(
-                    "All arrangement clip queries failed — check AbletonOSC / "
-                    "Live for errors on this track."
+                    "All arrangement clip queries failed — check the Live control "
+                    "surface / Live for errors on this track."
                 )
             )
 

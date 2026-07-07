@@ -63,6 +63,8 @@ class RemoteableStatusApp(rumps.App):
             rumps.MenuItem("Refresh Address", callback=self._refresh_address),
             rumps.MenuItem("Rescan Project", callback=self._rescan_project),
             None,
+            rumps.MenuItem("Install Ableton Bridge…", callback=self._install_bridge),
+            None,
             rumps.MenuItem("Quit", callback=self._quit),
         ]
 
@@ -106,6 +108,38 @@ class RemoteableStatusApp(rumps.App):
             "RemoteAble",
             "Rescan started",
             "Scanning arrangement from Ableton in the background.",
+        )
+
+    def _install_bridge(self, _sender: object) -> None:
+        from engine.bridge_installer import BridgeInstallError, install
+
+        try:
+            dest = install()
+        except BridgeInstallError as exc:
+            rumps.alert(
+                title="Couldn't install Ableton Bridge",
+                message=str(exc),
+                ok="OK",
+            )
+            return
+        except Exception as exc:  # pragma: no cover - unexpected filesystem errors
+            rumps.alert(
+                title="Couldn't install Ableton Bridge",
+                message=f"Unexpected error: {exc}",
+                ok="OK",
+            )
+            return
+
+        rumps.alert(
+            title="Ableton Bridge installed",
+            message=(
+                f"Installed to:\n{dest}\n\n"
+                "Next steps:\n"
+                "1. Restart Ableton Live.\n"
+                "2. Preferences ▸ Link / Tempo / MIDI ▸ Control Surface: "
+                "select 'RemoteAble'."
+            ),
+            ok="Done",
         )
 
     def _watch_server(self, _timer: object) -> None:

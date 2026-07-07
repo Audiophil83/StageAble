@@ -136,8 +136,9 @@ class Command(BaseCommand):
             try:
                 if not osc.is_connected():
                     raise CommandError(
-                        "AbletonOSC not reachable — is Live running with AbletonOSC "
-                        "enabled? Use --from-cache to export the last scan instead."
+                        "Live control surface not reachable — is Live running with "
+                        "RemoteAble Bridge enabled? Use --from-cache to export the "
+                        "last scan instead."
                     )
 
                 tracks = scan_tracks(osc)
@@ -219,8 +220,9 @@ class Command(BaseCommand):
         try:
             if not osc.is_connected():
                 raise CommandError(
-                    "AbletonOSC not reachable — is Live running with AbletonOSC "
-                    "enabled? Use --cache-only to update the saved scan only."
+                    "Live control surface not reachable — is Live running with "
+                    "RemoteAble Bridge enabled? Use --cache-only to update the "
+                    "saved scan only."
                 )
 
             tracks = scan_tracks(osc)
