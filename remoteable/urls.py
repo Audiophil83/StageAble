@@ -21,6 +21,29 @@ def serve_icon(request, filename: str, content_type: str):
     return FileResponse((STATIC_DIR / filename).open("rb"), content_type=content_type)
 
 
+def _serve_legal_doc(request, filename: str):
+    """Serve a bundled legal/attribution document as inline plain text."""
+    from django.http import Http404
+
+    doc_path = Path(settings.BASE_DIR) / filename
+    if not doc_path.is_file():
+        raise Http404(f"{filename} not found")
+    return FileResponse(
+        doc_path.open("rb"),
+        content_type="text/plain; charset=utf-8",
+        filename=filename,
+        as_attachment=False,
+    )
+
+
+def eula(request):
+    return _serve_legal_doc(request, "EULA.md")
+
+
+def third_party_licenses(request):
+    return _serve_legal_doc(request, "THIRD-PARTY-LICENSES.txt")
+
+
 def favicon(request):
     return serve_icon(request, "favicon.ico", "image/x-icon")
 
@@ -39,5 +62,7 @@ urlpatterns = [
     path("api/", include("engine.urls")),
     path("favicon.ico", favicon, name="favicon"),
     path("apple-touch-icon.png", apple_touch_icon, name="apple-touch-icon"),
+    path("legal/eula", eula, name="legal-eula"),
+    path("legal/third-party-licenses", third_party_licenses, name="legal-third-party"),
     path("", IndexView.as_view(), name="home"),
 ]

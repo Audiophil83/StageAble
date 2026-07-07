@@ -65,8 +65,15 @@ class RemoteableStatusApp(rumps.App):
             None,
             rumps.MenuItem("Install Ableton Bridge…", callback=self._install_bridge),
             None,
+            rumps.MenuItem("License Agreement…", callback=self._open_eula),
+            rumps.MenuItem("Third-Party Licenses…", callback=self._open_third_party),
+            None,
             rumps.MenuItem("Quit", callback=self._quit),
         ]
+
+        # Present the EULA on first launch once the run loop is active.
+        self._eula_timer = rumps.Timer(self._ensure_eula_accepted, 0.4)
+        self._eula_timer.start()
 
         self._watch_timer = rumps.Timer(self._watch_server, 2)
         self._watch_timer.start()
@@ -141,6 +148,59 @@ class RemoteableStatusApp(rumps.App):
             ),
             ok="Done",
         )
+
+    def _ensure_eula_accepted(self, timer: object) -> None:
+        from engine import eula
+
+        # One-shot: stop the timer so the dialog is only presented once.
+        self._eula_timer.stop()
+        if eula.is_accepted():
+            return
+
+        while True:
+            clicked = rumps.alert(
+                title="RemoteAble License Agreement",
+                message=eula.SUMMARY,
+                ok="Accept",
+                cancel="Decline & Quit",
+                other="View Full Agreement",
+            )
+            if clicked == -1:  # "View Full Agreement"
+                if not eula.open_document(eula.eula_path()):
+                    rumps.notification(
+                        "RemoteAble",
+                        "License unavailable",
+                        "Could not open the full EULA document.",
+                    )
+                continue
+            break
+
+        if clicked == 1:  # "Accept"
+            eula.mark_accepted()
+            return
+
+        # "Decline & Quit" (0): shut down the server and exit.
+        self._quit(None)
+
+    def _open_eula(self, _sender: object) -> None:
+        from engine import eula
+
+        if not eula.open_document(eula.eula_path()):
+            rumps.notification(
+                "RemoteAble",
+                "License unavailable",
+                "Could not open the EULA document.",
+            )
+
+    def _open_third_party(self, _sender: object) -> None:
+        from engine import eula
+
+        if not eula.open_document(eula.third_party_licenses_path()):
+            rumps.notification(
+                "RemoteAble",
+                "Licenses unavailable",
+                "Could not open the third-party licenses document.",
+            )
 
     def _watch_server(self, _timer: object) -> None:
         if self.process.poll() is not None:

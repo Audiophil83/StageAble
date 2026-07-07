@@ -513,4 +513,15 @@ Keep your existing Linux Docker runner for `runs-on: ubuntu-latest` jobs.
 
 ## License
 
-MIT
+RemoteAble is proprietary software. Copyright © 2026 Philipp Schleicher. All rights reserved.
+
+Use of the application is governed by its End User License Agreement (EULA). No
+license to copy, modify, redistribute, or resell the RemoteAble source code or
+binaries is granted except as expressly permitted by that agreement.
+
+RemoteAble bundles third-party open-source components (Django, Twisted, Channels,
+python-osc, and others) under their respective permissive licenses. Their required
+copyright and license notices are reproduced in
+[`THIRD-PARTY-LICENSES.txt`](THIRD-PARTY-LICENSES.txt). The bundled Ableton Live
+control surface additionally ships its own attribution in
+[`remoteable_bridge/NOTICE`](remoteable_bridge/NOTICE).

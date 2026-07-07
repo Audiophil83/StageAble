@@ -38,7 +38,13 @@ project_datas = [
     (str(root / "static"), "static"),
     (str(root / "assets"), "assets"),
     (str(root / "VERSION"), "."),
+    # End User License Agreement governing use of the app.
+    (str(root / "EULA.md"), "."),
+    # Third-party attribution notices required by the bundled dependencies'
+    # licenses (MIT/BSD/Apache/etc.).
+    (str(root / "THIRD-PARTY-LICENSES.txt"), "."),
     # The Ableton Live control surface, installed on demand via the menu bar.
+    # Ships its own LICENSE + NOTICE (AbletonOSC MIT attribution) inside the folder.
     (str(root / "remoteable_bridge"), "remoteable_bridge"),
 ]
 

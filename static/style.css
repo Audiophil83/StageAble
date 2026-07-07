@@ -1427,3 +1427,36 @@ body.fullscreen-mode .song-list li {
   body.fullscreen-mode #live-panel { padding: 8px 12px 4px; }
   body.fullscreen-mode #setlist-panel { margin: 6px 6px 8px; padding: 8px 10px; }
 }
+
+/* ── App footer (legal / attribution) ──────────────────────────── */
+
+.app-footer {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.app-footer-copyright {
+  margin: 0 0 6px;
+}
+
+.app-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.app-footer-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.app-footer-links a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
