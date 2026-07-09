@@ -13,8 +13,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
 
 django_asgi_app = get_asgi_application()
 
-# Use the staticfiles handler in DEBUG mode so Daphne serves static files
-if settings.DEBUG:
+# Serve bundled static files in dev and in frozen production builds.
+_frozen = os.environ.get("REMOTEABLE_FROZEN") == "1"
+if settings.DEBUG or _frozen:
     from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 
     django_asgi_app = ASGIStaticFilesHandler(django_asgi_app)

@@ -6,20 +6,25 @@ import os
 import sys
 from pathlib import Path
 
-if getattr(sys, "frozen", False):
+_FROZEN = getattr(sys, "frozen", False) or os.environ.get("REMOTEABLE_FROZEN") == "1"
+
+if _FROZEN:
     BASE_DIR = Path(sys._MEIPASS)
-    APP_DATA_DIR = Path.home() / "Library" / "Application Support" / "RemoteAble"
-    APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
-    APP_DATA_DIR = BASE_DIR
+
+from engine.paths import app_data_dir  # noqa: E402
+
+APP_DATA_DIR = app_data_dir()
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "dev-insecure-key-change-in-production-abc123xyz789",
 )
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("true", "1", "yes")
+_default_debug = "False" if _FROZEN else "True"
+DEBUG = os.environ.get("DJANGO_DEBUG", _default_debug).lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = ["*"]
 

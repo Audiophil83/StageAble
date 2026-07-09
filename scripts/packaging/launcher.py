@@ -54,6 +54,7 @@ def run_migrations() -> None:
 
 def run_app(argv: list[str]) -> int:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
+    os.environ.setdefault("DJANGO_DEBUG", "0")
     os.environ["REMOTEABLE_FROZEN"] = "1"
     os.chdir(resource_root())
 
