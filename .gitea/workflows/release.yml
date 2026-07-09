@@ -71,6 +71,35 @@ jobs:
       - name: Zip app bundle
         run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
 
+      - name: Generate Sparkle appcast
+        run: |
+          REMOTEABLE_VERSION="${{ steps.version.outputs.value }}"
+          SIZE=$(stat -f%z dist/RemoteAble-macOS.zip)
+          python3 scripts/packaging/generate_appcast.py \
+            --version "$REMOTEABLE_VERSION" \
+            --macos-url "https://downloads.remoteable.app/RemoteAble-macOS-${REMOTEABLE_VERSION}.zip" \
+            --length "$SIZE" \
+            -o dist/appcast-macos.xml
+
+      - name: Sign and notarize (optional)
+        if: env.CODESIGN_IDENTITY != ''
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          chmod +x scripts/packaging/sign_and_notarize.sh
+          ./scripts/packaging/sign_and_notarize.sh dist/RemoteAble.app
+          ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
+
+      - name: Upload to CDN (optional)
+        if: env.REMOTEABLE_CDN_UPLOAD_CMD != ''
+        env:
+          REMOTEABLE_CDN_UPLOAD_CMD: ${{ secrets.REMOTEABLE_CDN_UPLOAD_CMD }}
+        run: |
+          eval "$REMOTEABLE_CDN_UPLOAD_CMD"
+
       - name: Create Gitea release
         uses: https://gitea.com/actions/gitea-release-action@v1
         with:
@@ -78,4 +107,6 @@ jobs:
           tag: v${{ steps.version.outputs.value }}
           name: RemoteAble v${{ steps.version.outputs.value }}
           body: Automated release v${{ steps.version.outputs.value }} from ${{ github.sha }}
-          files: dist/RemoteAble-macOS.zip
+          files: |
+            dist/RemoteAble-macOS.zip
+            dist/appcast-macos.xml

@@ -1,0 +1,45 @@
+name: Release Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify Python
+        run: python --version
+
+      - name: Create virtual environment
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install --upgrade pip
+
+      - name: Install dependencies
+        run: .venv\Scripts\pip install -r requirements.txt pyinstaller pillow pystray
+
+      - name: Django system check
+        run: |
+          set REMOTEABLE_NO_ENGINE=1
+          .venv\Scripts\python manage.py check
+
+      - name: Build RemoteAble
+        run: .venv\Scripts\python scripts\build_windows_app.py
+
+      - name: Sign executable (optional)
+        if: env.WINDOWS_SIGNING_CERT_PATH != ''
+        env:
+          WINDOWS_SIGNING_CERT_PATH: ${{ secrets.WINDOWS_SIGNING_CERT_PATH }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        shell: pwsh
+        run: |
+          ./scripts/packaging/sign_windows.ps1 dist/RemoteAble/RemoteAble.exe
+
+      - name: Zip distribution
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/RemoteAble -DestinationPath dist/RemoteAble-Windows.zip
