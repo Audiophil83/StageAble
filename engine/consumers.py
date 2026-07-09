@@ -65,6 +65,13 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "message": "Missing 'command' field"})
             return
 
+        from .licensing import blocked_command_message
+
+        blocked = blocked_command_message(cmd)
+        if blocked:
+            await self.send_json({"type": "error", "message": blocked})
+            return
+
         # Import here to avoid circular imports at module level
         from .runtime import get_engine
 

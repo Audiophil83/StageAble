@@ -88,8 +88,10 @@ class EngineState:
 
     def snapshot(self) -> dict[str, Any]:
         """Return a JSON-serialisable snapshot of the current state."""
+        from .licensing import entitlement_message, get_status
+
         with self._lock:
-            return {
+            data = {
                 "connection_status": self.connection_status.value,
                 "is_playing": self.is_playing,
                 "transport_position": round(self.transport_position, 4),
@@ -117,6 +119,11 @@ class EngineState:
                 "active_project": self.active_project,
                 "last_update": self.last_update,
             }
+        data.update(get_status().to_dict())
+        message = entitlement_message()
+        if message:
+            data["license_message"] = message
+        return data
 
     def get_setlist(self) -> list[dict]:
         """Return the full song list from the timeline."""
