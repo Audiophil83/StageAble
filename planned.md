@@ -19,18 +19,11 @@ Investigate if there is a system that automatically does this from git commits.
 ----> Still unsure how this is supposed to work
 
 #### Update Mechanism
-* Spark?
-* Open Question: What about abletonOSC?
+* Sparkle?
 
 #### Mixer
 
 * Real Mixer with volume slider
-
-#### Latency compensation.
-
-Per client. Round trip test to calculate the latency. 
-Frequently re-evaluating latency
------> Still needed? 
 
 #### User management
 
