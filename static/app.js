@@ -1900,7 +1900,10 @@
     }
 
     // Error banner
-    if (state.timeline_errors && state.timeline_errors.length > 0) {
+    if (state.license_message) {
+      $errorBanner.textContent = state.license_message;
+      $errorBanner.classList.remove("hidden");
+    } else if (state.timeline_errors && state.timeline_errors.length > 0) {
       $errorBanner.textContent = state.timeline_errors.join(" | ");
       $errorBanner.classList.remove("hidden");
     } else {
@@ -2264,7 +2267,7 @@
   // ── Event handlers ───────────────────────────────────────────────
 
   $btnPlay.addEventListener("click", function () {
-    send({ command: "play" });
+    send({ command: state.is_playing ? "stop" : "play" });
   });
 
   $btnStop.addEventListener("click", function () {

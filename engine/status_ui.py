@@ -65,6 +65,9 @@ class RemoteableStatusApp(rumps.App):
             None,
             rumps.MenuItem("Install Ableton Bridge…", callback=self._install_bridge),
             None,
+            rumps.MenuItem("Activate License…", callback=self._activate_license),
+            rumps.MenuItem("Check for Updates…", callback=self._check_updates),
+            None,
             rumps.MenuItem("License Agreement…", callback=self._open_eula),
             rumps.MenuItem("Third-Party Licenses…", callback=self._open_third_party),
             None,
@@ -77,6 +80,10 @@ class RemoteableStatusApp(rumps.App):
 
         self._watch_timer = rumps.Timer(self._watch_server, 2)
         self._watch_timer.start()
+
+        self._address_timer = rumps.Timer(self._poll_address, 10)
+        self._address_timer.start()
+        self._last_display = display
 
     def _open_url(self, _sender: object) -> None:
         webbrowser.open(self.url)
@@ -201,6 +208,68 @@ class RemoteableStatusApp(rumps.App):
                 "Licenses unavailable",
                 "Could not open the third-party licenses document.",
             )
+
+    def _poll_address(self, _timer: object) -> None:
+        from engine.serve import build_urls
+
+        display, url = build_urls(self.bind_host, self.port)
+        if display == self._last_display:
+            return
+        self._last_display = display
+        self.display = display
+        self.url = url
+        self.address_item.title = f"Running at {display}"
+        rumps.notification("RemoteAble", "Address updated", url)
+
+    def _activate_license(self, _sender: object) -> None:
+        from engine import licensing
+
+        status = licensing.get_status()
+        if status.mode == licensing.LicenseMode.LICENSED:
+            rumps.alert(
+                title="License active",
+                message=f"RemoteAble is licensed ({status.license_key_masked}).",
+                ok="OK",
+            )
+            return
+
+        window = rumps.Window(
+            message="Enter your license key (RA-XXXX-XXXX-XXXX):",
+            title="Activate RemoteAble",
+            default_text="",
+            ok="Activate",
+            cancel="Cancel",
+            dimensions=(320, 24),
+        )
+        response = window.run()
+        if not response.clicked:
+            return
+        try:
+            licensing.activate_license(response.text)
+        except ValueError as exc:
+            rumps.alert(title="Activation failed", message=str(exc), ok="OK")
+            return
+        rumps.notification("RemoteAble", "License activated", "Thank you for your purchase.")
+
+    def _check_updates(self, _sender: object) -> None:
+        from engine.updates import check_for_updates
+
+        info = check_for_updates(platform="macos")
+        if info is None:
+            rumps.alert(
+                title="No updates",
+                message="RemoteAble is up to date, or the update server is unreachable.",
+                ok="OK",
+            )
+            return
+        import webbrowser
+
+        webbrowser.open(info.download_url)
+        rumps.alert(
+            title="Update available",
+            message=f"Version {info.latest_version} is available. Your browser will download it.",
+            ok="OK",
+        )
 
     def _watch_server(self, _timer: object) -> None:
         if self.process.poll() is not None:
