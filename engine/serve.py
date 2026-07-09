@@ -66,12 +66,13 @@ def python_for_subprocess() -> str:
 
 
 def _daphne_log_file() -> IO[str] | None:
-    """Open a log file for Daphne output when running as a frozen .app bundle."""
+    """Open a log file for Daphne output when running as a frozen app bundle."""
     if not getattr(sys, "frozen", False):
         return None
-    log_dir = Path.home() / "Library" / "Application Support" / "RemoteAble"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return open(log_dir / "daphne.log", "w")  # noqa: SIM115
+    from engine.paths import daphne_log_path
+
+    daphne_log_path().parent.mkdir(parents=True, exist_ok=True)
+    return open(daphne_log_path(), "w")  # noqa: SIM115
 
 
 def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
@@ -133,15 +134,15 @@ def run_status_ui(
     port: int,
 ) -> None:
     """Show a small desktop window with the server address."""
-    from engine.status_ui import run
+    from engine.platform_ui import run_status_ui as _run_status_ui
 
-    run(url, display, process, bind_host, port)
+    _run_status_ui(url, display, process, bind_host, port)
 
 
 def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> int:
     """Start Remoteable and optionally show a desktop status window."""
     display, url = build_urls(bind_host, port)
-    show_ui = status_ui if status_ui is not None else sys.platform == "darwin"
+    show_ui = status_ui if status_ui is not None else sys.platform in ("darwin", "win32")
 
     process = start_daphne(bind_host, port)
 

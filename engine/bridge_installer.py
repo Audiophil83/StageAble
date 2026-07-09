@@ -37,11 +37,23 @@ def bridge_source_dir() -> Path:
 
 def _remote_scripts_roots() -> list[Path]:
     home = Path.home()
-    candidates = [
-        home / "Music/Ableton/User Library/Remote Scripts",
-        home / "Documents/Ableton/User Library/Remote Scripts",
-        home / "Music/Ableton/Ableton User Library/Remote Scripts",
-    ]
+    candidates: list[Path] = []
+    if sys.platform == "win32":
+        documents = home / "Documents"
+        candidates.extend(
+            [
+                documents / "Ableton" / "User Library" / "Remote Scripts",
+                home / "Music" / "Ableton" / "User Library" / "Remote Scripts",
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                home / "Music/Ableton/User Library/Remote Scripts",
+                home / "Documents/Ableton/User Library/Remote Scripts",
+                home / "Music/Ableton/Ableton User Library/Remote Scripts",
+            ]
+        )
     seen: set[Path] = set()
     roots: list[Path] = []
     for path in candidates:
