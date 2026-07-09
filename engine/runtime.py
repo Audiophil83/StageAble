@@ -978,10 +978,23 @@ class RuntimeEngine:
 
     def _slow_poll_tick(self) -> None:
         """Query tempo, time signature, mixer mute, and project identity from Ableton."""
-        tempo = self.osc.get_tempo()
-        if tempo is not None and abs(tempo - self.state.tempo) > 0.01:
-            self.state.update(tempo=tempo)
-        self._sync_time_signature_from_playhead()
+        transport = self.osc.get_transport()
+        if transport is not None:
+            _, _, tempo, num, den = transport
+            if abs(tempo - self.state.tempo) > 0.01:
+                self.state.update(tempo=tempo)
+            updates: dict[str, int] = {}
+            if num != self.state.signature_numerator:
+                updates["signature_numerator"] = num
+            if den is not None and den != self.state.signature_denominator:
+                updates["signature_denominator"] = den
+            if updates:
+                self.state.update(**updates)
+        else:
+            tempo = self.osc.get_tempo()
+            if tempo is not None and abs(tempo - self.state.tempo) > 0.01:
+                self.state.update(tempo=tempo)
+            self._sync_time_signature_from_playhead()
         self.refresh_mixer_tracks_mute()
         self._check_project_switch()
 
@@ -1049,17 +1062,28 @@ class RuntimeEngine:
     def _poll_tick(self) -> None:
         """Single tick of the poll loop.
 
-        Only two OSC queries per tick: position + is_playing.
+        One batch transport query when supported; otherwise two parallel queries.
         Tempo and time signature are handled by the 1/s slow-poll thread.
         """
-        # 1. Read transport state (2 OSC queries)
-        position = self.osc.get_current_song_time()
+        transport = self.osc.get_transport()
+        if transport is not None:
+            is_playing, position, _, _, _ = transport
+        else:
+            position_reply, playing_reply = self.osc.query_bundle([
+                ("/live/song/get/current_song_time", ()),
+                ("/live/song/get/is_playing", ()),
+            ])
+            if position_reply is None or len(position_reply) == 0:
+                if not self.osc.is_connected():
+                    self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
+                return
+            position = float(position_reply[0])
+            is_playing = bool(playing_reply[0]) if playing_reply else False
+
         if position is None:
             if not self.osc.is_connected():
                 self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
             return
-
-        is_playing = self._is_transport_playing()
 
         # 2. Resolve active events (timeline reads are lock-free)
         tl = self.state.timeline

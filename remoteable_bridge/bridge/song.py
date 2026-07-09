@@ -262,6 +262,43 @@ class SongHandler(AbletonOSCHandler):
             partial(song_get_meter_at_beats, self.song),
         )
 
+        def song_get_transport(song, params: Tuple[Any] = ()):
+            """Read transport state in one OSC round trip.
+
+            Query: /live/song/get/transport
+            Reply: is_playing, current_song_time, tempo, signature_numerator,
+                   signature_denominator
+            """
+            return (
+                song.is_playing,
+                song.current_song_time,
+                song.tempo,
+                song.signature_numerator,
+                song.signature_denominator,
+            )
+
+        self.osc_server.add_handler(
+            "/live/song/get/transport",
+            partial(song_get_transport, self.song),
+        )
+
+        def song_get_loop_state(song, params: Tuple[Any] = ()):
+            """Read loop state in one OSC round trip.
+
+            Query: /live/song/get/loop_state
+            Reply: loop, loop_start, loop_length
+            """
+            return (
+                song.loop,
+                song.loop_start,
+                song.loop_length,
+            )
+
+        self.osc_server.add_handler(
+            "/live/song/get/loop_state",
+            partial(song_get_loop_state, self.song),
+        )
+
         #--------------------------------------------------------------------------------
         # Callbacks for Song: Scene properties
         #--------------------------------------------------------------------------------

@@ -264,19 +264,19 @@ class TrackHandler(AbletonOSCHandler):
 
     def _set_mixer_property(self, target, prop, params: Tuple) -> None:
         parameter_object = getattr(target.mixer_device, prop)
-        self.logger.info("Setting property for %s: %s (new value %s)" % (self.class_identifier, prop, params[0]))
+        self.logger.debug("Setting property for %s: %s (new value %s)" % (self.class_identifier, prop, params[0]))
         parameter_object.value = params[0]
 
     def _get_mixer_property(self, target, prop, params: Optional[Tuple] = ()) -> Tuple[Any]:
         parameter_object = getattr(target.mixer_device, prop)
-        self.logger.info("Getting property for %s: %s = %s" % (self.class_identifier, prop, parameter_object.value))
+        self.logger.debug("Getting property for %s: %s = %s" % (self.class_identifier, prop, parameter_object.value))
         return parameter_object.value,
 
     def _start_mixer_listen(self, target, prop, params: Optional[Tuple] = ()) -> None:
         parameter_object = getattr(target.mixer_device, prop)
         def property_changed_callback():
             value = parameter_object.value
-            self.logger.info("Property %s changed of %s %s: %s" % (prop, self.class_identifier, str(params), value))
+            self.logger.debug("Property %s changed of %s %s: %s" % (prop, self.class_identifier, str(params), value))
             osc_address = "/live/%s/get/%s" % (self.class_identifier, prop)
             self.osc_server.send(osc_address, (*params, value,))
 

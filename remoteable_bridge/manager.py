@@ -2,11 +2,13 @@ from ableton.v2.control_surface import ControlSurface
 import Live
 
 from . import bridge
+from .config import FAST_POLLING, FAST_POLL_INTERVAL_MS
 
 import importlib
 import traceback
 import logging
 import os
+import time
 
 logger = logging.getLogger("remoteable-bridge")
 
@@ -19,10 +21,20 @@ class Manager(ControlSurface):
 
         self.handlers = []
         self.midi_mappings = {}
+        self.recv_loop = None
+        self._last_tick = time.time() * 1000
 
         try:
             self.osc_server = bridge.OSCServer()
             self.schedule_message(0, self.tick)
+
+            if FAST_POLLING:
+                self.recv_loop = Live.Base.Timer(
+                    callback=self.osc_server.process,
+                    interval=FAST_POLL_INTERVAL_MS,
+                    repeat=True,
+                )
+                self.recv_loop.start()
 
             self.start_logging()
             self.init_api()
@@ -111,13 +123,35 @@ class Manager(ControlSurface):
         Live's embedded Python implementation does not appear to support threading,
         and beachballs when a thread is started. Instead, this approach allows
         long-running processes such as the OSC server to perform operations.
+
+        When FAST_POLLING is enabled, osc_server.process() runs on a 10ms
+        Live.Base.Timer; this tick monitors lag and keeps housekeeping.
         """
-        logger.debug("Tick...")
+        tick_time = time.time() * 1000
+
+        if tick_time - self._last_tick > 200:
+            logger.warning(
+                "UDP tick is lagging, delta: %dms",
+                round(tick_time - self._last_tick),
+            )
+
+        self._last_tick = tick_time
         self.osc_server.process()
+
+        process_time = time.time() * 1000
+        if process_time - tick_time > 100:
+            logger.warning(
+                "UDP processing is taking long, delta: %dms",
+                round(process_time - tick_time),
+            )
+
+        logger.debug("Tick...")
         self.schedule_message(1, self.tick)
 
     def reload_imports(self):
         try:
+            from . import config
+            importlib.reload(config)
             importlib.reload(bridge.handler)
             importlib.reload(bridge.osc_server)
             importlib.reload(bridge.song)
@@ -134,6 +168,9 @@ class Manager(ControlSurface):
     def disconnect(self):
         self.show_message("Disconnecting...")
         logger.info("Disconnecting...")
+        if self.recv_loop is not None:
+            self.recv_loop.stop()
+            self.recv_loop = None
         self.stop_logging()
         self.osc_server.shutdown()
         super().disconnect()

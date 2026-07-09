@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pythonosc.dispatcher import Dispatcher
+from pythonosc.osc_bundle_builder import IMMEDIATELY, OscBundleBuilder
+from pythonosc.osc_message_builder import OscMessageBuilder
 from pythonosc.osc_server import BlockingOSCUDPServer
 from pythonosc.udp_client import SimpleUDPClient
 
@@ -28,6 +30,8 @@ DEFAULT_TIMEOUT = 2.0
 _ARRANGEMENT_CLIPS_NAME = "/live/track/get/arrangement_clips/name"
 _ARRANGEMENT_CLIPS_NAME_CHUNK = "/live/track/get/arrangement_clips/name_chunk"
 _METER_AT_BEATS = "/live/song/get/meter_at_beats"
+_TRANSPORT = "/live/song/get/transport"
+_LOOP_STATE = "/live/song/get/loop_state"
 # Keep chunks small — lyric clip names can be long sentences.
 ARRANGEMENT_CLIP_NAME_CHUNK_SIZE = 40
 ARRANGEMENT_CLIP_BULK_TIMEOUT = 2.0
@@ -66,12 +70,15 @@ class AbletonOSCClient:
     _client: SimpleUDPClient | None = field(default=None, init=False, repr=False)
     _server: BlockingOSCUDPServer | None = field(default=None, init=False, repr=False)
     _server_thread: threading.Thread | None = field(default=None, init=False, repr=False)
-    _reply_queues: dict[str, queue.Queue] = field(default_factory=dict, init=False, repr=False)
+    _pending: dict[str, list[tuple[tuple[Any, ...], queue.Queue]]] = field(
+        default_factory=dict, init=False, repr=False
+    )
     _listeners: dict[str, list] = field(default_factory=dict, init=False, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
-    _query_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _signature_osc_supported: bool | None = field(default=None, init=False, repr=False)
     _project_osc_supported: bool | None = field(default=None, init=False, repr=False)
+    _transport_osc_supported: bool | None = field(default=None, init=False, repr=False)
+    _loop_state_osc_supported: bool | None = field(default=None, init=False, repr=False)
     _running: bool = field(default=False, init=False, repr=False)
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -82,6 +89,8 @@ class AbletonOSCClient:
             return
         self._signature_osc_supported = None
         self._project_osc_supported = None
+        self._transport_osc_supported = None
+        self._loop_state_osc_supported = None
         self._client = SimpleUDPClient(self.host, self.send_port)
         dispatcher = Dispatcher()
         dispatcher.set_default_handler(self._handle_reply)
@@ -119,6 +128,82 @@ class AbletonOSCClient:
             raise RuntimeError("OSC client not started — call .start() first")
         self._client.send_message(address, list(args))
 
+    def send_bundle(self, messages: list[tuple[str, tuple[Any, ...]]]) -> None:
+        """Send multiple OSC messages in one UDP bundle."""
+        if self._client is None:
+            raise RuntimeError("OSC client not started — call .start() first")
+        builder = OscBundleBuilder(IMMEDIATELY)
+        for address, args in messages:
+            msg_builder = OscMessageBuilder(address=address)
+            for arg in args:
+                msg_builder.add_arg(arg)
+            builder.add_content(msg_builder.build())
+        self._client.send(builder.build())
+
+    def _register_pending(
+        self, address: str, args: tuple[Any, ...]
+    ) -> queue.Queue:
+        reply_q: queue.Queue = queue.Queue(maxsize=1)
+        with self._lock:
+            self._pending.setdefault(address, []).append((args, reply_q))
+        return reply_q
+
+    def _unregister_pending(
+        self, address: str, args: tuple[Any, ...], reply_q: queue.Queue
+    ) -> None:
+        with self._lock:
+            pending = self._pending.get(address, [])
+            self._pending[address] = [
+                (pending_args, q)
+                for pending_args, q in pending
+                if q is not reply_q
+            ]
+            if not self._pending[address]:
+                self._pending.pop(address, None)
+
+    def _args_match_reply(self, args: tuple[Any, ...], data: list[Any]) -> bool:
+        if not args:
+            return True
+        if len(data) < len(args):
+            return False
+        for request_arg, reply_arg in zip(args, data):
+            if isinstance(request_arg, float) or isinstance(reply_arg, float):
+                if float(request_arg) != float(reply_arg):
+                    return False
+            elif request_arg != reply_arg:
+                return False
+        return True
+
+    def _deliver_reply(self, address: str, data: list[Any]) -> bool:
+        with self._lock:
+            pending = self._pending.get(address)
+            if not pending:
+                return False
+
+            for index, (args, reply_q) in enumerate(pending):
+                if args and self._args_match_reply(args, data):
+                    del pending[index]
+                    if not pending:
+                        self._pending.pop(address, None)
+                    try:
+                        reply_q.put_nowait(data)
+                    except queue.Full:
+                        pass
+                    return True
+
+            for index, (args, reply_q) in enumerate(pending):
+                if not args:
+                    del pending[index]
+                    if not pending:
+                        self._pending.pop(address, None)
+                    try:
+                        reply_q.put_nowait(data)
+                    except queue.Full:
+                        pass
+                    return True
+
+        return False
+
     def query(
         self,
         address: str,
@@ -130,25 +215,82 @@ class AbletonOSCClient:
 
         Returns the reply arguments as a list, or ``None`` on timeout.
 
-        Queries are serialized so the poll loop and scan/rescan paths cannot
-        steal each other's replies for the same OSC address.
+        Independent queries to different addresses may run concurrently via
+        ``query_many``; this method only waits for its own reply.
         """
-        with self._query_lock:
-            reply_q: queue.Queue = queue.Queue(maxsize=1)
-            with self._lock:
-                self._reply_queues[address] = reply_q
+        args_tuple = tuple(args)
+        reply_q = self._register_pending(address, args_tuple)
+        self.send(address, *args)
 
+        try:
+            return reply_q.get(timeout=timeout)
+        except queue.Empty:
+            if warn_timeout:
+                logger.warning("OSC query timed out: %s %s", address, args)
+            return None
+        finally:
+            self._unregister_pending(address, args_tuple, reply_q)
+
+    def query_many(
+        self,
+        requests: list[tuple[str, tuple[Any, ...]]],
+        timeout: float = DEFAULT_TIMEOUT,
+        warn_timeout: bool = True,
+    ) -> list[list[Any] | None]:
+        """Send multiple OSC queries without blocking between sends."""
+        if not requests:
+            return []
+
+        waiters: list[tuple[str, tuple[Any, ...], queue.Queue]] = []
+        for address, args in requests:
+            args_tuple = tuple(args)
+            reply_q = self._register_pending(address, args_tuple)
+            waiters.append((address, args_tuple, reply_q))
+
+        for address, args, _ in waiters:
             self.send(address, *args)
 
+        results: list[list[Any] | None] = []
+        for address, args_tuple, reply_q in waiters:
             try:
-                return reply_q.get(timeout=timeout)
+                results.append(reply_q.get(timeout=timeout))
             except queue.Empty:
                 if warn_timeout:
-                    logger.warning("OSC query timed out: %s %s", address, args)
-                return None
+                    logger.warning("OSC query timed out: %s %s", address, args_tuple)
+                results.append(None)
             finally:
-                with self._lock:
-                    self._reply_queues.pop(address, None)
+                self._unregister_pending(address, args_tuple, reply_q)
+        return results
+
+    def query_bundle(
+        self,
+        requests: list[tuple[str, tuple[Any, ...]]],
+        timeout: float = DEFAULT_TIMEOUT,
+        warn_timeout: bool = True,
+    ) -> list[list[Any] | None]:
+        """Send an OSC bundle and wait for one reply per bundled message."""
+        if not requests:
+            return []
+
+        waiters: list[tuple[str, tuple[Any, ...], queue.Queue]] = []
+        for address, args in requests:
+            args_tuple = tuple(args)
+            reply_q = self._register_pending(address, args_tuple)
+            waiters.append((address, args_tuple, reply_q))
+
+        self.send_bundle(requests)
+
+        results: list[list[Any] | None] = []
+        for address, args_tuple, reply_q in waiters:
+            try:
+                results.append(reply_q.get(timeout=timeout))
+            except queue.Empty:
+                if warn_timeout:
+                    logger.warning("OSC query timed out: %s %s", address, args_tuple)
+                results.append(None)
+            finally:
+                self._unregister_pending(address, args_tuple, reply_q)
+        return results
 
     def subscribe(self, address: str, callback) -> None:
         """Register a callback for a specific OSC address (listener mode)."""
@@ -182,6 +324,30 @@ class AbletonOSCClient:
     def transport_stop(self) -> None:
         self.send("/live/song/stop_playing")
 
+    def get_transport(
+        self,
+    ) -> tuple[bool, float, float, int, int] | None:
+        """Return transport state in one OSC round trip when supported."""
+        if self._transport_osc_supported is False:
+            return None
+
+        timeout = 0.5 if self._transport_osc_supported is None else DEFAULT_TIMEOUT
+        r = self.query(_TRANSPORT, timeout=timeout, warn_timeout=False)
+        if r is None or len(r) < 5:
+            if self._transport_osc_supported is None:
+                logger.debug("Batch transport endpoint unavailable; using individual queries")
+            self._transport_osc_supported = False
+            return None
+
+        self._transport_osc_supported = True
+        return (
+            bool(r[0]),
+            float(r[1]),
+            float(r[2]),
+            int(r[3]),
+            int(r[4]),
+        )
+
     def get_is_playing(self) -> bool | None:
         r = self.query("/live/song/get/is_playing")
         if r is not None and len(r) > 0:
@@ -212,22 +378,45 @@ class AbletonOSCClient:
     # Loop ---------------------------------------------------------------
 
     def get_loop(self) -> bool | None:
+        state = self.get_loop_state()
+        if state is not None:
+            return state[0]
         r = self.query("/live/song/get/loop")
         if r is not None and len(r) > 0:
             return bool(int(r[0]))
         return None
 
     def get_loop_start(self) -> float | None:
+        state = self.get_loop_state()
+        if state is not None:
+            return state[1]
         r = self.query("/live/song/get/loop_start")
         if r is not None and len(r) > 0:
             return float(r[0])
         return None
 
     def get_loop_length(self) -> float | None:
+        state = self.get_loop_state()
+        if state is not None:
+            return state[2]
         r = self.query("/live/song/get/loop_length")
         if r is not None and len(r) > 0:
             return float(r[0])
         return None
+
+    def get_loop_state(self) -> tuple[bool, float, float] | None:
+        """Return loop state in one OSC round trip when supported."""
+        if self._loop_state_osc_supported is False:
+            return None
+
+        timeout = 0.5 if self._loop_state_osc_supported is None else DEFAULT_TIMEOUT
+        r = self.query(_LOOP_STATE, timeout=timeout, warn_timeout=False)
+        if r is None or len(r) < 3:
+            self._loop_state_osc_supported = False
+            return None
+
+        self._loop_state_osc_supported = True
+        return bool(int(r[0])), float(r[1]), float(r[2])
 
     def set_loop(self, enabled: bool) -> None:
         self.send("/live/song/set/loop", 1 if enabled else 0)
@@ -275,6 +464,10 @@ class AbletonOSCClient:
         self.send("/live/song/cue_point/jump", name_or_index)
 
     def get_tempo(self) -> float | None:
+        if self._transport_osc_supported:
+            transport = self.get_transport()
+            if transport is not None:
+                return transport[2]
         r = self.query("/live/song/get/tempo")
         if r is not None and len(r) > 0:
             return float(r[0])
@@ -342,20 +535,31 @@ class AbletonOSCClient:
         Older Remote Scripts do not register these endpoints; we detect that
         once and fall back to engine defaults (4/4) without repeated warnings.
         """
+        if self._signature_osc_supported is False and self._transport_osc_supported is False:
+            return None, None
+
+        if self._transport_osc_supported is not False:
+            transport = self.get_transport()
+            if transport is not None:
+                self._signature_osc_supported = True
+                return transport[3], transport[4]
+
         if self._signature_osc_supported is False:
             return None, None
 
-        r = self.query("/live/song/get/signature_numerator")
-        if r is None or len(r) == 0:
+        num_r, den_r = self.query_bundle([
+            ("/live/song/get/signature_numerator", ()),
+            ("/live/song/get/signature_denominator", ()),
+        ])
+        if num_r is None or len(num_r) == 0:
             if self._signature_osc_supported is None:
                 self._log_signature_unavailable()
             self._signature_osc_supported = False
             return None, None
 
         self._signature_osc_supported = True
-        num = int(r[0])
+        num = int(num_r[0])
 
-        den_r = self.query("/live/song/get/signature_denominator")
         if den_r is None or len(den_r) == 0:
             return num, None
         return num, int(den_r[0])
@@ -612,14 +816,8 @@ class AbletonOSCClient:
                 _string_args_utf8_bytes(data),
             )
 
-        # Deliver to one-shot query queue
-        with self._lock:
-            q = self._reply_queues.get(address)
-        if q is not None:
-            try:
-                q.put_nowait(data)
-            except queue.Full:
-                pass
+        if self._deliver_reply(address, data):
+            pass
         elif address == _ARRANGEMENT_CLIPS_NAME:
             track_id = data[0] if data else "?"
             logger.warning(

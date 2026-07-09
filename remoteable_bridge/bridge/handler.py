@@ -25,11 +25,11 @@ class AbletonOSCHandler(Component):
     # Generic callbacks
     #--------------------------------------------------------------------------------
     def _call_method(self, target, method, params: Optional[Tuple] = ()):
-        self.logger.info("Calling method for %s: %s (params %s)" % (self.class_identifier, method, str(params)))
+        self.logger.debug("Calling method for %s: %s (params %s)" % (self.class_identifier, method, str(params)))
         getattr(target, method)(*params)
 
     def _set_property(self, target, prop, params: Tuple) -> None:
-        self.logger.info("Setting property for %s: %s (new value %s)" % (self.class_identifier, prop, params[0]))
+        self.logger.debug("Setting property for %s: %s (new value %s)" % (self.class_identifier, prop, params[0]))
         setattr(target, prop, params[0])
 
     def _get_property(self, target, prop, params: Optional[Tuple] = ()) -> Tuple[Any]:
@@ -41,7 +41,7 @@ class AbletonOSCHandler(Component):
             # to a particular object (e.g. track.fold_state for a non-group track)
             #--------------------------------------------------------------------------------
             value = None
-        self.logger.info("Getting property for %s: %s = %s" % (self.class_identifier, prop, value))
+        self.logger.debug("Getting property for %s: %s = %s" % (self.class_identifier, prop, value))
         return (value, *params)
 
     def _start_listen(self, target, prop, params: Optional[Tuple] = (), getter = None) -> None:
@@ -65,7 +65,7 @@ class AbletonOSCHandler(Component):
                 value = getter(params)
             if type(value) is not tuple:
                 value = (value,)
-            self.logger.info("Property %s changed of %s %s: %s" % (prop, self.class_identifier, str(params), value))
+            self.logger.debug("Property %s changed of %s %s: %s" % (prop, self.class_identifier, str(params), value))
             osc_address = "/live/%s/get/%s" % (self.class_identifier, prop)
             self.osc_server.send(osc_address, (*params, *value,))
 
