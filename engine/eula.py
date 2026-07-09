@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from engine.paths import app_data_dir
 from engine.version import get_version
 
 APP_NAME = "RemoteAble"
@@ -46,7 +48,7 @@ def third_party_licenses_path() -> Path:
 
 
 def data_dir() -> Path:
-    return Path.home() / "Library" / "Application Support" / APP_NAME
+    return app_data_dir()
 
 
 def _marker_path() -> Path:
@@ -68,11 +70,16 @@ def mark_accepted() -> None:
 
 
 def open_document(path: Path) -> bool:
-    """Open a bundled document in the user's default macOS application."""
+    """Open a bundled document in the user's default application."""
     if not path.is_file():
         return False
     try:
-        subprocess.run(["open", str(path)], check=False)
+        if sys.platform == "darwin":
+            subprocess.run(["open", str(path)], check=False)
+        elif os.name == "nt":
+            os.startfile(str(path))  # type: ignore[attr-defined]
+        else:
+            subprocess.run(["xdg-open", str(path)], check=False)
     except OSError:
         return False
     return True
