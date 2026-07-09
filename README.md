@@ -16,6 +16,8 @@ state to any number of browser clients over WebSocket.
 - Song navigation via named cue points
 - Persistent setlist management via REST API
 - Auto-reconnects to Ableton if the connection drops
+- License activation with 15-minute trial mode (see [Commercial distribution](#commercial-distribution))
+- macOS menu bar and Windows system tray desktop apps with auto-update checks
 
 ---
 
@@ -188,9 +190,13 @@ reachable.
 
 | Variable | Default | Description |
 |---|---|---|
-| `DJANGO_DEBUG` | `True` | Set to `False` in production |
+| `DJANGO_DEBUG` | `True` (dev) / `False` (frozen `.app`) | Set to `False` in production; frozen builds default to `False` automatically |
 | `DJANGO_SECRET_KEY` | *(dev key)* | Override in production |
 | `REMOTEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
+| `REMOTEABLE_FROZEN` | *(unset)* | Set by the PyInstaller launcher; enables production defaults and static file serving |
+| `REMOTEABLE_VERSION` | from `VERSION` file | Override the bundled app version string |
+| `REMOTEABLE_LICENSE_SECRET` | dev default | HMAC secret for license key validation — **must** be set in production builds |
+| `REMOTEABLE_APPCAST_URL` | `https://downloads.remoteable.app/appcast-macos.xml` | URL of the Sparkle-style appcast for update checks |
 
 ---
 
@@ -278,9 +284,16 @@ Connect to `ws://<host>:<port>/ws/engine/`.
   "next_stop": 544.0,
   "timeline_valid": true,
   "timeline_errors": [],
+  "mode": "trial",
+  "trial_seconds_remaining": 842,
+  "license_message": "Trial mode — 15 minute(s) remaining in this session.",
   "last_update": 1716660140.123
 }
 ```
+
+`mode` is one of `licensed`, `trial`, or `trial_expired`. When the trial
+session ends, transport commands return an error until a license key is
+activated from the desktop app.
 
 #### Client -> Server commands
 
@@ -304,6 +317,16 @@ All endpoints are under `/api/`. No authentication required (configurable).
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/status/` | Current engine state snapshot (same shape as WebSocket state) |
+
+#### License
+
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| GET | `/api/license/status/` | — | Current license/trial status |
+| POST | `/api/license/activate/` | `{ "license_key": "RA-XXXX-XXXX-XXXX" }` | Activate a purchased license key |
+
+Transport and rehearsal endpoints return HTTP 402 when the trial session has
+expired and no license is active.
 
 #### Transport control
 
@@ -344,6 +367,9 @@ All endpoints are under `/api/`. No authentication required (configurable).
 remoteable/
 ├── manage.py                          Django management CLI
 ├── requirements.txt                   Python dependencies
+├── VERSION                            Current release version
+├── RemoteAble.spec                    PyInstaller spec (macOS .app)
+├── RemoteAble-windows.spec            PyInstaller spec (Windows folder)
 ├── remoteable/                        Django project package
 │   ├── settings.py                    All configuration
 │   ├── asgi.py                        ASGI entrypoint + static files + engine auto-start
@@ -361,10 +387,32 @@ remoteable/
 │   ├── routing.py                     WebSocket URL routing
 │   ├── models.py                      Setlist + SetlistEntry Django models
 │   ├── serializers.py                 DRF serializers
+│   ├── licensing.py                   License activation + trial mode
+│   ├── updates.py                     Appcast-based update checker
+│   ├── paths.py                       Cross-platform app data directories
+│   ├── platform_ui.py                 Desktop UI dispatch (macOS / Windows)
+│   ├── status_ui.py                   macOS menu bar UI (rumps)
+│   ├── tray_ui.py                     Windows system tray UI (pystray)
+│   ├── eula.py                        EULA acceptance helpers
+│   ├── bridge_installer.py            Ableton bridge install logic
 │   ├── admin.py                       Django admin config
 │   ├── startup.py                     One-shot engine auto-start guard
+│   ├── tests/                         Automated tests
 │   └── management/commands/
 │       └── run_engine.py              `python manage.py run_engine` standalone command
+├── scripts/
+│   ├── build_mac_app.py               Build macOS .app bundle
+│   ├── build_windows_app.py           Build Windows distribution folder
+│   ├── install_bridge.py              CLI bridge installer
+│   ├── packaging/
+│   │   ├── launcher.py                PyInstaller entry point
+│   │   ├── sign_and_notarize.sh       macOS code signing + notarization
+│   │   ├── sign_windows.ps1           Windows Authenticode signing
+│   │   └── generate_appcast.py        Sparkle appcast XML generator
+│   └── versioning/
+│       └── next_version.py            Semver bump from Conventional Commits
+├── docs/commercial/                   Paid distribution guides
+├── website/                           Marketing landing page (static HTML)
 ├── templates/
 │   └── index.html                     Single-page frontend
 └── static/
@@ -394,10 +442,27 @@ Make sure Ableton is running with the **RemoteAble** control surface enabled.
 Check that UDP ports 11000/11001 are not blocked by a firewall.
 
 **Static files not loading (404)**
-Remoteable serves static files automatically in DEBUG mode via
-`ASGIStaticFilesHandler`. Make sure `DJANGO_DEBUG` is `True` (the default) or
-run `python manage.py collectstatic` and serve the `staticfiles/` directory in
-production.
+In development, Remoteable serves static files automatically in DEBUG mode via
+`ASGIStaticFilesHandler`. Frozen `.app` / Windows builds serve static files
+even with `DJANGO_DEBUG=False`. For a manual production deployment without the
+bundled app, run `python manage.py collectstatic` and serve the `staticfiles/`
+directory.
+
+**Menu bar address does not update after network change**
+The macOS menu bar app polls the LAN address every 10 seconds and updates
+automatically. Use **Refresh Address** in the menu for an immediate update.
+
+**Trial session ended / transport blocked**
+Without a license key, RemoteAble runs in trial mode for 15 minutes per
+session. Activate a key via the menu bar (**Activate License…**) or
+`POST /api/license/activate/`. Generate a dev/test key:
+
+```bash
+python -c "from engine.licensing import generate_license_key; print(generate_license_key())"
+```
+
+Set `REMOTEABLE_LICENSE_SECRET` to the same secret used in production before
+generating keys for customers.
 
 **OSC query timeouts in the log / LYRICS shows 0 clips**
 Bulk arrangement clip name queries can exceed OSC/UDP size limits when a track
@@ -441,9 +506,10 @@ position in Live’s arrangement ruler.
 
 ## Building and releases
 
-RemoteAble ships as a macOS `.app` bundle built with [PyInstaller](https://pyinstaller.org/).
-A Linux Gitea runner **cannot** produce a working `.app` (macOS Mach-O binaries are required),
-so CI uses a **macOS `act_runner`** for release builds.
+RemoteAble ships as a **macOS `.app`** menu bar bundle and a **Windows folder**
+distribution, both built with [PyInstaller](https://pyinstaller.org/). A Linux
+Gitea runner **cannot** produce a working `.app` (macOS Mach-O binaries are
+required), so CI uses a **macOS `act_runner`** for release builds.
 
 ### Local macOS build
 
@@ -456,10 +522,14 @@ open dist/RemoteAble.app
 ```
 
 The bundled app runs as a **macOS menu bar app** (no Dock icon). Click the
-menu bar icon to see the server address, open it in a browser, copy it, or quit.
+menu bar icon to see the server address, open it in a browser, copy it, activate
+a license, check for updates, or quit.
 
 The bundled app stores its SQLite database in
 `~/Library/Application Support/RemoteAble/db.sqlite3`.
+
+Frozen builds automatically set `DJANGO_DEBUG=False` and serve static assets
+from the bundled files.
 
 **Unsigned builds:** macOS Gatekeeper may block the first launch. Right-click the app and
 choose **Open**, or allow it in *System Settings → Privacy & Security*.
@@ -474,13 +544,76 @@ xattr -cr RemoteAble.app
 When something goes wrong the Daphne server log is written to
 `~/Library/Application Support/RemoteAble/daphne.log`.
 
+### Local Windows build
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt pyinstaller pillow pystray
+python scripts\build_windows_app.py
+dist\RemoteAble\RemoteAble.exe
+```
+
+Windows builds use a **system tray icon** (pystray) with the same actions as the
+macOS menu bar. App data is stored under `%LOCALAPPDATA%\RemoteAble\`.
+
+### Code signing
+
+**macOS** — sign and notarize before public distribution:
+
+```bash
+export CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+export APPLE_ID="you@example.com"
+export APPLE_APP_PASSWORD="app-specific-password"
+export APPLE_TEAM_ID="XXXXXXXXXX"
+chmod +x scripts/packaging/sign_and_notarize.sh
+./scripts/packaging/sign_and_notarize.sh dist/RemoteAble.app
+```
+
+**Windows** — Authenticode signing (requires a `.pfx` certificate):
+
+```powershell
+$env:WINDOWS_SIGNING_CERT_PATH = "C:\certs\codesign.pfx"
+$env:WINDOWS_SIGNING_CERT_PASSWORD = "..."
+pwsh scripts/packaging/sign_windows.ps1 dist/RemoteAble/RemoteAble.exe
+```
+
+See [`docs/commercial/release-checklist.md`](docs/commercial/release-checklist.md)
+for the full release workflow.
+
+### Auto-updates
+
+The desktop app includes **Check for Updates…** which reads a Sparkle-style
+appcast XML. Generate an appcast when publishing a release:
+
+```bash
+python scripts/packaging/generate_appcast.py \
+  --version 1.0.0 \
+  --macos-url "https://downloads.remoteable.app/RemoteAble-macOS-1.0.0.zip" \
+  --windows-url "https://downloads.remoteable.app/RemoteAble-Windows-1.0.0.zip" \
+  --length 12345678 \
+  -o dist/appcast-macos.xml
+```
+
+Override the appcast URL with `REMOTEABLE_APPCAST_URL`. A full
+[Sparkle](https://sparkle-project.org/) framework embed is optional; the
+current implementation opens the download URL in the browser.
+
 ### Gitea Actions CI/CD
 
 On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/release.yml):
 
 1. Runs `python3 manage.py check` on the Mac runner
-2. Builds `RemoteAble.app` on the Mac runner
-3. Publishes `RemoteAble-macOS.zip` as a Gitea release
+2. Computes the next semver from Conventional Commits (`scripts/versioning/next_version.py`)
+3. Tags and builds `RemoteAble.app` on the Mac runner
+4. Generates `appcast-macos.xml`
+5. Optionally signs/notarizes when `CODESIGN_IDENTITY` and Apple secrets are set
+6. Optionally uploads to CDN when `REMOTEABLE_CDN_UPLOAD_CMD` is set
+7. Publishes `RemoteAble-macOS.zip` and the appcast as a Gitea release
+
+Windows builds use a separate manual workflow:
+[`.gitea/workflows/release-windows.yml`](.gitea/workflows/release-windows.yml)
+(`workflow_dispatch` on `windows-latest`).
 
 The workflow uses the Mac runner's installed `python3` (not
 `actions/setup-python`, which requires GitHub-hosted paths like
@@ -508,6 +641,62 @@ The workflow uses the Mac runner's installed `python3` (not
 5. Start the runner: `act_runner daemon --config /path/to/config.yaml`
 
 Keep your existing Linux Docker runner for `runs-on: ubuntu-latest` jobs.
+
+### Running tests
+
+```bash
+REMOTEABLE_NO_ENGINE=1 python manage.py test engine.tests
+```
+
+---
+
+## Commercial distribution
+
+RemoteAble is sold as a **one-time perpetual license** (recommended pricing:
+**€49 / $49** launch, **€69 / $69** after v1.0 stable). Distribution is via
+**direct download** (not the Mac App Store) through a storefront such as
+[Lemon Squeezy](https://www.lemonsqueezy.com/) or Paddle.
+
+### Licensing and trial mode
+
+| Mode | Behaviour |
+|---|---|
+| **Trial** | Full features for 15 minutes per session; timer shown in the web UI |
+| **Trial expired** | Transport commands blocked until a license key is activated |
+| **Licensed** | No time limit; key stored in app data directory |
+
+License keys use the format `RA-XXXX-XXXX-XXXX` (HMAC-signed). Customers
+activate from the desktop app menu (**Activate License…**) or via the REST API.
+
+Implementation: [`engine/licensing.py`](engine/licensing.py).
+
+Generate keys for testing or storefront integration:
+
+```bash
+REMOTEABLE_LICENSE_SECRET='your-production-secret' python -c \
+  "from engine.licensing import generate_license_key; print(generate_license_key())"
+```
+
+### Documentation map
+
+| Document | Purpose |
+|---|---|
+| [`planned.md`](planned.md) | Full paid-distribution roadmap with status |
+| [`docs/commercial/storefront-setup.md`](docs/commercial/storefront-setup.md) | Lemon Squeezy / Paddle / Gumroad setup |
+| [`docs/commercial/user-guide.md`](docs/commercial/user-guide.md) | Buyer-oriented setup guide |
+| [`docs/commercial/release-checklist.md`](docs/commercial/release-checklist.md) | Sign, publish, verify releases |
+| [`docs/commercial/v1-release-criteria.md`](docs/commercial/v1-release-criteria.md) | Checklist before tagging v1.0.0 |
+| [`website/index.html`](website/index.html) | Marketing landing page template |
+| [`EULA.md`](EULA.md) | End User License Agreement |
+
+### Remaining manual steps before public launch
+
+- Enroll in the Apple Developer Program and add signing secrets to CI
+- Set up storefront (product, license keys, receipt email)
+- Publish privacy policy, Impressum, and refund pages on the live website
+- Host downloads and appcast on a public CDN (`downloads.remoteable.app`)
+- Record YouTube tutorials and run a private beta with performers
+- Purchase a Windows code signing certificate (OV or EV)
 
 ---
 
