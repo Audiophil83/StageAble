@@ -153,7 +153,7 @@ class StageAbleTray:
         root.withdraw()
         key = simpledialog.askstring(
             "Activate StageAble",
-            "Enter your license key (SA-XXXX-XXXX-XXXX):",
+            "Enter your license key (STA-XXXX-XXXX-XXXX):",
         )
         root.destroy()
         if not key:

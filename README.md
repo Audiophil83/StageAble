@@ -323,7 +323,7 @@ All endpoints are under `/api/`. No authentication required (configurable).
 | Method | Endpoint | Body | Description |
 |---|---|---|---|
 | GET | `/api/license/status/` | — | Current license/trial status |
-| POST | `/api/license/activate/` | `{ "license_key": "SA-XXXX-XXXX-XXXX" }` | Activate a purchased license key |
+| POST | `/api/license/activate/` | `{ "license_key": "STA-XXXX-XXXX-XXXX" }` | Activate a purchased license key |
 
 Transport and rehearsal endpoints return HTTP 402 when the trial session has
 expired and no license is active.
@@ -665,7 +665,7 @@ StageAble is sold as a **one-time perpetual license** (recommended pricing:
 | **Trial expired** | Transport commands blocked until a license key is activated |
 | **Licensed** | No time limit; key stored in app data directory |
 
-License keys use the format `SA-XXXX-XXXX-XXXX` (HMAC-signed). Customers
+License keys use the format `STA-XXXX-XXXX-XXXX` (HMAC-signed). Customers
 activate from the desktop app menu (**Activate License…**) or via the REST API.
 
 Implementation: [`engine/licensing.py`](engine/licensing.py).

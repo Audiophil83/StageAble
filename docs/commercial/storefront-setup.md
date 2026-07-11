@@ -9,7 +9,7 @@ StageAble is sold as a **direct download** with license keys. The Mac App Store 
 3. Enable **license keys** on the product.
 4. Set the delivery email template to include:
    - Download link (macOS zip from your CDN)
-   - License key (`SA-XXXX-XXXX-XXXX` format)
+   - License key (`STA-XXXX-XXXX-XXXX` format)
    - Link to `docs/commercial/user-guide.md`
 5. Configure webhooks (optional) for purchase notifications.
 

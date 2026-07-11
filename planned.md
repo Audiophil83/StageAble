@@ -74,7 +74,7 @@ Full documentation: [`README.md` — Commercial distribution](README.md#commerci
 | System tray UI (replace rumps) | **done** | Yes — [`engine/tray_ui.py`](engine/tray_ui.py), [`engine/platform_ui.py`](engine/platform_ui.py) |
 | Authenticode code signing | **done** | Yes — [`scripts/packaging/sign_windows.ps1`](scripts/packaging/sign_windows.ps1); needs cert purchase |
 | Auto-update mechanism | **done** | Yes — same appcast checker, `platform=windows` |
-| Unified license (Mac + Windows) | **done** | Yes — single `SA-XXXX-XXXX-XXXX` key format |
+| Unified license (Mac + Windows) | **done** | Yes — single `STA-XXXX-XXXX-XXXX` key format |
 
 ## Phase 3 — Post-launch
 

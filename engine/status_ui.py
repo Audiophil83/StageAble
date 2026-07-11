@@ -234,7 +234,7 @@ class StageableStatusApp(rumps.App):
             return
 
         window = rumps.Window(
-            message="Enter your license key (SA-XXXX-XXXX-XXXX):",
+            message="Enter your license key (STA-XXXX-XXXX-XXXX):",
             title="Activate StageAble",
             default_text="",
             ok="Activate",
