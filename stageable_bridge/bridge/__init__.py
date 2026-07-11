@@ -1,7 +1,7 @@
 import logging
-logger = logging.getLogger("showable-bridge")
+logger = logging.getLogger("stageable-bridge")
 
-logger.info("Reloading showable-bridge...")
+logger.info("Reloading stageable-bridge...")
 
 from .osc_server import OSCServer
 from .song import SongHandler

@@ -1,4 +1,4 @@
-# ShowAble — End User License Agreement (EULA)
+# StageAble — End User License Agreement (EULA)
 
 **Copyright © 2026 Philipp Schleicher. All rights reserved.**
 
@@ -6,7 +6,7 @@ _Last updated: 2026-07-07_
 
 IMPORTANT — READ CAREFULLY. This End User License Agreement ("Agreement") is a
 legal agreement between you (either an individual or a single entity, "You") and
-Philipp Schleicher ("Licensor") for the ShowAble software application,
+Philipp Schleicher ("Licensor") for the StageAble software application,
 including all associated executables, scripts, data files, and documentation
 (collectively, the "Software").
 
@@ -60,13 +60,13 @@ to You under their own respective license terms, not under this Agreement. A
 list of these components and their required copyright and license notices is
 provided in the accompanying `THIRD-PARTY-LICENSES.txt` file. The bundled
 Ableton Live control surface additionally includes its own attribution in
-`showable_bridge/NOTICE`. To the extent a third-party license grants You
+`stageable_bridge/NOTICE`. To the extent a third-party license grants You
 rights that conflict with the restrictions in this Agreement, that third-party
 license governs solely with respect to the applicable component.
 
 ## 6. No Affiliation; Trademarks
 
-"Ableton" and "Ableton Live" are trademarks of Ableton AG. ShowAble is an
+"Ableton" and "Ableton Live" are trademarks of Ableton AG. StageAble is an
 independent product and is **not** created by, endorsed by, sponsored by, or
 affiliated with Ableton AG. Any references to Ableton products are for
 descriptive interoperability purposes only. All other trademarks are the

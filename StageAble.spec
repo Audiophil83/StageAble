@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the ShowAble macOS app bundle."""
+"""PyInstaller spec for the StageAble macOS app bundle."""
 
 import os
 from pathlib import Path
@@ -9,7 +9,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 block_cipher = None
 root = Path(SPECPATH)
 version_file = root / "VERSION"
-app_version = os.environ.get("SHOWABLE_VERSION", "").strip()
+app_version = os.environ.get("STAGEABLE_VERSION", "").strip()
 if not app_version and version_file.is_file():
     app_version = version_file.read_text(encoding="utf-8").strip()
 if not app_version:
@@ -45,10 +45,10 @@ project_datas = [
     (str(root / "THIRD-PARTY-LICENSES.txt"), "."),
     # The Ableton Live control surface, installed on demand via the menu bar.
     # Ships its own LICENSE + NOTICE (AbletonOSC MIT attribution) inside the folder.
-    (str(root / "showable_bridge"), "showable_bridge"),
+    (str(root / "stageable_bridge"), "stageable_bridge"),
 ]
 
-hiddenimports = collect_submodules("engine") + collect_submodules("showable")
+hiddenimports = collect_submodules("engine") + collect_submodules("stageable")
 binaries = []
 datas = list(project_datas)
 
@@ -125,7 +125,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="ShowAble",
+    name="StageAble",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -136,7 +136,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(root / "assets" / "ShowAble.icns"),
+    icon=str(root / "assets" / "StageAble.icns"),
 )
 
 coll = COLLECT(
@@ -147,14 +147,14 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="ShowAble",
+    name="StageAble",
 )
 
 app = BUNDLE(
     coll,
-    name="ShowAble.app",
-    icon=str(root / "assets" / "ShowAble.icns"),
-    bundle_identifier="com.showable.app",
+    name="StageAble.app",
+    icon=str(root / "assets" / "StageAble.icns"),
+    bundle_identifier="com.stageable.app",
     info_plist={
         "LSUIElement": True,
         "CFBundleShortVersionString": app_version,

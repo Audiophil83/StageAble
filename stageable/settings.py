@@ -1,12 +1,12 @@
 """
-Django settings for showable project.
+Django settings for stageable project.
 """
 
 import os
 import sys
 from pathlib import Path
 
-_FROZEN = getattr(sys, "frozen", False) or os.environ.get("SHOWABLE_FROZEN") == "1"
+_FROZEN = getattr(sys, "frozen", False) or os.environ.get("STAGEABLE_FROZEN") == "1"
 
 if _FROZEN:
     BASE_DIR = Path(sys._MEIPASS)
@@ -51,7 +51,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "showable.urls"
+ROOT_URLCONF = "stageable.urls"
 
 TEMPLATES = [
     {
@@ -69,8 +69,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "showable.wsgi.application"
-ASGI_APPLICATION = "showable.asgi.application"
+WSGI_APPLICATION = "stageable.wsgi.application"
+ASGI_APPLICATION = "stageable.asgi.application"
 
 # In-memory channel layer (no Redis required for dev)
 CHANNEL_LAYERS = {

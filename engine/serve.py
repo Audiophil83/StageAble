@@ -1,5 +1,5 @@
 """
-Launch the ShowAble web server with an optional desktop status window.
+Launch the StageAble web server with an optional desktop status window.
 
     python -m engine.serve
 """
@@ -79,7 +79,7 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
     """Start Daphne as a background subprocess."""
     root = project_root()
     env = os.environ.copy()
-    env.pop("SHOWABLE_NO_ENGINE", None)
+    env.pop("STAGEABLE_NO_ENGINE", None)
     if getattr(sys, "frozen", False):
         cmd = [
             sys.executable,
@@ -88,10 +88,10 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
             bind_host,
             "-p",
             str(port),
-            "showable.asgi:application",
+            "stageable.asgi:application",
         ]
-        env.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
-        env["SHOWABLE_FROZEN"] = "1"
+        env.setdefault("DJANGO_SETTINGS_MODULE", "stageable.settings")
+        env["STAGEABLE_FROZEN"] = "1"
         env["PYTHONUNBUFFERED"] = "1"
     else:
         cmd = [
@@ -102,7 +102,7 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
             bind_host,
             "-p",
             str(port),
-            "showable.asgi:application",
+            "stageable.asgi:application",
         ]
     log_file = _daphne_log_file()
     return subprocess.Popen(
@@ -140,7 +140,7 @@ def run_status_ui(
 
 
 def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> int:
-    """Start ShowAble and optionally show a desktop status window."""
+    """Start StageAble and optionally show a desktop status window."""
     display, url = build_urls(bind_host, port)
     show_ui = status_ui if status_ui is not None else sys.platform in ("darwin", "win32")
 
@@ -159,7 +159,7 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
 
     signal.signal(signal.SIGTERM, _on_term)
 
-    print(f"ShowAble running at {url}")
+    print(f"StageAble running at {url}")
     print("Press Ctrl+C to stop.")
     try:
         return process.wait()
@@ -169,7 +169,7 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Start ShowAble with status window")
+    parser = argparse.ArgumentParser(description="Start StageAble with status window")
     parser.add_argument(
         "-b",
         "--bind",

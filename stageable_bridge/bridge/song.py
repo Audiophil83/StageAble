@@ -225,7 +225,7 @@ class SongHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/song/export/structure", song_export_structure)
 
         #--------------------------------------------------------------------------------
-        # ShowAble patch: batch tempo / time-signature reads at arrangement beats
+        # StageAble patch: batch tempo / time-signature reads at arrangement beats
         #--------------------------------------------------------------------------------
         def song_get_meter_at_beats(song, params: Tuple[Any] = ()):
             """Seek internally and sample meter at each beat in one OSC round trip.

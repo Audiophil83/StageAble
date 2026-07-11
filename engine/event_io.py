@@ -28,7 +28,7 @@ from engine.timeline import EventType, Timeline, TimelineEvent
 
 BEAT_TOLERANCE = 0.01
 
-EVENTS_FILE_HEADER = """# ShowAble arrangement events
+EVENTS_FILE_HEADER = """# StageAble arrangement events
 # Format: start_beat|end_beat|clip name
 # Edit only clip names (after the second |). Do not change beat numbers.
 # Use \\n in the text for a line break within one clip name.
@@ -37,7 +37,7 @@ EVENTS_FILE_HEADER = """# ShowAble arrangement events
 #
 """
 
-LYRICS_FILE_HEADER = """# ShowAble lyrics
+LYRICS_FILE_HEADER = """# StageAble lyrics
 # Format: start_beat|end_beat|lyric text
 # Edit only the lyric text (after the second |). Do not change beat numbers.
 # Use \\n in the text for a line break within one lyric cue.
@@ -179,7 +179,7 @@ def rows_from_cache_section(section: str) -> list[EventRow]:
     payload = load_project_cache(_active_project_identity())
     if payload is None:
         raise CommandError(
-            "No project cache found — scan the arrangement in ShowAble first, "
+            "No project cache found — scan the arrangement in StageAble first, "
             "or export from Ableton without --from-cache."
         )
 

@@ -1,4 +1,4 @@
-"""PyInstaller hook for Django — uses the ShowAble project package directly."""
+"""PyInstaller hook for Django — uses the StageAble project package directly."""
 
 # Apps often omit optional templatetags/context_processors subpackages.
 warn_on_missing_hiddenimports = False
@@ -29,7 +29,7 @@ datas, binaries, hiddenimports = hooks.collect_all(
     on_error="ignore",
 )
 
-root_dir = str(Path(__file__).resolve().parents[3] / "showable")
+root_dir = str(Path(__file__).resolve().parents[3] / "stageable")
 if os.path.isdir(root_dir):
     logger.info("Django root directory %s", root_dir)
     settings_py_imports = django.django_dottedstring_imports(root_dir)

@@ -1,7 +1,7 @@
 """License activation and trial mode for paid distribution.
 
-License keys use the format ``SA-XXXX-XXXX-XXXX`` where the payload is an
-HMAC-SHA256 signature truncated to base32. Set ``SHOWABLE_LICENSE_SECRET`` at
+License keys use the format ``STA-XXXX-XXXX-XXXX`` where the payload is an
+HMAC-SHA256 signature truncated to base32. Set ``STAGEABLE_LICENSE_SECRET`` at
 build time for production keys; a dev default is used for local testing.
 """
 
@@ -20,9 +20,9 @@ from typing import Any
 from engine.paths import app_data_dir
 
 LICENSE_FILE = "license.json"
-KEY_PATTERN = re.compile(r"^SA-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$")
+KEY_PATTERN = re.compile(r"^STA-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$")
 TRIAL_SESSION_SECONDS = 15 * 60
-_DEV_SECRET = b"showable-dev-license-secret-change-in-production"
+_DEV_SECRET = b"stageable-dev-license-secret-change-in-production"
 
 
 class LicenseMode(str, Enum):
@@ -47,7 +47,7 @@ class LicenseStatus:
 
 
 def _secret() -> bytes:
-    value = os.environ.get("SHOWABLE_LICENSE_SECRET", "").strip()
+    value = os.environ.get("STAGEABLE_LICENSE_SECRET", "").strip()
     if value:
         return value.encode("utf-8")
     return _DEV_SECRET
@@ -59,8 +59,8 @@ def _license_path():
 
 def _normalize_key(key: str) -> str:
     cleaned = key.strip().upper().replace(" ", "")
-    if cleaned.startswith("SA") and not cleaned.startswith("SA-"):
-        cleaned = "SA-" + cleaned[2:]
+    if cleaned.startswith("STA") and not cleaned.startswith("STA-"):
+        cleaned = "STA-" + cleaned[3:]
     return cleaned
 
 
@@ -82,14 +82,14 @@ def _sign_edition(edition: str) -> str:
 def generate_license_key(*, edition: str = "standard") -> str:
     """Generate a signed license key (for storefront scripts / tests)."""
     body = _sign_edition(edition)
-    return f"SA-{body[0:4]}-{body[4:8]}-{body[8:12]}"
+    return f"STA-{body[0:4]}-{body[4:8]}-{body[8:12]}"
 
 
 def validate_license_key(key: str) -> bool:
     normalized = _normalize_key(key)
     if not KEY_PATTERN.match(normalized):
         return False
-    body = normalized.replace("SA-", "").replace("-", "")
+    body = normalized.replace("STA-", "").replace("-", "")
     return any(_sign_edition(edition) == body for edition in ("standard", "intro", "pro", "beta"))
 
 
@@ -113,7 +113,7 @@ def _mask_key(key: str) -> str:
     normalized = _normalize_key(key)
     parts = normalized.split("-")
     if len(parts) != 4:
-        return "SA-****-****-****"
+        return "STA-****-****-****"
     return f"{parts[0]}-{parts[1]}-****-{parts[3]}"
 
 
@@ -186,7 +186,7 @@ _BLOCKED_COMMANDS = frozenset(
 def blocked_command_message(command: str) -> str | None:
     if command in _BLOCKED_COMMANDS and not is_entitled():
         return (
-            "Your ShowAble trial session has ended. "
+            "Your StageAble trial session has ended. "
             "Activate a license key from the desktop app to continue."
         )
     return None
@@ -196,7 +196,7 @@ def entitlement_message() -> str | None:
     status = get_status()
     if status.mode == LicenseMode.TRIAL_EXPIRED:
         return (
-            "Your ShowAble trial session has ended. "
+            "Your StageAble trial session has ended. "
             "Activate a license key from the menu bar to continue."
         )
     if status.mode == LicenseMode.TRIAL and status.trial_seconds_remaining is not None:

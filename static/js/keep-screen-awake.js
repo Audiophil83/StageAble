@@ -14,7 +14,7 @@
  * | Desktop Firefox          | Yes (126+)    | Muted video    | Older versions use video fallback |
  * | Desktop Safari (macOS)   | Yes (16.4+)   | Muted video    | Wake Lock may not block screen saver; use native API when server is local |
  *
- * macOS screen saver: browsers cannot reliably suppress it. When ShowAble runs
+ * macOS screen saver: browsers cannot reliably suppress it. When StageAble runs
  * on the same Mac as the browser, POST /api/keep-awake/ starts ``caffeinate
  * -dims`` on the server to disable screen saver and display sleep system-wide.
  * Battery: wake lock prevents display sleep only; fallback video is 8×8 px, muted,
@@ -567,7 +567,7 @@
         if (this._nativeActive) {
           msg = "Screen and screen saver suppressed (macOS).";
         } else if (this._caps.isMacOS) {
-          msg = "Screen awake enabled. For screen saver, open this page on the Mac running ShowAble, or set Screen Saver to Never in System Settings.";
+          msg = "Screen awake enabled. For screen saver, open this page on the Mac running StageAble, or set Screen Saver to Never in System Settings.";
         }
         this._showStatus(msg, "success");
       }

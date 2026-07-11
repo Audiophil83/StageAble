@@ -1,8 +1,8 @@
-ShowAble Bridge
+StageAble Bridge
 =================
 
-ShowAble Bridge is the Ableton Live control surface (Remote Script) used by the
-ShowAble application. It is a trimmed and rebranded fork of AbletonOSC.
+StageAble Bridge is the Ableton Live control surface (Remote Script) used by the
+StageAble application. It is a trimmed and rebranded fork of AbletonOSC.
 
 ------------------------------------------------------------------------------
 AbletonOSC
@@ -15,13 +15,13 @@ Copyright:  Daniel John Jones and contributors
 Modifications made in this fork:
   - Trimmed to only the Song and Track handlers plus the OSC server plumbing
     (application/clip/clip_slot/device/scene/view/midimap handlers removed).
-  - Added ShowAble batched endpoints in song.py / track.py:
+  - Added StageAble batched endpoints in song.py / track.py:
       /live/song/get/meter_at_beats
       /live/song/get/name
       /live/song/get/file_path
       /live/track/get/arrangement_clips/name_chunk
       /live/track/set/arrangement_clips/name
-  - Renamed package, logger, and log file to ShowAble Bridge.
+  - Renamed package, logger, and log file to StageAble Bridge.
 
 ------------------------------------------------------------------------------
 python-osc (bundled in ./pythonosc)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build ShowAble.app using PyInstaller (macOS only).
+Build StageAble.app using PyInstaller (macOS only).
 
 Usage:
     pip install -r requirements.txt pyinstaller pillow
@@ -15,8 +15,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "ShowAble.spec"
-DIST_APP = ROOT / "dist" / "ShowAble.app"
+SPEC = ROOT / "StageAble.spec"
+DIST_APP = ROOT / "dist" / "StageAble.app"
 VERSION_FILE = ROOT / "VERSION"
 
 
@@ -30,11 +30,11 @@ def read_version() -> str:
 
 def main() -> int:
     if sys.platform != "darwin":
-        print("ShowAble.app can only be built on macOS.", file=sys.stderr)
+        print("StageAble.app can only be built on macOS.", file=sys.stderr)
         return 1
 
     env = os.environ.copy()
-    env.setdefault("SHOWABLE_VERSION", read_version())
+    env.setdefault("STAGEABLE_VERSION", read_version())
 
     subprocess.run(
         [sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)],

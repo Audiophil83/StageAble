@@ -1,11 +1,11 @@
 """
-WSGI config for showable project.
+WSGI config for stageable project.
 """
 
 import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "stageable.settings")
 
 application = get_wsgi_application()

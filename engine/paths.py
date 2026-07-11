@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-APP_NAME = "ShowAble"
+APP_NAME = "StageAble"
 
 
 def app_data_dir() -> Path:

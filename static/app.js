@@ -1,5 +1,5 @@
 /**
- * ShowAble — Frontend application
+ * StageAble — Frontend application
  *
  * Connects to the backend via WebSocket, renders live state,
  * and sends transport commands.

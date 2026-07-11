@@ -1,4 +1,4 @@
-"""Menu bar UI showing the ShowAble server address."""
+"""Menu bar UI showing the StageAble server address."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def copy_to_clipboard(text: str) -> None:
     pasteboard.setString_forType_(text, NSStringPboardType)
 
 
-class ShowAbleStatusApp(rumps.App):
+class StageableStatusApp(rumps.App):
     def __init__(
         self,
         url: str,
@@ -43,7 +43,7 @@ class ShowAbleStatusApp(rumps.App):
     ) -> None:
         icon = app_icon_path()
         super().__init__(
-            "ShowAble",
+            "StageAble",
             icon=str(icon) if icon.exists() else None,
             quit_button=None,
         )
@@ -90,7 +90,7 @@ class ShowAbleStatusApp(rumps.App):
 
     def _copy_url(self, _sender: object) -> None:
         copy_to_clipboard(self.url)
-        rumps.notification("ShowAble", "Address copied", self.url)
+        rumps.notification("StageAble", "Address copied", self.url)
 
     def _refresh_address(self, _sender: object) -> None:
         from engine.serve import build_urls
@@ -99,7 +99,7 @@ class ShowAbleStatusApp(rumps.App):
         self.display = display
         self.url = url
         self.address_item.title = f"Running at {display}"
-        rumps.notification("ShowAble", "Address refreshed", url)
+        rumps.notification("StageAble", "Address refreshed", url)
 
     def _rescan_project(self, _sender: object) -> None:
         endpoint = f"{self.url.rstrip('/')}/api/rescan/"
@@ -116,10 +116,10 @@ class ShowAbleStatusApp(rumps.App):
                         endpoint, resp.status, resp.reason, resp.headers, None
                     )
         except Exception as exc:
-            rumps.notification("ShowAble", "Rescan failed", str(exc))
+            rumps.notification("StageAble", "Rescan failed", str(exc))
             return
         rumps.notification(
-            "ShowAble",
+            "StageAble",
             "Rescan started",
             "Scanning arrangement from Ableton in the background.",
         )
@@ -151,7 +151,7 @@ class ShowAbleStatusApp(rumps.App):
                 "Next steps:\n"
                 "1. Restart Ableton Live.\n"
                 "2. Preferences ▸ Link / Tempo / MIDI ▸ Control Surface: "
-                "select 'ShowAble'."
+                "select 'StageAble'."
             ),
             ok="Done",
         )
@@ -166,7 +166,7 @@ class ShowAbleStatusApp(rumps.App):
 
         while True:
             clicked = rumps.alert(
-                title="ShowAble License Agreement",
+                title="StageAble License Agreement",
                 message=eula.SUMMARY,
                 ok="Accept",
                 cancel="Decline & Quit",
@@ -175,7 +175,7 @@ class ShowAbleStatusApp(rumps.App):
             if clicked == -1:  # "View Full Agreement"
                 if not eula.open_document(eula.eula_path()):
                     rumps.notification(
-                        "ShowAble",
+                        "StageAble",
                         "License unavailable",
                         "Could not open the full EULA document.",
                     )
@@ -194,7 +194,7 @@ class ShowAbleStatusApp(rumps.App):
 
         if not eula.open_document(eula.eula_path()):
             rumps.notification(
-                "ShowAble",
+                "StageAble",
                 "License unavailable",
                 "Could not open the EULA document.",
             )
@@ -204,7 +204,7 @@ class ShowAbleStatusApp(rumps.App):
 
         if not eula.open_document(eula.third_party_licenses_path()):
             rumps.notification(
-                "ShowAble",
+                "StageAble",
                 "Licenses unavailable",
                 "Could not open the third-party licenses document.",
             )
@@ -219,7 +219,7 @@ class ShowAbleStatusApp(rumps.App):
         self.display = display
         self.url = url
         self.address_item.title = f"Running at {display}"
-        rumps.notification("ShowAble", "Address updated", url)
+        rumps.notification("StageAble", "Address updated", url)
 
     def _activate_license(self, _sender: object) -> None:
         from engine import licensing
@@ -228,14 +228,14 @@ class ShowAbleStatusApp(rumps.App):
         if status.mode == licensing.LicenseMode.LICENSED:
             rumps.alert(
                 title="License active",
-                message=f"ShowAble is licensed ({status.license_key_masked}).",
+                message=f"StageAble is licensed ({status.license_key_masked}).",
                 ok="OK",
             )
             return
 
         window = rumps.Window(
             message="Enter your license key (SA-XXXX-XXXX-XXXX):",
-            title="Activate ShowAble",
+            title="Activate StageAble",
             default_text="",
             ok="Activate",
             cancel="Cancel",
@@ -249,7 +249,7 @@ class ShowAbleStatusApp(rumps.App):
         except ValueError as exc:
             rumps.alert(title="Activation failed", message=str(exc), ok="OK")
             return
-        rumps.notification("ShowAble", "License activated", "Thank you for your purchase.")
+        rumps.notification("StageAble", "License activated", "Thank you for your purchase.")
 
     def _check_updates(self, _sender: object) -> None:
         from engine.updates import check_for_updates
@@ -258,7 +258,7 @@ class ShowAbleStatusApp(rumps.App):
         if info is None:
             rumps.alert(
                 title="No updates",
-                message="ShowAble is up to date, or the update server is unreachable.",
+                message="StageAble is up to date, or the update server is unreachable.",
                 ok="OK",
             )
             return
@@ -275,7 +275,7 @@ class ShowAbleStatusApp(rumps.App):
         if self.process.poll() is not None:
             code = self.process.returncode
             rumps.notification(
-                "ShowAble", "Server stopped", f"Exit code {code}"
+                "StageAble", "Server stopped", f"Exit code {code}"
             )
             rumps.quit_application()
 
@@ -293,4 +293,4 @@ def run(
     bind_host: str,
     port: int,
 ) -> None:
-    ShowAbleStatusApp(url, display, process, bind_host, port).run()
+    StageableStatusApp(url, display, process, bind_host, port).run()

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sign and notarize ShowAble.app for distribution.
+# Sign and notarize StageAble.app for distribution.
 #
 # Required environment variables:
 #   APPLE_ID              Apple ID email
@@ -8,11 +8,11 @@
 #   CODESIGN_IDENTITY     e.g. "Developer ID Application: Your Name (TEAMID)"
 #
 # Usage:
-#   ./scripts/packaging/sign_and_notarize.sh dist/ShowAble.app
+#   ./scripts/packaging/sign_and_notarize.sh dist/StageAble.app
 
 set -euo pipefail
 
-APP_PATH="${1:-dist/ShowAble.app}"
+APP_PATH="${1:-dist/StageAble.app}"
 ZIP_PATH="${APP_PATH%.app}.zip"
 IDENTITY="${CODESIGN_IDENTITY:?Set CODESIGN_IDENTITY}"
 

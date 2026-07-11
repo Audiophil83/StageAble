@@ -1,7 +1,7 @@
 """
 Load engine configuration from the database.
 
-Environment variables in ``showable/settings.py`` are used only as defaults
+Environment variables in ``stageable/settings.py`` are used only as defaults
 when the settings row is first created (e.g. during migration).
 """
 

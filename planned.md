@@ -39,7 +39,7 @@ Full documentation: [`README.md` — Commercial distribution](README.md#commerci
 |------|--------|--------------|
 | Fix IP never refreshes | **done** | Yes — [`engine/status_ui.py`](engine/status_ui.py) |
 | Fix transport control quirks | **done** | Yes — [`static/app.js`](static/app.js) |
-| Production build defaults | **done** | Yes — [`showable/settings.py`](showable/settings.py), [`showable/asgi.py`](showable/asgi.py), [`scripts/packaging/launcher.py`](scripts/packaging/launcher.py) |
+| Production build defaults | **done** | Yes — [`stageable/settings.py`](stageable/settings.py), [`stageable/asgi.py`](stageable/asgi.py), [`scripts/packaging/launcher.py`](scripts/packaging/launcher.py) |
 | Expand automated tests | **done** | Yes — [`engine/tests/`](engine/tests/) |
 | Reach v1.0.0 paid release baseline | **pending** | Partial — see [`docs/commercial/v1-release-criteria.md`](docs/commercial/v1-release-criteria.md) |
 
@@ -69,7 +69,7 @@ Full documentation: [`README.md` — Commercial distribution](README.md#commerci
 
 | Step | Status | Code changes |
 |------|--------|--------------|
-| PyInstaller build and packaging | **done** | Yes — [`scripts/build_windows_app.py`](scripts/build_windows_app.py), [`ShowAble-windows.spec`](ShowAble-windows.spec), [`.gitea/workflows/release-windows.yml`](.gitea/workflows/release-windows.yml) |
+| PyInstaller build and packaging | **done** | Yes — [`scripts/build_windows_app.py`](scripts/build_windows_app.py), [`StageAble-windows.spec`](StageAble-windows.spec), [`.gitea/workflows/release-windows.yml`](.gitea/workflows/release-windows.yml) |
 | Bridge installer paths | **done** | Yes — [`engine/bridge_installer.py`](engine/bridge_installer.py) |
 | System tray UI (replace rumps) | **done** | Yes — [`engine/tray_ui.py`](engine/tray_ui.py), [`engine/platform_ui.py`](engine/platform_ui.py) |
 | Authenticode code signing | **done** | Yes — [`scripts/packaging/sign_windows.ps1`](scripts/packaging/sign_windows.ps1); needs cert purchase |

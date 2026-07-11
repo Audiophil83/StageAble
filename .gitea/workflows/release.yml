@@ -24,7 +24,7 @@ jobs:
         run: .venv/bin/pip install -r requirements.txt
 
       - name: Django system check
-        run: SHOWABLE_NO_ENGINE=1 .venv/bin/python manage.py check
+        run: STAGEABLE_NO_ENGINE=1 .venv/bin/python manage.py check
 
   build-macos:
     needs: check
@@ -37,17 +37,17 @@ jobs:
       - name: Compute next version
         id: version
         run: |
-          SHOWABLE_VERSION="$(python3 scripts/versioning/next_version.py)"
-          echo "value=$SHOWABLE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "SHOWABLE_VERSION=$SHOWABLE_VERSION" >> "$GITHUB_ENV"
+          STAGEABLE_VERSION="$(python3 scripts/versioning/next_version.py)"
+          echo "value=$STAGEABLE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "STAGEABLE_VERSION=$STAGEABLE_VERSION" >> "$GITHUB_ENV"
           python3 scripts/versioning/next_version.py --write
 
       - name: Create and push version tag
         run: |
           git config user.name "Gitea Actions"
           git config user.email "actions@gitea.local"
-          git tag -a "v${SHOWABLE_VERSION}" -m "Release v${SHOWABLE_VERSION}"
-          git push origin "v${SHOWABLE_VERSION}"
+          git tag -a "v${STAGEABLE_VERSION}" -m "Release v${STAGEABLE_VERSION}"
+          git push origin "v${STAGEABLE_VERSION}"
 
       - name: Verify Python
         run: |
@@ -65,19 +65,19 @@ jobs:
       - name: Install dependencies
         run: .venv/bin/pip install --no-cache-dir -r requirements.txt pyinstaller pillow
 
-      - name: Build ShowAble.app
-        run: DJANGO_SETTINGS_MODULE=showable.settings SHOWABLE_VERSION=${{ steps.version.outputs.value }} .venv/bin/python scripts/build_mac_app.py
+      - name: Build StageAble.app
+        run: DJANGO_SETTINGS_MODULE=stageable.settings STAGEABLE_VERSION=${{ steps.version.outputs.value }} .venv/bin/python scripts/build_mac_app.py
 
       - name: Zip app bundle
-        run: ditto -c -k --keepParent dist/ShowAble.app dist/ShowAble-macOS.zip
+        run: ditto -c -k --keepParent dist/StageAble.app dist/StageAble-macOS.zip
 
       - name: Generate Sparkle appcast
         run: |
-          SHOWABLE_VERSION="${{ steps.version.outputs.value }}"
-          SIZE=$(stat -f%z dist/ShowAble-macOS.zip)
+          STAGEABLE_VERSION="${{ steps.version.outputs.value }}"
+          SIZE=$(stat -f%z dist/StageAble-macOS.zip)
           python3 scripts/packaging/generate_appcast.py \
-            --version "$SHOWABLE_VERSION" \
-            --macos-url "https://downloads.showable.app/ShowAble-macOS-${SHOWABLE_VERSION}.zip" \
+            --version "$STAGEABLE_VERSION" \
+            --macos-url "https://downloads.stageable.app/StageAble-macOS-${STAGEABLE_VERSION}.zip" \
             --length "$SIZE" \
             -o dist/appcast-macos.xml
 
@@ -90,23 +90,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           chmod +x scripts/packaging/sign_and_notarize.sh
-          ./scripts/packaging/sign_and_notarize.sh dist/ShowAble.app
-          ditto -c -k --keepParent dist/ShowAble.app dist/ShowAble-macOS.zip
+          ./scripts/packaging/sign_and_notarize.sh dist/StageAble.app
+          ditto -c -k --keepParent dist/StageAble.app dist/StageAble-macOS.zip
 
       - name: Upload to CDN (optional)
-        if: env.SHOWABLE_CDN_UPLOAD_CMD != ''
+        if: env.STAGEABLE_CDN_UPLOAD_CMD != ''
         env:
-          SHOWABLE_CDN_UPLOAD_CMD: ${{ secrets.SHOWABLE_CDN_UPLOAD_CMD }}
+          STAGEABLE_CDN_UPLOAD_CMD: ${{ secrets.STAGEABLE_CDN_UPLOAD_CMD }}
         run: |
-          eval "$SHOWABLE_CDN_UPLOAD_CMD"
+          eval "$STAGEABLE_CDN_UPLOAD_CMD"
 
       - name: Create Gitea release
         uses: https://gitea.com/actions/gitea-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: v${{ steps.version.outputs.value }}
-          name: ShowAble v${{ steps.version.outputs.value }}
+          name: StageAble v${{ steps.version.outputs.value }}
           body: Automated release v${{ steps.version.outputs.value }} from ${{ github.sha }}
           files: |
-            dist/ShowAble-macOS.zip
+            dist/StageAble-macOS.zip
             dist/appcast-macos.xml

@@ -1,5 +1,5 @@
 """
-URL configuration for showable project.
+URL configuration for stageable project.
 """
 
 from pathlib import Path

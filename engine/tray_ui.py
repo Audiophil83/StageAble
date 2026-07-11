@@ -1,4 +1,4 @@
-"""Windows system tray UI for ShowAble."""
+"""Windows system tray UI for StageAble."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def app_icon_path() -> Path:
     return Path(__file__).resolve().parent.parent / "assets" / "app-icon.png"
 
 
-class ShowAbleTray:
+class StageAbleTray:
     def __init__(
         self,
         url: str,
@@ -44,9 +44,9 @@ class ShowAbleTray:
         icon_path = app_icon_path()
         image = Image.open(icon_path) if icon_path.exists() else Image.new("RGB", (64, 64), color=(30, 30, 30))
         self._icon = pystray.Icon(
-            "ShowAble",
+            "StageAble",
             image,
-            f"ShowAble — {display}",
+            f"StageAble — {display}",
             menu=pystray.Menu(
                 pystray.MenuItem(lambda item: f"Running at {self.display}", None, enabled=False),
                 pystray.MenuItem(lambda item: f"Version {self._version()}", None, enabled=False),
@@ -96,7 +96,7 @@ class ShowAbleTray:
         self.display = display
         self.url = url
         self._last_display = display
-        self._icon.title = f"ShowAble — {display}"
+        self._icon.title = f"StageAble — {display}"
 
     def _poll_address(self) -> None:
         from engine.serve import build_urls
@@ -108,7 +108,7 @@ class ShowAbleTray:
             self._last_display = display
             self.display = display
             self.url = url
-            self._icon.title = f"ShowAble — {display}"
+            self._icon.title = f"StageAble — {display}"
 
     def _rescan_project(self, _icon: object, _item: object) -> None:
         endpoint = f"{self.url.rstrip('/')}/api/rescan/"
@@ -145,14 +145,14 @@ class ShowAbleTray:
         if status.mode == licensing.LicenseMode.LICENSED:
             messagebox.showinfo(
                 "License active",
-                f"ShowAble is licensed ({status.license_key_masked}).",
+                f"StageAble is licensed ({status.license_key_masked}).",
             )
             return
 
         root = tk.Tk()
         root.withdraw()
         key = simpledialog.askstring(
-            "Activate ShowAble",
+            "Activate StageAble",
             "Enter your license key (SA-XXXX-XXXX-XXXX):",
         )
         root.destroy()
@@ -175,7 +175,7 @@ class ShowAbleTray:
         if info is None:
             messagebox.showinfo(
                 "No updates",
-                "ShowAble is up to date, or the update server is unreachable.",
+                "StageAble is up to date, or the update server is unreachable.",
             )
             root.destroy()
             return
@@ -221,7 +221,7 @@ class ShowAbleTray:
         root = tk.Tk()
         root.withdraw()
         accepted = messagebox.askyesno(
-            "ShowAble License Agreement",
+            "StageAble License Agreement",
             eula.SUMMARY,
         )
         if accepted:
@@ -244,4 +244,4 @@ def run(
     bind_host: str,
     port: int,
 ) -> None:
-    ShowAbleTray(url, display, process, bind_host, port).run()
+    StageAbleTray(url, display, process, bind_host, port).run()

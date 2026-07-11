@@ -226,7 +226,7 @@ class Command(BaseCommand):
             if not osc.is_connected():
                 raise CommandError(
                     "Live control surface not reachable — is Live running with "
-                    "ShowAble Bridge enabled?"
+                    "StageAble Bridge enabled?"
                 )
 
             track_id, track_name = _resolve_track_id(osc, track_arg)
@@ -275,7 +275,7 @@ class Command(BaseCommand):
         timeout: float,
     ) -> QueryResult | None:
         """Probe name_chunk and, if supported, read all names via the client helper."""
-        self.stdout.write("\nArrangement clip name_chunk (ShowAble Bridge):\n")
+        self.stdout.write("\nArrangement clip name_chunk (StageAble Bridge):\n")
 
         t0 = time.monotonic()
         probe = osc.query(
@@ -323,8 +323,8 @@ class Command(BaseCommand):
         *,
         timeout: float,
     ) -> None:
-        """Probe the batched meter endpoint provided by ShowAble Bridge."""
-        self.stdout.write("\nMeter at beats (ShowAble Bridge):\n")
+        """Probe the batched meter endpoint provided by StageAble Bridge."""
+        self.stdout.write("\nMeter at beats (StageAble Bridge):\n")
 
         t0 = time.monotonic()
         probe = osc.query(_METER_AT_BEATS, 0.0, 4.0, 8.0, timeout=timeout, warn_timeout=False)
@@ -453,7 +453,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Chunked name_chunk API recovered {chunk_full.clip_count} "
-                        "clip names — ShowAble Bridge is working."
+                        "clip names — StageAble Bridge is working."
                     )
                 )
             elif chunk_full is None or not chunk_full.ok:
@@ -475,7 +475,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 "track_data session clip slots are empty on this track — "
                 "lyrics live in Arrangement View only; use arrangement_clips "
-                "endpoints (with the ShowAble name_chunk patch for large tracks)."
+                "endpoints (with the StageAble name_chunk patch for large tracks)."
             )
         elif session_named > 0 and start.clip_count != session_named:
             self.stdout.write(

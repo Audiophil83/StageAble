@@ -1,4 +1,4 @@
-# ShowAble
+# StageAble
 
 Real-time show-control system for Ableton Live. Reads your arrangement via
 [AbletonOSC](https://github.com/ideoforms/AbletonOSC), builds a deterministic
@@ -27,10 +27,10 @@ state to any number of browser clients over WebSocket.
 |---|---|
 | **Python 3.11+** | Tested on 3.13 |
 | **Ableton Live** | With Arrangement View content |
-| **ShowAble Bridge** | Ableton Live control surface bundled with this repo (a trimmed, self-contained fork of AbletonOSC — no separate AbletonOSC install needed). Install from the menu bar app (**Install Ableton Bridge…**) or with `python scripts/install_bridge.py`, then enable **ShowAble** under *Preferences > Link / Tempo / MIDI > Control Surface*. |
+| **StageAble Bridge** | Ableton Live control surface bundled with this repo (a trimmed, self-contained fork of AbletonOSC — no separate AbletonOSC install needed). Install from the menu bar app (**Install Ableton Bridge…**) or with `python scripts/install_bridge.py`, then enable **StageAble** under *Preferences > Link / Tempo / MIDI > Control Surface*. |
 
 The bridge listens on UDP port **11000** and replies on port **11001** by
-default. ShowAble uses the same defaults, and remains compatible with a stock
+default. StageAble uses the same defaults, and remains compatible with a stock
 AbletonOSC install if you prefer to use that instead.
 
 ---
@@ -39,7 +39,7 @@ AbletonOSC install if you prefer to use that instead.
 
 ```bash
 # Clone and enter the project
-cd showable
+cd stageable
 
 # Create a virtual environment and install dependencies
 python3 -m venv .venv
@@ -47,10 +47,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Run database migrations
-SHOWABLE_NO_ENGINE=1 python manage.py migrate
+STAGEABLE_NO_ENGINE=1 python manage.py migrate
 
 # Start the server (engine auto-starts and connects to Ableton)
-daphne -b 0.0.0.0 -p 8000 showable.asgi:application
+daphne -b 0.0.0.0 -p 8000 stageable.asgi:application
 ```
 
 Open **http://localhost:8000** in a browser. Open it on as many devices as you
@@ -68,7 +68,7 @@ python manage.py run_engine
 
 ## Ableton Arrangement Setup
 
-ShowAble reads up to five specially-named tracks from your Ableton arrangement.
+StageAble reads up to five specially-named tracks from your Ableton arrangement.
 Track names are matched **case-insensitively** (e.g. `Songs`, `SONGS`,
 `songs` all work).
 
@@ -110,7 +110,7 @@ A track named **CHORDS**. Each clip represents the current chord symbol to displ
 
 A track named **CONTROL**. Only one clip type is recognised:
 
-- Clips named **STOP** -- when the playhead crosses a STOP marker, ShowAble
+- Clips named **STOP** -- when the playhead crosses a STOP marker, StageAble
   automatically stops Ableton's transport.
 
 Any clip with a name other than `STOP` is ignored (with a log warning).
@@ -124,7 +124,7 @@ browser client, where you can toggle each channel **Active** (audible) or
 - Example: rename a track to `[MIX] Kick` — it shows as **Kick** in the mixer.
 - The prefix is stripped for display; spacing after `[MIX]` is optional
   (`[MIX]Kick` and `[MIX] Kick` both work).
-- Rescan after renaming tracks in Ableton so ShowAble picks up changes.
+- Rescan after renaming tracks in Ableton so StageAble picks up changes.
 - Mute state is refreshed about once per second from Ableton (same slow poll as
   tempo/time signature), so changes made in Live’s mixer stay in sync with the UI.
 - Semantic tracks (`SONGS`, `SECTIONS`, etc.) use **whole-name** matching, so
@@ -132,7 +132,7 @@ browser client, where you can toggle each channel **Active** (audible) or
 
 ### Cue Points
 
-ShowAble uses Ableton's **cue markers** for song navigation. When you jump to a
+StageAble uses Ableton's **cue markers** for song navigation. When you jump to a
 song, the engine looks for a cue point whose name matches the SONGS clip name and
 jumps to it via `/live/song/cue_point/jump`. This correctly positions the playhead
 regardless of transport state (unlike `jump_by` / `set_current_song_time`, which can
@@ -141,7 +141,7 @@ drift when stopped).
 - Cue point names **must match** the corresponding SONGS clip name exactly.
 - If no matching cue point exists, the jump is skipped and a warning is logged.
 
-All other tracks in your set are ignored by ShowAble (except `[MIX]` tracks for the mixer).
+All other tracks in your set are ignored by StageAble (except `[MIX]` tracks for the mixer).
 
 ---
 
@@ -157,7 +157,7 @@ variables are only used as defaults when the settings row is first created.
 |---|---|---|
 | `ableton_osc_host` | `127.0.0.1` | IP address of the machine running Ableton |
 | `ableton_osc_send_port` | `11000` | Port the Live control surface listens on |
-| `ableton_osc_recv_port` | `11001` | Port ShowAble listens on for OSC replies |
+| `ableton_osc_recv_port` | `11001` | Port StageAble listens on for OSC replies |
 | `engine_poll_hz` | `20` | How often (per second) the engine polls Ableton |
 
 ### Changing settings
@@ -192,11 +192,11 @@ reachable.
 |---|---|---|
 | `DJANGO_DEBUG` | `True` (dev) / `False` (frozen `.app`) | Set to `False` in production; frozen builds default to `False` automatically |
 | `DJANGO_SECRET_KEY` | *(dev key)* | Override in production |
-| `SHOWABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
-| `SHOWABLE_FROZEN` | *(unset)* | Set by the PyInstaller launcher; enables production defaults and static file serving |
-| `SHOWABLE_VERSION` | from `VERSION` file | Override the bundled app version string |
-| `SHOWABLE_LICENSE_SECRET` | dev default | HMAC secret for license key validation — **must** be set in production builds |
-| `SHOWABLE_APPCAST_URL` | `https://downloads.showable.app/appcast-macos.xml` | URL of the Sparkle-style appcast for update checks |
+| `STAGEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
+| `STAGEABLE_FROZEN` | *(unset)* | Set by the PyInstaller launcher; enables production defaults and static file serving |
+| `STAGEABLE_VERSION` | from `VERSION` file | Override the bundled app version string |
+| `STAGEABLE_LICENSE_SECRET` | dev default | HMAC secret for license key validation — **must** be set in production builds |
+| `STAGEABLE_APPCAST_URL` | `https://downloads.stageable.app/appcast-macos.xml` | URL of the Sparkle-style appcast for update checks |
 
 ---
 
@@ -222,7 +222,7 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 
 ### How it works
 
-1. On startup, ShowAble connects to the Live control surface (ShowAble
+1. On startup, StageAble connects to the Live control surface (StageAble
    Bridge) and **loads the last
    arrangement scan from the database** (songs, sections, lyrics, chords,
    cue points, mixer tracks). Use **Rescan** in the client or menu bar app
@@ -244,7 +244,7 @@ Browser clients              app.js / HTML     Vanilla JS SPA, no build step
 
 ### Data flow
 
-- **Ableton is the only transport authority.** ShowAble never overrides
+- **Ableton is the only transport authority.** StageAble never overrides
   Ableton's state -- it reads, augments, and relays.
 - **Last write wins.** Multiple clients can send commands simultaneously; there
   is no locking.
@@ -364,13 +364,13 @@ expired and no license is active.
 ## Project Structure
 
 ```
-showable/
+stageable/
 ├── manage.py                          Django management CLI
 ├── requirements.txt                   Python dependencies
 ├── VERSION                            Current release version
-├── ShowAble.spec                    PyInstaller spec (macOS .app)
-├── ShowAble-windows.spec            PyInstaller spec (Windows folder)
-├── showable/                        Django project package
+├── StageAble.spec                    PyInstaller spec (macOS .app)
+├── StageAble-windows.spec            PyInstaller spec (Windows folder)
+├── stageable/                        Django project package
 │   ├── settings.py                    All configuration
 │   ├── asgi.py                        ASGI entrypoint + static files + engine auto-start
 │   ├── urls.py                        Root URL routing
@@ -438,11 +438,11 @@ showable/
 Your Ableton set must have exactly one track named `SONGS` (case-insensitive).
 
 **Engine shows "disconnected"**
-Make sure Ableton is running with the **ShowAble** control surface enabled.
+Make sure Ableton is running with the **StageAble** control surface enabled.
 Check that UDP ports 11000/11001 are not blocked by a firewall.
 
 **Static files not loading (404)**
-In development, ShowAble serves static files automatically in DEBUG mode via
+In development, StageAble serves static files automatically in DEBUG mode via
 `ASGIStaticFilesHandler`. Frozen `.app` / Windows builds serve static files
 even with `DJANGO_DEBUG=False`. For a manual production deployment without the
 bundled app, run `python manage.py collectstatic` and serve the `staticfiles/`
@@ -453,7 +453,7 @@ The macOS menu bar app polls the LAN address every 10 seconds and updates
 automatically. Use **Refresh Address** in the menu for an immediate update.
 
 **Trial session ended / transport blocked**
-Without a license key, ShowAble runs in trial mode for 15 minutes per
+Without a license key, StageAble runs in trial mode for 15 minutes per
 session. Activate a key via the menu bar (**Activate License…**) or
 `POST /api/license/activate/`. Generate a dev/test key:
 
@@ -461,19 +461,19 @@ session. Activate a key via the menu bar (**Activate License…**) or
 python -c "from engine.licensing import generate_license_key; print(generate_license_key())"
 ```
 
-Set `SHOWABLE_LICENSE_SECRET` to the same secret used in production before
+Set `STAGEABLE_LICENSE_SECRET` to the same secret used in production before
 generating keys for customers.
 
 **OSC query timeouts in the log / LYRICS shows 0 clips**
 Bulk arrangement clip name queries can exceed OSC/UDP size limits when a track
-has many long clip names (typical on LYRICS). Install ShowAble Bridge and
+has many long clip names (typical on LYRICS). Install StageAble Bridge and
 restart Live:
 
 ```bash
 python scripts/install_bridge.py
 ```
 
-ShowAble falls back to chunked name reads automatically once the bridge is
+StageAble falls back to chunked name reads automatically once the bridge is
 installed. To diagnose:
 
 ```bash
@@ -492,13 +492,13 @@ poll tick.
 
 **Time signature stays 4/4 or log mentions missing `signature_*`**
 An older Remote Script may not expose `/live/song/get/signature_numerator` and
-`signature_denominator`. ShowAble defaults to 4/4. Reinstall ShowAble Bridge
+`signature_denominator`. StageAble defaults to 4/4. Reinstall StageAble Bridge
 (`python scripts/install_bridge.py`), restart Live, and re-select the control
 surface.
 
 **Time signature looks wrong or never changes**
 Ableton reports the meter **at the playhead** (it updates as you move through
-time-signature markers in the arrangement). ShowAble polls this on the slow
+time-signature markers in the arrangement). StageAble polls this on the slow
 poll loop. If the UI shows 3/8 but you expect 3/4, check which marker applies at the current playhead
 position in Live’s arrangement ruler.
 
@@ -506,7 +506,7 @@ position in Live’s arrangement ruler.
 
 ## Building and releases
 
-ShowAble ships as a **macOS `.app`** menu bar bundle and a **Windows folder**
+StageAble ships as a **macOS `.app`** menu bar bundle and a **Windows folder**
 distribution, both built with [PyInstaller](https://pyinstaller.org/). A Linux
 Gitea runner **cannot** produce a working `.app` (macOS Mach-O binaries are
 required), so CI uses a **macOS `act_runner`** for release builds.
@@ -518,7 +518,7 @@ python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt pyinstaller pillow
 python scripts/build_mac_app.py
-open dist/ShowAble.app
+open dist/StageAble.app
 ```
 
 The bundled app runs as a **macOS menu bar app** (no Dock icon). Click the
@@ -526,7 +526,7 @@ menu bar icon to see the server address, open it in a browser, copy it, activate
 a license, check for updates, or quit.
 
 The bundled app stores its SQLite database in
-`~/Library/Application Support/ShowAble/db.sqlite3`.
+`~/Library/Application Support/StageAble/db.sqlite3`.
 
 Frozen builds automatically set `DJANGO_DEBUG=False` and serve static assets
 from the bundled files.
@@ -538,11 +538,11 @@ If the app opens but closes again after a few seconds, macOS may be applying
 **App Translocation** (quarantine). Remove the quarantine attribute and retry:
 
 ```bash
-xattr -cr ShowAble.app
+xattr -cr StageAble.app
 ```
 
 When something goes wrong the Daphne server log is written to
-`~/Library/Application Support/ShowAble/daphne.log`.
+`~/Library/Application Support/StageAble/daphne.log`.
 
 ### Local Windows build
 
@@ -551,11 +551,11 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt pyinstaller pillow pystray
 python scripts\build_windows_app.py
-dist\ShowAble\ShowAble.exe
+dist\StageAble\StageAble.exe
 ```
 
 Windows builds use a **system tray icon** (pystray) with the same actions as the
-macOS menu bar. App data is stored under `%LOCALAPPDATA%\ShowAble\`.
+macOS menu bar. App data is stored under `%LOCALAPPDATA%\StageAble\`.
 
 ### Code signing
 
@@ -567,7 +567,7 @@ export APPLE_ID="you@example.com"
 export APPLE_APP_PASSWORD="app-specific-password"
 export APPLE_TEAM_ID="XXXXXXXXXX"
 chmod +x scripts/packaging/sign_and_notarize.sh
-./scripts/packaging/sign_and_notarize.sh dist/ShowAble.app
+./scripts/packaging/sign_and_notarize.sh dist/StageAble.app
 ```
 
 **Windows** — Authenticode signing (requires a `.pfx` certificate):
@@ -575,7 +575,7 @@ chmod +x scripts/packaging/sign_and_notarize.sh
 ```powershell
 $env:WINDOWS_SIGNING_CERT_PATH = "C:\certs\codesign.pfx"
 $env:WINDOWS_SIGNING_CERT_PASSWORD = "..."
-pwsh scripts/packaging/sign_windows.ps1 dist/ShowAble/ShowAble.exe
+pwsh scripts/packaging/sign_windows.ps1 dist/StageAble/StageAble.exe
 ```
 
 See [`docs/commercial/release-checklist.md`](docs/commercial/release-checklist.md)
@@ -589,13 +589,13 @@ appcast XML. Generate an appcast when publishing a release:
 ```bash
 python scripts/packaging/generate_appcast.py \
   --version 1.0.0 \
-  --macos-url "https://downloads.showable.app/ShowAble-macOS-1.0.0.zip" \
-  --windows-url "https://downloads.showable.app/ShowAble-Windows-1.0.0.zip" \
+  --macos-url "https://downloads.stageable.app/StageAble-macOS-1.0.0.zip" \
+  --windows-url "https://downloads.stageable.app/StageAble-Windows-1.0.0.zip" \
   --length 12345678 \
   -o dist/appcast-macos.xml
 ```
 
-Override the appcast URL with `SHOWABLE_APPCAST_URL`. A full
+Override the appcast URL with `STAGEABLE_APPCAST_URL`. A full
 [Sparkle](https://sparkle-project.org/) framework embed is optional; the
 current implementation opens the download URL in the browser.
 
@@ -605,11 +605,11 @@ On every push to `main`, [`.gitea/workflows/release.yml`](.gitea/workflows/relea
 
 1. Runs `python3 manage.py check` on the Mac runner
 2. Computes the next semver from Conventional Commits (`scripts/versioning/next_version.py`)
-3. Tags and builds `ShowAble.app` on the Mac runner
+3. Tags and builds `StageAble.app` on the Mac runner
 4. Generates `appcast-macos.xml`
 5. Optionally signs/notarizes when `CODESIGN_IDENTITY` and Apple secrets are set
-6. Optionally uploads to CDN when `SHOWABLE_CDN_UPLOAD_CMD` is set
-7. Publishes `ShowAble-macOS.zip` and the appcast as a Gitea release
+6. Optionally uploads to CDN when `STAGEABLE_CDN_UPLOAD_CMD` is set
+7. Publishes `StageAble-macOS.zip` and the appcast as a Gitea release
 
 Windows builds use a separate manual workflow:
 [`.gitea/workflows/release-windows.yml`](.gitea/workflows/release-windows.yml)
@@ -645,14 +645,14 @@ Keep your existing Linux Docker runner for `runs-on: ubuntu-latest` jobs.
 ### Running tests
 
 ```bash
-SHOWABLE_NO_ENGINE=1 python manage.py test engine.tests
+STAGEABLE_NO_ENGINE=1 python manage.py test engine.tests
 ```
 
 ---
 
 ## Commercial distribution
 
-ShowAble is sold as a **one-time perpetual license** (recommended pricing:
+StageAble is sold as a **one-time perpetual license** (recommended pricing:
 **€49 / $49** launch, **€69 / $69** after v1.0 stable). Distribution is via
 **direct download** (not the Mac App Store) through a storefront such as
 [Lemon Squeezy](https://www.lemonsqueezy.com/) or Paddle.
@@ -673,7 +673,7 @@ Implementation: [`engine/licensing.py`](engine/licensing.py).
 Generate keys for testing or storefront integration:
 
 ```bash
-SHOWABLE_LICENSE_SECRET='your-production-secret' python -c \
+STAGEABLE_LICENSE_SECRET='your-production-secret' python -c \
   "from engine.licensing import generate_license_key; print(generate_license_key())"
 ```
 
@@ -694,7 +694,7 @@ SHOWABLE_LICENSE_SECRET='your-production-secret' python -c \
 - Enroll in the Apple Developer Program and add signing secrets to CI
 - Set up storefront (product, license keys, receipt email)
 - Publish privacy policy, Impressum, and refund pages on the live website
-- Host downloads and appcast on a public CDN (`downloads.showable.app`)
+- Host downloads and appcast on a public CDN (`downloads.stageable.app`)
 - Record YouTube tutorials and run a private beta with performers
 - Purchase a Windows code signing certificate (OV or EV)
 
@@ -702,15 +702,15 @@ SHOWABLE_LICENSE_SECRET='your-production-secret' python -c \
 
 ## License
 
-ShowAble is proprietary software. Copyright © 2026 Philipp Schleicher. All rights reserved.
+StageAble is proprietary software. Copyright © 2026 Philipp Schleicher. All rights reserved.
 
 Use of the application is governed by its End User License Agreement (EULA). No
-license to copy, modify, redistribute, or resell the ShowAble source code or
+license to copy, modify, redistribute, or resell the StageAble source code or
 binaries is granted except as expressly permitted by that agreement.
 
-ShowAble bundles third-party open-source components (Django, Twisted, Channels,
+StageAble bundles third-party open-source components (Django, Twisted, Channels,
 python-osc, and others) under their respective permissive licenses. Their required
 copyright and license notices are reproduced in
 [`THIRD-PARTY-LICENSES.txt`](THIRD-PARTY-LICENSES.txt). The bundled Ableton Live
 control surface additionally ships its own attribution in
-[`showable_bridge/NOTICE`](showable_bridge/NOTICE).
+[`stageable_bridge/NOTICE`](stageable_bridge/NOTICE).

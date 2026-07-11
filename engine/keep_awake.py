@@ -3,10 +3,10 @@ macOS system keep-awake via ``caffeinate``.
 
 Browsers cannot suppress the macOS screen saver reliably — the Wake Lock API
 only prevents display *sleep* in many cases, not the idle screen saver.  When
-ShowAble runs locally (typical .app usage), this module starts ``caffeinate
+StageAble runs locally (typical .app usage), this module starts ``caffeinate
 -dims -w <pid>`` on the server Mac so the screen saver and display sleep are
 both suppressed while the user has "Keep Screen Awake" enabled in the UI.
-Caffeinate exits automatically when ShowAble exits, including on crash.
+Caffeinate exits automatically when StageAble exits, including on crash.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def status() -> dict:
 def enable() -> dict:
     """Start ``caffeinate -dims -w <pid>`` (display, idle, and screen-saver suppression).
 
-    The ``-w`` flag ties caffeinate to this process: when ShowAble exits or
+    The ``-w`` flag ties caffeinate to this process: when StageAble exits or
     crashes, macOS releases the keep-awake assertion automatically.
     """
     global _proc

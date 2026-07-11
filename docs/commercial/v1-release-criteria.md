@@ -1,6 +1,6 @@
 # v1.0.0 release criteria
 
-ShowAble v1.0.0 is the first **paid** release baseline.
+StageAble v1.0.0 is the first **paid** release baseline.
 
 ## Must-have before tagging v1.0.0
 

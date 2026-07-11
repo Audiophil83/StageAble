@@ -8,3 +8,4 @@ sortedcontainers>=2.4
 rumps>=0.4; sys_platform == "darwin"
 pystray>=0.63; sys_platform == "win32"
 pillow>=10.0; sys_platform == "win32"
+pyinstaller

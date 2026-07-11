@@ -13,8 +13,8 @@ from typing import Callable
 from engine.version import get_version
 
 DEFAULT_APPCAST_URL = os.environ.get(
-    "SHOWABLE_APPCAST_URL",
-    "https://downloads.showable.app/appcast-macos.xml",
+    "STAGEABLE_APPCAST_URL",
+    "https://downloads.stageable.app/appcast-macos.xml",
 )
 
 
@@ -68,7 +68,7 @@ def check_for_updates(
     opener: Callable[..., object] | None = None,
 ) -> UpdateInfo | None:
     url = appcast_url or DEFAULT_APPCAST_URL
-    request = urllib.request.Request(url, headers={"User-Agent": "ShowAble-Updater"})
+    request = urllib.request.Request(url, headers={"User-Agent": "StageAble-Updater"})
     open_fn = opener or urllib.request.urlopen
     try:
         with open_fn(request, timeout=15) as response:  # type: ignore[arg-type]

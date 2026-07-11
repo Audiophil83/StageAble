@@ -16,18 +16,18 @@ from pathlib import Path
 from engine.paths import app_data_dir
 from engine.version import get_version
 
-APP_NAME = "ShowAble"
+APP_NAME = "StageAble"
 
 # Shown in the acceptance dialog; the full text lives in EULA.md.
 SUMMARY = (
-    "ShowAble is proprietary software. Copyright \u00a9 2026 Philipp "
+    "StageAble is proprietary software. Copyright \u00a9 2026 Philipp "
     "Schleicher. All rights reserved.\n\n"
     "By clicking Accept you agree to the End User License Agreement (EULA). "
     "The Software is licensed, not sold, for your own personal or internal "
     "business use. You may not redistribute, resell, reverse engineer, or "
     "modify it. It is provided \u201cas is\u201d without warranty, and "
     "liability is limited as set out in the agreement.\n\n"
-    "ShowAble is not affiliated with or endorsed by Ableton AG. It bundles "
+    "StageAble is not affiliated with or endorsed by Ableton AG. It bundles "
     "third-party open-source components under their own licenses.\n\n"
     "Choose \u201cView Full Agreement\u201d to read the complete EULA."
 )

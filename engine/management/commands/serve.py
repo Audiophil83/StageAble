@@ -1,5 +1,5 @@
 """
-Start ShowAble with the web UI and optional desktop status window.
+Start StageAble with the web UI and optional desktop status window.
 
 Usage:
     python manage.py serve
@@ -13,7 +13,7 @@ from engine.serve import DEFAULT_HOST, DEFAULT_PORT, run_server
 
 
 class Command(BaseCommand):
-    help = "Start the ShowAble web server (with a desktop status window on macOS)"
+    help = "Start the StageAble web server (with a desktop status window on macOS)"
 
     def add_arguments(self, parser):
         parser.add_argument(

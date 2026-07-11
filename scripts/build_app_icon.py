@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Build app icons and favicons from assets/ShowAble.png.
+Build app icons and favicons from assets/StageAble.png.
 
 Outputs:
-  assets/ShowAble.icns          macOS app bundle icon
-  assets/ShowAble.iconset/      intermediate PNGs for iconutil
+  assets/StageAble.icns          macOS app bundle icon
+  assets/StageAble.iconset/      intermediate PNGs for iconutil
   assets/app-icon.png             128×128 for the desktop status window
   static/favicon.ico
   static/favicon-16x16.png
@@ -28,10 +28,10 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 STATIC = ROOT / "static"
-DEFAULT_SOURCE = ASSETS / "ShowAble.png"
-OUT_ICNS = ASSETS / "ShowAble.icns"
+DEFAULT_SOURCE = ASSETS / "StageAble.png"
+OUT_ICNS = ASSETS / "StageAble.icns"
 OUT_APP_ICON = ASSETS / "app-icon.png"
-ICONSET = ASSETS / "ShowAble.iconset"
+ICONSET = ASSETS / "StageAble.iconset"
 
 
 def load_square(source: Path) -> Image.Image:

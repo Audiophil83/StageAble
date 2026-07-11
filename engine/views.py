@@ -24,7 +24,7 @@ def _license_blocked_response():
     return Response(
         {
             "error": (
-                "Your ShowAble trial session has ended. "
+                "Your StageAble trial session has ended. "
                 "Activate a license key from the desktop app to continue."
             )
         },
