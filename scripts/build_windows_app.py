@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build RemoteAble for Windows using PyInstaller.
+Build ShowAble for Windows using PyInstaller.
 
 Usage:
     pip install -r requirements.txt pyinstaller pillow pystray
@@ -15,8 +15,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "RemoteAble-windows.spec"
-DIST_DIR = ROOT / "dist" / "RemoteAble"
+SPEC = ROOT / "ShowAble-windows.spec"
+DIST_DIR = ROOT / "dist" / "ShowAble"
 VERSION_FILE = ROOT / "VERSION"
 
 
@@ -30,11 +30,11 @@ def read_version() -> str:
 
 def main() -> int:
     if sys.platform != "win32":
-        print("RemoteAble Windows build must run on Windows.", file=sys.stderr)
+        print("ShowAble Windows build must run on Windows.", file=sys.stderr)
         return 1
 
     env = os.environ.copy()
-    env.setdefault("REMOTEABLE_VERSION", read_version())
+    env.setdefault("SHOWABLE_VERSION", read_version())
 
     subprocess.run(
         [sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)],

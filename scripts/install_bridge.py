@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Install the RemoteAble Bridge control surface into Ableton Live.
+"""Install the ShowAble Bridge control surface into Ableton Live.
 
-This copies the self-contained ``remoteable_bridge`` package into Live's User
-Library as a Remote Script named ``RemoteAble``. Unlike the old patch flow, it
+This copies the self-contained ``showable_bridge`` package into Live's User
+Library as a Remote Script named ``ShowAble``. Unlike the old patch flow, it
 does NOT require AbletonOSC to be installed first — the bridge bundles its own
 OSC stack.
 
@@ -33,13 +33,13 @@ def _install() -> int:
     except BridgeInstallError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    print(f"Installed RemoteAble Bridge -> {dest}")
+    print(f"Installed ShowAble Bridge -> {dest}")
     print(
         "\nNext steps:\n"
         "  1. Restart Ableton Live.\n"
         "  2. Preferences > Link / Tempo / MIDI > Control Surface: select "
-        "'RemoteAble'.\n"
-        "  3. Launch RemoteAble."
+        "'ShowAble'.\n"
+        "  3. Launch ShowAble."
     )
     return 0
 
@@ -47,7 +47,7 @@ def _install() -> int:
 def _uninstall() -> int:
     removed = uninstall()
     if removed is None:
-        print("RemoteAble Bridge is not installed (nothing to remove).")
+        print("ShowAble Bridge is not installed (nothing to remove).")
     else:
         print(f"Removed {removed}")
     return 0
@@ -58,7 +58,7 @@ def main() -> int:
     parser.add_argument(
         "--uninstall",
         action="store_true",
-        help="Remove the installed RemoteAble control surface.",
+        help="Remove the installed ShowAble control surface.",
     )
     args = parser.parse_args()
     return _uninstall() if args.uninstall else _install()

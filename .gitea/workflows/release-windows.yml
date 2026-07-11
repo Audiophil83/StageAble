@@ -24,10 +24,10 @@ jobs:
 
       - name: Django system check
         run: |
-          set REMOTEABLE_NO_ENGINE=1
+          set SHOWABLE_NO_ENGINE=1
           .venv\Scripts\python manage.py check
 
-      - name: Build RemoteAble
+      - name: Build ShowAble
         run: .venv\Scripts\python scripts\build_windows_app.py
 
       - name: Sign executable (optional)
@@ -37,9 +37,9 @@ jobs:
           WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
         shell: pwsh
         run: |
-          ./scripts/packaging/sign_windows.ps1 dist/RemoteAble/RemoteAble.exe
+          ./scripts/packaging/sign_windows.ps1 dist/ShowAble/ShowAble.exe
 
       - name: Zip distribution
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/RemoteAble -DestinationPath dist/RemoteAble-Windows.zip
+          Compress-Archive -Path dist/ShowAble -DestinationPath dist/ShowAble-Windows.zip

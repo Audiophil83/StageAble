@@ -1,5 +1,5 @@
 """
-PyInstaller entry point for the RemoteAble macOS app bundle.
+PyInstaller entry point for the ShowAble macOS app bundle.
 
 Supports a hidden --daphne-worker mode used by engine.serve to spawn Daphne
 inside the frozen executable (no separate Python install required).
@@ -28,8 +28,8 @@ def resource_root() -> Path:
 
 
 def run_daphne_worker(argv: list[str]) -> int:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
-    os.environ["REMOTEABLE_FROZEN"] = "1"
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
+    os.environ["SHOWABLE_FROZEN"] = "1"
     os.chdir(resource_root())
     sys.argv = ["daphne", *argv]
     from daphne.cli import CommandLineInterface
@@ -39,9 +39,9 @@ def run_daphne_worker(argv: list[str]) -> int:
 
 
 def run_migrations() -> None:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
-    os.environ["REMOTEABLE_FROZEN"] = "1"
-    os.environ["REMOTEABLE_NO_ENGINE"] = "1"
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
+    os.environ["SHOWABLE_FROZEN"] = "1"
+    os.environ["SHOWABLE_NO_ENGINE"] = "1"
     os.chdir(resource_root())
 
     import django
@@ -53,13 +53,13 @@ def run_migrations() -> None:
 
 
 def run_app(argv: list[str]) -> int:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
     os.environ.setdefault("DJANGO_DEBUG", "0")
-    os.environ["REMOTEABLE_FROZEN"] = "1"
+    os.environ["SHOWABLE_FROZEN"] = "1"
     os.chdir(resource_root())
 
     run_migrations()
-    os.environ.pop("REMOTEABLE_NO_ENGINE", None)
+    os.environ.pop("SHOWABLE_NO_ENGINE", None)
 
     from engine.serve import main
 

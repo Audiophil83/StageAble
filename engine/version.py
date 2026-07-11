@@ -1,4 +1,4 @@
-"""Read the RemoteAble application version."""
+"""Read the ShowAble application version."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ _DEV_VERSION = "0.0.0-dev"
 
 @lru_cache(maxsize=1)
 def get_version() -> str:
-    env_version = os.environ.get("REMOTEABLE_VERSION", "").strip()
+    env_version = os.environ.get("SHOWABLE_VERSION", "").strip()
     if env_version:
         return env_version
 

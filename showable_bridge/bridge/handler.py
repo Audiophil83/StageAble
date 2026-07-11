@@ -7,7 +7,7 @@ class AbletonOSCHandler(Component):
     def __init__(self, manager):
         super().__init__()
 
-        self.logger = logging.getLogger("remoteable-bridge")
+        self.logger = logging.getLogger("showable-bridge")
         self.manager = manager
         self.osc_server: OSCServer = self.manager.osc_server
         self.init_api()

@@ -1,5 +1,5 @@
 """
-ASGI config for remoteable project.
+ASGI config for showable project.
 """
 
 import os
@@ -9,12 +9,12 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from django.conf import settings
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "remoteable.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "showable.settings")
 
 django_asgi_app = get_asgi_application()
 
 # Serve bundled static files in dev and in frozen production builds.
-_frozen = os.environ.get("REMOTEABLE_FROZEN") == "1"
+_frozen = os.environ.get("SHOWABLE_FROZEN") == "1"
 if settings.DEBUG or _frozen:
     from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a Sparkle appcast XML file for RemoteAble releases."""
+"""Generate a Sparkle appcast XML file for ShowAble releases."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def build_appcast(
     if windows_url:
         windows_item = f"""
     <item>
-      <title>RemoteAble {version} (Windows)</title>
+      <title>ShowAble {version} (Windows)</title>
 {notes}      <enclosure url="{windows_url}"
                  sparkle:version="{version}"
                  length="{length}"
@@ -33,9 +33,9 @@ def build_appcast(
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>RemoteAble</title>
+    <title>ShowAble</title>
     <item>
-      <title>RemoteAble {version} (macOS)</title>
+      <title>ShowAble {version} (macOS)</title>
 {notes}      <enclosure url="{macos_url}"
                  sparkle:version="{version}"
                  length="{length}"

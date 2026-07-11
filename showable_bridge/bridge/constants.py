@@ -1,5 +1,5 @@
 #--------------------------------------------------------------------------------
-# Constants used by RemoteAble Bridge.
+# Constants used by ShowAble Bridge.
 # Ports match AbletonOSC so the desktop client is wire-compatible with both.
 #--------------------------------------------------------------------------------
 

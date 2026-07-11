@@ -1,11 +1,11 @@
-# Sign RemoteAble.exe with an Authenticode certificate.
+# Sign ShowAble.exe with an Authenticode certificate.
 #
 # Required environment variables:
 #   WINDOWS_SIGNING_CERT_PATH   Path to .pfx file
 #   WINDOWS_SIGNING_CERT_PASSWORD
 #
 # Usage:
-#   pwsh scripts/packaging/sign_windows.ps1 dist/RemoteAble/RemoteAble.exe
+#   pwsh scripts/packaging/sign_windows.ps1 dist/ShowAble/ShowAble.exe
 
 param(
     [Parameter(Mandatory = $true)]

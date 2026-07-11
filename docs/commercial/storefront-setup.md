@@ -1,15 +1,15 @@
 # Storefront setup (Lemon Squeezy / Paddle / Gumroad)
 
-RemoteAble is sold as a **direct download** with license keys. The Mac App Store is not recommended for this architecture.
+ShowAble is sold as a **direct download** with license keys. The Mac App Store is not recommended for this architecture.
 
 ## Recommended: Lemon Squeezy
 
 1. Create a Lemon Squeezy account and store.
-2. Add a product: **RemoteAble** — one-time purchase, €49 / $49.
+2. Add a product: **ShowAble** — one-time purchase, €49 / $49.
 3. Enable **license keys** on the product.
 4. Set the delivery email template to include:
    - Download link (macOS zip from your CDN)
-   - License key (`RA-XXXX-XXXX-XXXX` format)
+   - License key (`SA-XXXX-XXXX-XXXX` format)
    - Link to `docs/commercial/user-guide.md`
 5. Configure webhooks (optional) for purchase notifications.
 
@@ -21,10 +21,10 @@ Same flow: one-time product, license key per purchase, download link in receipt 
 
 ## Generating license keys
 
-Use the bundled generator (set `REMOTEABLE_LICENSE_SECRET` in production):
+Use the bundled generator (set `SHOWABLE_LICENSE_SECRET` in production):
 
 ```bash
-REMOTEABLE_LICENSE_SECRET='your-production-secret' python -c \
+SHOWABLE_LICENSE_SECRET='your-production-secret' python -c \
   "from engine.licensing import generate_license_key; print(generate_license_key())"
 ```
 

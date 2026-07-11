@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare sequential vs parallel OSC round-trip latency against RemoteAble Bridge."""
+"""Compare sequential vs parallel OSC round-trip latency against ShowAble Bridge."""
 
 from __future__ import annotations
 

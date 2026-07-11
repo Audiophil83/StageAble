@@ -8,15 +8,15 @@
 
 ## Sign
 
-- [ ] macOS: `./scripts/packaging/sign_and_notarize.sh dist/RemoteAble.app`
-- [ ] Windows: `pwsh scripts/packaging/sign_windows.ps1 dist/RemoteAble/RemoteAble.exe`
+- [ ] macOS: `./scripts/packaging/sign_and_notarize.sh dist/ShowAble.app`
+- [ ] Windows: `pwsh scripts/packaging/sign_windows.ps1 dist/ShowAble/ShowAble.exe`
 
 ## Publish
 
-- [ ] Upload `RemoteAble-macOS.zip` to CDN
+- [ ] Upload `ShowAble-macOS.zip` to CDN
 - [ ] Upload Windows folder zip to CDN
 - [ ] Generate appcast: `python scripts/packaging/generate_appcast.py --version X.Y.Z --macos-url ... -o dist/appcast.xml`
-- [ ] Upload `appcast.xml` to `https://downloads.remoteable.app/appcast-macos.xml`
+- [ ] Upload `appcast.xml` to `https://downloads.showable.app/appcast-macos.xml`
 
 ## Verify
 

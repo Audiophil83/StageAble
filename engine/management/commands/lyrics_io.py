@@ -108,7 +108,7 @@ class Command(BaseCommand):
                 if not osc.is_connected():
                     raise CommandError(
                         "Live control surface not reachable — is Live running with "
-                        "RemoteAble Bridge enabled? Use --from-cache to export the "
+                        "ShowAble Bridge enabled? Use --from-cache to export the "
                         "last scan instead."
                     )
                 track_id = self._find_lyrics_track(osc)
@@ -160,7 +160,7 @@ class Command(BaseCommand):
             if not osc.is_connected():
                 raise CommandError(
                     "Live control surface not reachable — is Live running with "
-                    "RemoteAble Bridge enabled? Use --cache-only to update the "
+                    "ShowAble Bridge enabled? Use --cache-only to update the "
                     "saved scan only."
                 )
 

@@ -7,8 +7,8 @@ APPCAST_XML = """<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <item>
-      <title>RemoteAble 1.1.0</title>
-      <enclosure url="https://downloads.remoteable.app/RemoteAble-macOS-1.1.0.zip"
+      <title>ShowAble 1.1.0</title>
+      <enclosure url="https://downloads.showable.app/ShowAble-macOS-1.1.0.zip"
                  sparkle:version="1.1.0"
                  length="12345"
                  type="application/octet-stream" />

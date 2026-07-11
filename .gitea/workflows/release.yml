@@ -24,7 +24,7 @@ jobs:
         run: .venv/bin/pip install -r requirements.txt
 
       - name: Django system check
-        run: REMOTEABLE_NO_ENGINE=1 .venv/bin/python manage.py check
+        run: SHOWABLE_NO_ENGINE=1 .venv/bin/python manage.py check
 
   build-macos:
     needs: check
@@ -37,17 +37,17 @@ jobs:
       - name: Compute next version
         id: version
         run: |
-          REMOTEABLE_VERSION="$(python3 scripts/versioning/next_version.py)"
-          echo "value=$REMOTEABLE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "REMOTEABLE_VERSION=$REMOTEABLE_VERSION" >> "$GITHUB_ENV"
+          SHOWABLE_VERSION="$(python3 scripts/versioning/next_version.py)"
+          echo "value=$SHOWABLE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "SHOWABLE_VERSION=$SHOWABLE_VERSION" >> "$GITHUB_ENV"
           python3 scripts/versioning/next_version.py --write
 
       - name: Create and push version tag
         run: |
           git config user.name "Gitea Actions"
           git config user.email "actions@gitea.local"
-          git tag -a "v${REMOTEABLE_VERSION}" -m "Release v${REMOTEABLE_VERSION}"
-          git push origin "v${REMOTEABLE_VERSION}"
+          git tag -a "v${SHOWABLE_VERSION}" -m "Release v${SHOWABLE_VERSION}"
+          git push origin "v${SHOWABLE_VERSION}"
 
       - name: Verify Python
         run: |
@@ -65,19 +65,19 @@ jobs:
       - name: Install dependencies
         run: .venv/bin/pip install --no-cache-dir -r requirements.txt pyinstaller pillow
 
-      - name: Build RemoteAble.app
-        run: DJANGO_SETTINGS_MODULE=remoteable.settings REMOTEABLE_VERSION=${{ steps.version.outputs.value }} .venv/bin/python scripts/build_mac_app.py
+      - name: Build ShowAble.app
+        run: DJANGO_SETTINGS_MODULE=showable.settings SHOWABLE_VERSION=${{ steps.version.outputs.value }} .venv/bin/python scripts/build_mac_app.py
 
       - name: Zip app bundle
-        run: ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
+        run: ditto -c -k --keepParent dist/ShowAble.app dist/ShowAble-macOS.zip
 
       - name: Generate Sparkle appcast
         run: |
-          REMOTEABLE_VERSION="${{ steps.version.outputs.value }}"
-          SIZE=$(stat -f%z dist/RemoteAble-macOS.zip)
+          SHOWABLE_VERSION="${{ steps.version.outputs.value }}"
+          SIZE=$(stat -f%z dist/ShowAble-macOS.zip)
           python3 scripts/packaging/generate_appcast.py \
-            --version "$REMOTEABLE_VERSION" \
-            --macos-url "https://downloads.remoteable.app/RemoteAble-macOS-${REMOTEABLE_VERSION}.zip" \
+            --version "$SHOWABLE_VERSION" \
+            --macos-url "https://downloads.showable.app/ShowAble-macOS-${SHOWABLE_VERSION}.zip" \
             --length "$SIZE" \
             -o dist/appcast-macos.xml
 
@@ -90,23 +90,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           chmod +x scripts/packaging/sign_and_notarize.sh
-          ./scripts/packaging/sign_and_notarize.sh dist/RemoteAble.app
-          ditto -c -k --keepParent dist/RemoteAble.app dist/RemoteAble-macOS.zip
+          ./scripts/packaging/sign_and_notarize.sh dist/ShowAble.app
+          ditto -c -k --keepParent dist/ShowAble.app dist/ShowAble-macOS.zip
 
       - name: Upload to CDN (optional)
-        if: env.REMOTEABLE_CDN_UPLOAD_CMD != ''
+        if: env.SHOWABLE_CDN_UPLOAD_CMD != ''
         env:
-          REMOTEABLE_CDN_UPLOAD_CMD: ${{ secrets.REMOTEABLE_CDN_UPLOAD_CMD }}
+          SHOWABLE_CDN_UPLOAD_CMD: ${{ secrets.SHOWABLE_CDN_UPLOAD_CMD }}
         run: |
-          eval "$REMOTEABLE_CDN_UPLOAD_CMD"
+          eval "$SHOWABLE_CDN_UPLOAD_CMD"
 
       - name: Create Gitea release
         uses: https://gitea.com/actions/gitea-release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: v${{ steps.version.outputs.value }}
-          name: RemoteAble v${{ steps.version.outputs.value }}
+          name: ShowAble v${{ steps.version.outputs.value }}
           body: Automated release v${{ steps.version.outputs.value }} from ${{ github.sha }}
           files: |
-            dist/RemoteAble-macOS.zip
+            dist/ShowAble-macOS.zip
             dist/appcast-macos.xml

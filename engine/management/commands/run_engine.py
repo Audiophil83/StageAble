@@ -1,5 +1,5 @@
 """
-Management command to start the Remoteable runtime engine.
+Management command to start the ShowAble runtime engine.
 
 Usage:
     python manage.py run_engine
@@ -19,12 +19,12 @@ from engine.runtime import get_engine
 
 
 class Command(BaseCommand):
-    help = "Start the Remoteable runtime engine (OSC polling loop)"
+    help = "Start the ShowAble runtime engine (OSC polling loop)"
 
     def handle(self, *args, **options):
         engine = get_engine()
         engine.start()
-        self.stdout.write(self.style.SUCCESS("Remoteable engine started"))
+        self.stdout.write(self.style.SUCCESS("ShowAble engine started"))
         self.stdout.write("Press Ctrl+C to stop...\n")
 
         def _shutdown(signum, frame):

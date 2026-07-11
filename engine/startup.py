@@ -30,8 +30,8 @@ def auto_start_engine() -> None:
         _started = True
 
     # Skip auto-start in management commands (migrate, makemigrations, etc.)
-    if os.environ.get("REMOTEABLE_NO_ENGINE"):
-        logger.info("Engine auto-start disabled (REMOTEABLE_NO_ENGINE set)")
+    if os.environ.get("SHOWABLE_NO_ENGINE"):
+        logger.info("Engine auto-start disabled (SHOWABLE_NO_ENGINE set)")
         return
 
     def _start() -> None:

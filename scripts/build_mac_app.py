@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build RemoteAble.app using PyInstaller (macOS only).
+Build ShowAble.app using PyInstaller (macOS only).
 
 Usage:
     pip install -r requirements.txt pyinstaller pillow
@@ -15,8 +15,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = ROOT / "RemoteAble.spec"
-DIST_APP = ROOT / "dist" / "RemoteAble.app"
+SPEC = ROOT / "ShowAble.spec"
+DIST_APP = ROOT / "dist" / "ShowAble.app"
 VERSION_FILE = ROOT / "VERSION"
 
 
@@ -30,11 +30,11 @@ def read_version() -> str:
 
 def main() -> int:
     if sys.platform != "darwin":
-        print("RemoteAble.app can only be built on macOS.", file=sys.stderr)
+        print("ShowAble.app can only be built on macOS.", file=sys.stderr)
         return 1
 
     env = os.environ.copy()
-    env.setdefault("REMOTEABLE_VERSION", read_version())
+    env.setdefault("SHOWABLE_VERSION", read_version())
 
     subprocess.run(
         [sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)],

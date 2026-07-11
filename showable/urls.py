@@ -1,5 +1,5 @@
 """
-URL configuration for remoteable project.
+URL configuration for showable project.
 """
 
 from pathlib import Path

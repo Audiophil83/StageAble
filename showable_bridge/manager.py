@@ -10,7 +10,7 @@ import logging
 import os
 import time
 
-logger = logging.getLogger("remoteable-bridge")
+logger = logging.getLogger("showable-bridge")
 
 
 class Manager(ControlSurface):
@@ -39,22 +39,22 @@ class Manager(ControlSurface):
             self.start_logging()
             self.init_api()
 
-            self.show_message("RemoteAble Bridge: Listening for OSC on port %d" % bridge.OSC_LISTEN_PORT)
-            logger.info("Started RemoteAble Bridge on address %s" % str(self.osc_server._local_addr))
+            self.show_message("ShowAble Bridge: Listening for OSC on port %d" % bridge.OSC_LISTEN_PORT)
+            logger.info("Started ShowAble Bridge on address %s" % str(self.osc_server._local_addr))
         except OSError as msg:
-            self.show_message("RemoteAble Bridge: Couldn't bind to port %d (%s)" % (bridge.OSC_LISTEN_PORT, msg))
+            self.show_message("ShowAble Bridge: Couldn't bind to port %d (%s)" % (bridge.OSC_LISTEN_PORT, msg))
             logger.info("Couldn't bind to port %d (%s)" % (bridge.OSC_LISTEN_PORT, msg))
 
     def start_logging(self):
         """
-        Start logging to a local logfile (logs/remoteable-bridge.log),
+        Start logging to a local logfile (logs/showable-bridge.log),
         and relay error messages via OSC.
         """
         module_path = os.path.dirname(os.path.realpath(__file__))
         log_dir = os.path.join(module_path, "logs")
         if not os.path.exists(log_dir):
             os.mkdir(log_dir, 0o755)
-        log_path = os.path.join(log_dir, "remoteable-bridge.log")
+        log_path = os.path.join(log_dir, "showable-bridge.log")
         self.log_file_handler = logging.FileHandler(log_path)
         self.log_file_handler.setLevel(self.log_level.upper())
         formatter = logging.Formatter('(%(asctime)s) [%(levelname)s] %(message)s')
@@ -102,7 +102,7 @@ class Manager(ControlSurface):
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
 
         #--------------------------------------------------------------------------------
-        # RemoteAble only drives Song and Track. The other AbletonOSC handlers
+        # ShowAble only drives Song and Track. The other AbletonOSC handlers
         # (clip, clip_slot, device, scene, view, application, midimap) are omitted
         # to keep the OSC surface minimal.
         #--------------------------------------------------------------------------------
@@ -177,7 +177,7 @@ class Manager(ControlSurface):
 
     def build_midi_map(self, midi_map_handle):
         """
-        Called by Live to build the MIDI map. RemoteAble registers no MIDI
+        Called by Live to build the MIDI map. ShowAble registers no MIDI
         mappings, so this is a no-op beyond satisfying the Live interface.
         """
         logger.debug("Building MIDI map...")

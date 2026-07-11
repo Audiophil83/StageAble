@@ -1,6 +1,6 @@
 """
 OSC client — thin wrapper around python-osc for communicating with Ableton
-Live via the RemoteAble Bridge remote script (a trimmed fork of AbletonOSC).
+Live via the ShowAble Bridge remote script (a trimmed fork of AbletonOSC).
 
 The bridge listens on UDP port 11000 and replies on port 11001. This client is
 wire-compatible with stock AbletonOSC as well.
@@ -476,7 +476,7 @@ class AbletonOSCClient:
     def _log_project_identity_unavailable(self) -> None:
         logger.info(
             "/live/song/get/name or /file_path not available. Install/update "
-            "RemoteAble Bridge: python scripts/install_bridge.py"
+            "ShowAble Bridge: python scripts/install_bridge.py"
         )
 
     def get_project_name(self) -> str | None:
@@ -518,7 +518,7 @@ class AbletonOSCClient:
     def _log_signature_unavailable(self) -> None:
         logger.info(
             "/live/song/get/signature_* not available on this Remote Script. "
-            "Defaulting to 4/4. Install/update RemoteAble Bridge: "
+            "Defaulting to 4/4. Install/update ShowAble Bridge: "
             "python scripts/install_bridge.py"
         )
 
@@ -622,7 +622,7 @@ class AbletonOSCClient:
     ) -> list[tuple[float, int, int, float]] | None:
         """Sample tempo and time signature at many beats in one OSC round trip.
 
-        Requires RemoteAble Bridge (``song.py``). Returns ``None`` if
+        Requires ShowAble Bridge (``song.py``). Returns ``None`` if
         the endpoint is missing or the reply is malformed.
         """
         if not beats:
@@ -680,7 +680,7 @@ class AbletonOSCClient:
     # Arrangement clips --------------------------------------------------
 
     def _get_arrangement_clip_names_chunked(self, track_id: int) -> list[str] | None:
-        """Read arrangement clip names in slices via RemoteAble Bridge."""
+        """Read arrangement clip names in slices via ShowAble Bridge."""
         names: list[str] = []
         offset = 0
         total: int | None = None
@@ -780,7 +780,7 @@ class AbletonOSCClient:
 
         logger.warning(
             "Could not read arrangement clip names for track %d "
-            "(bulk timed out; install/update RemoteAble Bridge — "
+            "(bulk timed out; install/update ShowAble Bridge — "
             "python scripts/install_bridge.py)",
             track_id,
         )

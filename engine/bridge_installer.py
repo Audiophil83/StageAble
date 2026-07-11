@@ -1,7 +1,7 @@
-"""Install the RemoteAble Bridge control surface into Ableton Live.
+"""Install the ShowAble Bridge control surface into Ableton Live.
 
 Shared logic used by both the CLI (``scripts/install_bridge.py``) and the
-menu bar app. Resolves the bundled ``remoteable_bridge`` source whether running
+menu bar app. Resolves the bundled ``showable_bridge`` source whether running
 from the repo or from a frozen PyInstaller ``.app``.
 
 This module intentionally avoids importing Django so it can be used standalone.
@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 # Name of the control surface as it appears in Live's Control Surface menu.
-INSTALL_NAME = "RemoteAble"
+INSTALL_NAME = "ShowAble"
 
 # Files/dirs never copied into the installed control surface.
 _IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "logs", ".DS_Store")
@@ -25,14 +25,14 @@ class BridgeInstallError(Exception):
 
 
 def bridge_source_dir() -> Path:
-    """Return the path to the ``remoteable_bridge`` package source.
+    """Return the path to the ``showable_bridge`` package source.
 
     When frozen by PyInstaller the package is bundled under ``sys._MEIPASS``;
     otherwise it lives at the repo root (parent of the ``engine`` package).
     """
     if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "remoteable_bridge"
-    return Path(__file__).resolve().parent.parent / "remoteable_bridge"
+        return Path(sys._MEIPASS) / "showable_bridge"
+    return Path(__file__).resolve().parent.parent / "showable_bridge"
 
 
 def _remote_scripts_roots() -> list[Path]:

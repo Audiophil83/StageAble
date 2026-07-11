@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-APP_NAME = "RemoteAble"
+APP_NAME = "ShowAble"
 
 
 def app_data_dir() -> Path:

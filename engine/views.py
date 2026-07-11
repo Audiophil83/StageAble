@@ -24,7 +24,7 @@ def _license_blocked_response():
     return Response(
         {
             "error": (
-                "Your RemoteAble trial session has ended. "
+                "Your ShowAble trial session has ended. "
                 "Activate a license key from the desktop app to continue."
             )
         },

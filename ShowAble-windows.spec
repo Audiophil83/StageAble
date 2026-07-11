@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the RemoteAble Windows distribution folder."""
+"""PyInstaller spec for the ShowAble Windows distribution folder."""
 
 import os
 from pathlib import Path
@@ -9,7 +9,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 block_cipher = None
 root = Path(SPECPATH)
 version_file = root / "VERSION"
-app_version = os.environ.get("REMOTEABLE_VERSION", "").strip()
+app_version = os.environ.get("SHOWABLE_VERSION", "").strip()
 if not app_version and version_file.is_file():
     app_version = version_file.read_text(encoding="utf-8").strip()
 if not app_version:
@@ -41,10 +41,10 @@ project_datas = [
     (str(root / "VERSION"), "."),
     (str(root / "EULA.md"), "."),
     (str(root / "THIRD-PARTY-LICENSES.txt"), "."),
-    (str(root / "remoteable_bridge"), "remoteable_bridge"),
+    (str(root / "showable_bridge"), "showable_bridge"),
 ]
 
-hiddenimports = collect_submodules("engine") + collect_submodules("remoteable")
+hiddenimports = collect_submodules("engine") + collect_submodules("showable")
 binaries = []
 datas = list(project_datas)
 
@@ -119,7 +119,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="RemoteAble",
+    name="ShowAble",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -130,7 +130,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=str(root / "assets" / "RemoteAble.ico") if (root / "assets" / "RemoteAble.ico").exists() else None,
+    icon=str(root / "assets" / "ShowAble.ico") if (root / "assets" / "ShowAble.ico").exists() else None,
 )
 
 coll = COLLECT(
@@ -141,5 +141,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="RemoteAble",
+    name="ShowAble",
 )

@@ -38,7 +38,7 @@ class OSCServer:
         self._socket.bind(self._local_addr)
         self._callbacks = {}
 
-        self.logger = logging.getLogger("remoteable-bridge")
+        self.logger = logging.getLogger("showable-bridge")
         self.logger.info("Starting OSC server (local %s, response port %d)",
                          str(self._local_addr), self._response_port)
 
@@ -82,7 +82,7 @@ class OSCServer:
                 remote_addr = self._remote_addr
             self._socket.sendto(msg.dgram, remote_addr)
         except BuildError:
-            self.logger.error("RemoteAble Bridge: OSC build error: %s" % (traceback.format_exc()))
+            self.logger.error("ShowAble Bridge: OSC build error: %s" % (traceback.format_exc()))
 
     def process_message(self, message, remote_addr):
         if message.address in self._callbacks:
@@ -122,7 +122,7 @@ class OSCServer:
                                   params=rv,
                                   remote_addr=response_addr)
         else:
-            self.logger.error("RemoteAble Bridge: Unknown OSC address: %s" % message.address)
+            self.logger.error("ShowAble Bridge: Unknown OSC address: %s" % message.address)
 
     def process_bundle(self, bundle, remote_addr):
         for i in bundle:
@@ -137,13 +137,13 @@ class OSCServer:
                 bundle = OscBundle(data)
                 self.process_bundle(bundle, remote_addr)
             except ParseError:
-                self.logger.error("RemoteAble Bridge: Error parsing OSC bundle: %s" % (traceback.format_exc()))
+                self.logger.error("ShowAble Bridge: Error parsing OSC bundle: %s" % (traceback.format_exc()))
         else:
             try:
                 message = OscMessage(data)
                 self.process_message(message, remote_addr)
             except ParseError:
-                self.logger.error("RemoteAble Bridge: Error parsing OSC message: %s" % (traceback.format_exc()))
+                self.logger.error("ShowAble Bridge: Error parsing OSC message: %s" % (traceback.format_exc()))
 
     def process(self) -> None:
         """
@@ -170,7 +170,7 @@ class OSCServer:
                 #--------------------------------------------------------------------------------
                 # This benign error seems to occur on startup on Windows
                 #--------------------------------------------------------------------------------
-                self.logger.warning("RemoteAble Bridge: Non-fatal socket error: %s" % (traceback.format_exc()))
+                self.logger.warning("ShowAble Bridge: Non-fatal socket error: %s" % (traceback.format_exc()))
             elif e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
                 #--------------------------------------------------------------------------------
                 # Another benign networking error, throw when no data is received
@@ -181,11 +181,11 @@ class OSCServer:
                 #--------------------------------------------------------------------------------
                 # Something more serious has happened
                 #--------------------------------------------------------------------------------
-                self.logger.error("RemoteAble Bridge: Socket error: %s" % (traceback.format_exc()))
+                self.logger.error("ShowAble Bridge: Socket error: %s" % (traceback.format_exc()))
 
         except Exception as e:
-            self.logger.error("RemoteAble Bridge: Error handling OSC message: %s" % e)
-            self.logger.warning("RemoteAble Bridge: %s" % traceback.format_exc())
+            self.logger.error("ShowAble Bridge: Error handling OSC message: %s" % e)
+            self.logger.warning("ShowAble Bridge: %s" % traceback.format_exc())
 
     def shutdown(self) -> None:
         """
