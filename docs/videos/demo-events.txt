@@ -1,0 +1,55 @@
+# StageAble demo arrangement events
+# Reference timeline for tutorial videos (120 BPM, 4/4).
+# Copy clip names and beat positions into your Ableton Arrangement View,
+# then add matching cue points for each SONGS clip (see demo-project-setup.md).
+#
+# Format: start_beat|end_beat|clip name
+
+[SONGS]
+0|128|Drifts
+160|288|Neon Sky
+320|448|Last Light
+
+[SECTIONS]
+0|16|Intro
+16|48|Verse 1
+48|80|Chorus
+80|112|Verse 2
+112|128|Outro
+160|192|Intro
+192|224|Verse
+224|256|Chorus
+256|288|Outro
+320|352|Intro
+352|384|Verse
+384|416|Chorus
+416|448|Outro
+
+[LYRICS]
+16|32|Walking through the static haze
+24|40|Every step retraces yesterday
+48|56|We rise above the noise tonight
+56|64|Hold the line until the morning light
+192|208|City lights are burning low
+224|232|Sing it back and let it go
+352|368|One more time before we fade
+384|392|Carry on through the parade
+
+[CHORDS]
+0|16|Am7
+16|48|F | Bb
+48|80|Cmaj7
+80|128|Am7
+160|192|Dm7
+192|224|Gm7
+224|256|Bbmaj7
+256|288|Dm7
+320|352|Em7
+352|384|Am7
+384|416|F | C
+416|448|Em7
+
+[CONTROL]
+127|128|STOP
+287|288|STOP
+447|448|STOP
