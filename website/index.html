@@ -1,57 +1,538 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>StageAble — Show control for Ableton Live</title>
-  <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-    body { margin: 0; background: #111; color: #eee; line-height: 1.6; }
-    header, main, footer { max-width: 900px; margin: 0 auto; padding: 2rem 1.25rem; }
-    header { padding-top: 3rem; }
-    h1 { font-size: 2.4rem; margin-bottom: 0.25rem; }
-    .tagline { color: #aaa; font-size: 1.15rem; }
-    .cta { display: inline-block; margin-top: 1.5rem; padding: 0.85rem 1.4rem;
-      background: #4f8cff; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; }
-    .price { font-size: 1.5rem; margin: 2rem 0 0.5rem; }
-    ul { padding-left: 1.2rem; }
-    footer { color: #888; font-size: 0.9rem; border-top: 1px solid #333; }
-    a { color: #8cb4ff; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StageAble — Live Show Control for Ableton</title>
+  <meta name="description" content="Real-time show control for Ableton Live — lyrics, chords, setlists, and transport from any device on your LAN.">
+  <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
-  <header>
-    <h1>StageAble</h1>
-    <p class="tagline">Real-time show control for Ableton Live — lyrics, chords, setlists, and transport from any device on your LAN.</p>
-    <p class="price">€49 <small>one-time license</small></p>
-    <a class="cta" href="https://stageable.lemonsqueezy.com/buy">Buy StageAble</a>
-  </header>
-  <main>
-    <h2>Features</h2>
-    <ul>
-      <li>Live song, section, chord, and lyrics display synced to the playhead</li>
-      <li>Setlist management with auto-cue between songs</li>
-      <li>Multi-client browser UI — phones, tablets, laptops</li>
-      <li>Mixer presets and rehearsal mode</li>
-      <li>No Max for Live required — bundled Ableton bridge</li>
-    </ul>
-    <h2>Requirements</h2>
-    <ul>
-      <li>macOS (Windows coming soon)</li>
-      <li>Ableton Live with Arrangement View content</li>
-    </ul>
-    <h2>FAQ</h2>
-    <p><strong>Is this a subscription?</strong> No. One-time purchase, perpetual license.</p>
-    <p><strong>Can I try before buying?</strong> Yes — the app includes a 15-minute trial session.</p>
-    <p><strong>Support</strong> Email <a href="mailto:support@stageable.app">support@stageable.app</a></p>
-  </main>
-  <footer>
-    <p>
-      <a href="/privacy">Privacy</a> ·
-      <a href="/refunds">Refunds</a> ·
-      <a href="/impressum">Impressum</a>
-    </p>
-    <p>StageAble is not affiliated with Ableton AG.</p>
-  </footer>
+  <div id="app">
+
+    <header>
+      <div class="header-left">
+        <h1>StageAble</h1>
+        <span class="tagline-badge">Show Control</span>
+      </div>
+      <div class="header-right">
+        <nav class="view-nav" aria-label="Site sections">
+          <button class="btn btn-nav-tab active" type="button" data-tab="home">Home</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="features">Features</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="guides">Guides</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="download">Download</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="faq">FAQ</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="buy">Buy</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="contact">Contact</button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+
+      <!-- ── Home ──────────────────────────────────────────────── -->
+      <section id="tab-home" class="tab-panel active">
+
+        <div class="panel">
+          <p class="lead">Real-time show control for Ableton Live — lyrics, chords, setlists, and transport from any device on your LAN.</p>
+          <p class="text-dim">StageAble reads your Ableton arrangement, builds a live timeline of songs, sections, lyrics, and chords, then streams everything to browser clients over WebSocket. No Max for Live required.</p>
+          <div class="hero-cta">
+            <a class="btn btn-cta" href="#download" data-goto="download">Download free trial</a>
+            <a class="btn" href="#buy" data-goto="buy">Buy — €49</a>
+            <a class="btn" href="#guides" data-goto="guides">Guides</a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Screenshots</h2>
+          <div class="screenshot-grid">
+
+            <div class="screenshot-card">
+              <div class="screenshot-label">Performance View</div>
+              <div class="mock-ui">
+                <div class="mock-header">
+                  <span>StageAble</span>
+                  <div class="mock-tabs">
+                    <span class="mock-tab active">Performance</span>
+                    <span class="mock-tab">Setlist</span>
+                    <span class="mock-tab">Mixer</span>
+                  </div>
+                </div>
+                <div class="mock-live">
+                  <div class="mock-song">Neon Sky</div>
+                  <div class="mock-section">Chorus</div>
+                  <div class="mock-chords">F | Bb</div>
+                  <div class="mock-lyrics">"We rise above the city lights"</div>
+                  <div class="mock-transport">
+                    <span class="mock-btn mock-btn-play">Play</span>
+                    <span class="mock-btn mock-btn-stop">Stop</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="screenshot-card">
+              <div class="screenshot-label">Setlist</div>
+              <div class="mock-ui">
+                <div class="mock-header">
+                  <span>StageAble</span>
+                  <div class="mock-tabs">
+                    <span class="mock-tab">Performance</span>
+                    <span class="mock-tab active">Setlist</span>
+                    <span class="mock-tab">Mixer</span>
+                  </div>
+                </div>
+                <ul class="mock-song-list">
+                  <li class="active">1. Drifts</li>
+                  <li>2. Neon Sky</li>
+                  <li>3. Last Light</li>
+                  <li>4. Encore</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="screenshot-card">
+              <div class="screenshot-label">Mixer</div>
+              <div class="mock-ui">
+                <div class="mock-header">
+                  <span>StageAble</span>
+                  <div class="mock-tabs">
+                    <span class="mock-tab">Setlist</span>
+                    <span class="mock-tab active">Mixer</span>
+                    <span class="mock-tab">Rehearsal</span>
+                  </div>
+                </div>
+                <div class="mock-mixer-row">
+                  <span>Kick</span>
+                  <span class="mock-state on">Active</span>
+                </div>
+                <div class="mock-mixer-row">
+                  <span>Bass</span>
+                  <span class="mock-state on">Active</span>
+                </div>
+                <div class="mock-mixer-row">
+                  <span>Keys</span>
+                  <span class="mock-state off">Inactive</span>
+                </div>
+                <div class="mock-mixer-row">
+                  <span>Vocals</span>
+                  <span class="mock-state on">Active</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>What it does</h2>
+          <p>StageAble connects to Ableton Live through a bundled control surface bridge. It scans your arrangement for specially-named tracks — SONGS, SECTIONS, LYRICS, CHORDS, and CONTROL — and builds a deterministic timeline that follows the playhead in real time.</p>
+          <p>During a show, every phone, tablet, and laptop on your network sees the same live display: current song, section, chord symbols, and lyrics. One device can control transport while others stay locked as read-only displays for band members.</p>
+          <p>Setlist management lets you reorder songs, configure auto-cue between tracks, and jump to any song via Ableton cue points. Rehearsal mode supports looping sections for practice without touching the arrangement.</p>
+        </div>
+
+      </section>
+
+      <!-- ── Features ──────────────────────────────────────────── -->
+      <section id="tab-features" class="tab-panel">
+
+        <div class="panel">
+          <h2>Live Display</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">♪</span> Song, section, chord, and lyrics overlay resolved in real time from the playhead</li>
+            <li><span class="feature-icon">↔</span> Sliding animations when sections, chords, or lyrics change mid-song</li>
+            <li><span class="feature-icon">⛶</span> Fullscreen performance mode for stage displays</li>
+            <li><span class="feature-icon">☀</span> Keep Screen Awake for phones and tablets during long sets</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Transport &amp; Navigation</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">▶</span> Play, stop, previous, and next song controls from any browser client</li>
+            <li><span class="feature-icon">⌨</span> Keyboard shortcuts — Space for play/stop, arrow keys for prev/next song</li>
+            <li><span class="feature-icon">📍</span> Song navigation via named Ableton cue points</li>
+            <li><span class="feature-icon">⏹</span> Automatic STOP-event playback control — no Max for Live required</li>
+            <li><span class="feature-icon">🔒</span> Lock/unlock controls so only one device can drive transport</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Setlist &amp; Rehearsal</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">📋</span> Persistent setlist management with drag-and-drop reordering</li>
+            <li><span class="feature-icon">⏭</span> Auto-cue between songs with configurable countdown</li>
+            <li><span class="feature-icon">🔁</span> Rehearsal mode — play single sections or loop contiguous ranges</li>
+            <li><span class="feature-icon">🔄</span> Re-scan arrangement after edits in Ableton</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Mixer &amp; Multi-Client</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">🎚</span> Mixer tab for tracks prefixed with <code>[MIX]</code> — toggle Active/Inactive during a show</li>
+            <li><span class="feature-icon">💾</span> Save and load mixer presets for different songs or venues</li>
+            <li><span class="feature-icon">📱</span> Multi-client web UI — phones, tablets, and laptops stay in sync over WebSocket</li>
+            <li><span class="feature-icon">🔌</span> Auto-reconnects to Ableton if the connection drops</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Desktop App &amp; Licensing</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">🍎</span> macOS menu bar app with one-click server start and LAN address display</li>
+            <li><span class="feature-icon">🪟</span> Windows system tray app with the same feature set</li>
+            <li><span class="feature-icon">🔑</span> License activation with 15-minute trial mode</li>
+            <li><span class="feature-icon">⬆</span> Built-in update checker with appcast support</li>
+            <li><span class="feature-icon">🌉</span> Bundled Ableton bridge — install from the menu, no separate AbletonOSC setup</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <!-- ── Guides ────────────────────────────────────────────── -->
+      <section id="tab-guides" class="tab-panel">
+
+        <div class="panel">
+          <h2>Video Tutorials</h2>
+          <p class="text-dim">Step-by-step guides for installing StageAble, structuring your Ableton project, and using the interface on stage.</p>
+          <div class="video-grid">
+
+            <article class="video-card">
+              <div class="video-thumb coming-soon">Coming soon</div>
+              <div class="video-body">
+                <h3>1 — Install &amp; Setup</h3>
+                <p>Download StageAble, install the Ableton bridge, activate your license, and open the web UI on a second device.</p>
+                <span class="video-duration">~6–8 min</span>
+              </div>
+            </article>
+
+            <article class="video-card">
+              <div class="video-thumb coming-soon">Coming soon</div>
+              <div class="video-body">
+                <h3>2 — Ableton Project Structure</h3>
+                <p>Build the five semantic tracks (SONGS, SECTIONS, LYRICS, CHORDS, CONTROL), set up cue points, and configure STOP markers.</p>
+                <span class="video-duration">~12–15 min</span>
+              </div>
+            </article>
+
+            <article class="video-card">
+              <div class="video-thumb coming-soon">Coming soon</div>
+              <div class="video-body">
+                <h3>3 — The StageAble Interface</h3>
+                <p>Walk through Performance, Setlist, Mixer, and Rehearsal views for a complete live show workflow.</p>
+                <span class="video-duration">~12–14 min</span>
+              </div>
+            </article>
+
+          </div>
+        </div>
+
+        <div class="panel doc-section">
+          <h2>Documentation</h2>
+
+          <h3>1. Install StageAble</h3>
+          <ol class="doc-steps">
+            <li>
+              <strong>Download and install</strong>
+              <a href="#download" data-goto="download">Download StageAble</a> for Mac or Windows (free trial — no key needed). Unzip and move the app to Applications (Mac) or a folder of your choice (Windows).
+            </li>
+            <li>
+              <strong>Activate your license</strong>
+              Launch StageAble and enter your license key via the menu bar (Mac) or system tray (Windows): <strong>Activate License…</strong>
+            </li>
+          </ol>
+
+          <h3>2. Install the Ableton Bridge</h3>
+          <ol class="doc-steps">
+            <li>
+              <strong>Open Ableton Live</strong>
+              Launch Ableton Live at least once before installing the bridge.
+            </li>
+            <li>
+              <strong>Install from StageAble</strong>
+              In the StageAble menu: <strong>Install Ableton Bridge…</strong> Then restart Ableton Live.
+            </li>
+            <li>
+              <strong>Enable the control surface</strong>
+              In Ableton: Preferences → Link / Tempo / MIDI → Control Surface → select <strong>StageAble</strong>.
+            </li>
+          </ol>
+
+          <h3>3. Prepare your Ableton arrangement</h3>
+          <p class="text-dim">Create these tracks in Arrangement View (names are case-insensitive):</p>
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Track</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>SONGS</strong></td>
+                <td>One clip per song; clip name = song title. Songs must not overlap.</td>
+              </tr>
+              <tr>
+                <td><strong>SECTIONS</strong></td>
+                <td>Structural markers — Intro, Verse, Chorus, etc.</td>
+              </tr>
+              <tr>
+                <td><strong>LYRICS</strong></td>
+                <td>Lyric lines; overlapping clips are allowed.</td>
+              </tr>
+              <tr>
+                <td><strong>CHORDS</strong></td>
+                <td>Chord symbols shown verbatim (e.g. <code>Am7</code>, <code>F | Bb</code>).</td>
+              </tr>
+              <tr>
+                <td><strong>CONTROL</strong></td>
+                <td>Clips named <code>STOP</code> auto-stop transport at song endings.</td>
+              </tr>
+              <tr>
+                <td><strong>[MIX] …</strong></td>
+                <td>Any track starting with <code>[MIX]</code> appears in the Mixer tab.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-dim">Place a named cue point at each song's jump position — the cue point name must match the SONGS clip name exactly.</p>
+
+          <h3>4. Connect phones and tablets</h3>
+          <ol class="doc-steps">
+            <li>
+              <strong>Note the LAN address</strong>
+              Check the address shown in the StageAble menu bar, e.g. <code>192.168.1.10:8000</code>.
+            </li>
+            <li>
+              <strong>Open in a browser</strong>
+              On each device, open that URL. All clients stay in sync automatically.
+            </li>
+            <li>
+              <strong>Unlock controls</strong>
+              Tap the lock icon on one device if you need transport control. Other devices can stay locked as read-only displays.
+            </li>
+          </ol>
+
+          <h3>5. Trial mode</h3>
+          <p>Without a license key, StageAble runs in <strong>trial mode</strong> for 15 minutes per session. Activate a key from the menu to remove the limit.</p>
+        </div>
+
+      </section>
+
+      <!-- ── Download ──────────────────────────────────────────── -->
+      <section id="tab-download" class="tab-panel">
+
+        <div class="panel download-hero">
+          <h2>Try StageAble free</h2>
+          <p class="lead">Download the app and test it with your own Ableton project — no license key required.</p>
+          <p class="text-dim">Every download includes a <strong>15-minute trial session</strong>. Restart the app for another session, or <a href="#buy" data-goto="buy">buy a license</a> to remove the limit.</p>
+        </div>
+
+        <div class="download-grid">
+
+          <div class="panel download-card">
+            <div class="download-platform">macOS</div>
+            <p class="text-dim">macOS 12 Monterey or later. Apple Silicon and Intel.</p>
+            <a class="btn btn-cta btn-download"
+               href="https://downloads.stageable.app/StageAble-macOS.zip"
+               download>Download for Mac</a>
+            <p class="download-filename">StageAble-macOS.zip</p>
+          </div>
+
+          <div class="panel download-card">
+            <div class="download-platform">Windows</div>
+            <p class="text-dim">Windows 10 or later. 64-bit.</p>
+            <a class="btn btn-cta btn-download"
+               href="https://downloads.stageable.app/StageAble-Windows.zip"
+               download>Download for Windows</a>
+            <p class="download-filename">StageAble-Windows.zip</p>
+          </div>
+
+        </div>
+
+        <div class="panel">
+          <h2>After downloading</h2>
+          <ol class="doc-steps">
+            <li>
+              <strong>Unzip and install</strong>
+              Mac: move <code>StageAble.app</code> to Applications. Windows: unzip to a folder of your choice.
+            </li>
+            <li>
+              <strong>Launch and accept the EULA</strong>
+              The app starts in trial mode automatically — no sign-up or credit card needed.
+            </li>
+            <li>
+              <strong>Install the Ableton bridge</strong>
+              From the menu bar (Mac) or system tray (Windows): <strong>Install Ableton Bridge…</strong> Then enable <strong>StageAble</strong> under Control Surface in Ableton preferences.
+            </li>
+            <li>
+              <strong>Open the web UI</strong>
+              Note the LAN address shown in the menu, then open it on a phone or tablet. See the <a href="#guides" data-goto="guides">Guides</a> for full setup steps.
+            </li>
+            <li>
+              <strong>Love it? Buy a license</strong>
+              Activate your key via <strong>Activate License…</strong> in the menu. One key works on Mac and Windows.
+            </li>
+          </ol>
+        </div>
+
+        <div class="panel">
+          <h2>Requirements</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">🎹</span> Ableton Live with Arrangement View content</li>
+            <li><span class="feature-icon">📶</span> Local network for connecting phones and tablets to the web UI</li>
+            <li><span class="feature-icon">💾</span> ~150 MB disk space</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <!-- ── FAQ ───────────────────────────────────────────────── -->
+      <section id="tab-faq" class="tab-panel">
+
+        <div class="panel">
+          <h2>Frequently Asked Questions</h2>
+          <div class="faq-list">
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Is this a subscription?</button>
+              <div class="faq-answer">
+                No. StageAble is a one-time purchase with a perpetual license. Buy once, use forever on the platforms covered by your license.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Can I try before buying?</button>
+              <div class="faq-answer">
+                Yes. <a href="#download" data-goto="download">Download StageAble</a> for free — no license key or account required. Each session runs for 15 minutes in trial mode. Restart the app for another session, or buy a license to remove the limit.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Do I need Max for Live?</button>
+              <div class="faq-answer">
+                No. StageAble ships with a bundled Ableton control surface bridge (a trimmed fork of AbletonOSC). Install it from the menu bar and enable it under Control Surface in Ableton preferences.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Which platforms are supported?</button>
+              <div class="faq-answer">
+                macOS and Windows desktop apps are available. The browser client works on any device with a modern web browser — phones, tablets, and laptops on the same LAN.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Does one license work on Mac and Windows?</button>
+              <div class="faq-answer">
+                Yes. A single <code>STA-XXXX-XXXX-XXXX</code> license key activates StageAble on both macOS and Windows.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">How does song navigation work?</button>
+              <div class="faq-answer">
+                StageAble uses Ableton cue points for song jumps. Each SONGS clip needs a matching cue point with the same name. When you tap a song in the setlist, StageAble jumps to that cue point.
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">Can multiple people use the UI at once?</button>
+              <div class="faq-answer">
+                Yes. Open the LAN address on as many devices as you like. All clients receive the same live state over WebSocket. Lock controls on devices that should be read-only (e.g. lyric displays for vocalists).
+              </div>
+            </div>
+
+            <div class="faq-item">
+              <button class="faq-question" type="button">What Ableton versions are supported?</button>
+              <div class="faq-answer">
+                Any version of Ableton Live that supports control surfaces and Arrangement View. Your project must use Arrangement View with the semantic tracks described in the Guides section.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── Buy ───────────────────────────────────────────────── -->
+      <section id="tab-buy" class="tab-panel">
+
+        <div class="panel pricing-card">
+          <h2>Get StageAble</h2>
+          <div class="price-amount">€49 <small>one-time</small></div>
+          <p class="price-note">Perpetual license · macOS &amp; Windows · No subscription</p>
+          <a class="btn btn-cta" href="https://stageable.lemonsqueezy.com/buy">Buy StageAble</a>
+          <p class="text-dim trial-link">Not sure yet? <a href="#download" data-goto="download">Download the free trial</a> first.</p>
+          <p class="early-bird">Early adopter pricing: €39 for a limited time</p>
+
+          <ul class="pricing-features">
+            <li>Full show control — lyrics, chords, setlists, transport</li>
+            <li>Multi-client browser UI for the whole band</li>
+            <li>Mixer presets and rehearsal mode</li>
+            <li>Bundled Ableton bridge — no Max for Live</li>
+            <li>Free updates within the current major version</li>
+            <li>15-minute trial before you buy</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <h2>Requirements</h2>
+          <ul class="feature-list">
+            <li><span class="feature-icon">🍎</span> macOS or Windows</li>
+            <li><span class="feature-icon">🎹</span> Ableton Live with Arrangement View content</li>
+            <li><span class="feature-icon">📶</span> Local network for connecting phones and tablets</li>
+          </ul>
+        </div>
+
+      </section>
+
+      <!-- ── Contact ───────────────────────────────────────────── -->
+      <section id="tab-contact" class="tab-panel">
+
+        <div class="panel">
+          <h2>Get in Touch</h2>
+          <p>Questions about licensing, setup, or live performance workflows? We're here to help.</p>
+
+          <div class="contact-grid">
+            <div class="contact-card">
+              <h3>Support</h3>
+              <p><a href="mailto:support@stageable.app">support@stageable.app</a></p>
+              <p class="text-dim">Setup help, bug reports, and feature requests.</p>
+            </div>
+            <div class="contact-card">
+              <h3>Sales</h3>
+              <p><a href="mailto:sales@stageable.app">sales@stageable.app</a></p>
+              <p class="text-dim">Licensing questions and bulk purchases.</p>
+            </div>
+            <div class="contact-card">
+              <h3>Download</h3>
+              <p><a href="#download" data-goto="download">Free trial download</a></p>
+              <p class="text-dim">Mac and Windows — 15 minutes per session, no key required.</p>
+            </div>
+            <div class="contact-card">
+              <h3>Documentation</h3>
+              <p><a href="#guides" data-goto="guides">Guides &amp; tutorials</a></p>
+              <p class="text-dim">Install steps, Ableton setup, and video series.</p>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <footer>
+      <p class="footer-links">
+        <a href="/privacy">Privacy</a> ·
+        <a href="/refunds">Refunds</a> ·
+        <a href="/impressum">Impressum</a>
+      </p>
+      <p>StageAble is not affiliated with Ableton AG.</p>
+    </footer>
+
+  </div>
+
+  <script src="js/site.js"></script>
 </body>
 </html>
