@@ -2,9 +2,7 @@
 
 # Bugs to be fixed
 
-- ~~IP never changes~~ — **done** (menu bar polls every 10s; manual Refresh Address still available)
 - CI / CD — **partial** (macOS release workflow + Windows `workflow_dispatch`; CDN upload + signing need secrets)
-- ~~Transport controls are a bit strange~~ — **done** (Play button toggles play/stop like Space)
 
 # Features to be implemented
 
@@ -29,10 +27,6 @@ Real mixer with volume slider.
 LAN password / auth for WebSocket and REST (see Phase 3 below).
 
 #### Client Logging
-
-#### Project Manager — **done**
-
-See opened/stored projects, delete projects, rename projects (when the Ableton project has been moved or renamed).
 
 ---
 
