@@ -17,6 +17,7 @@
   let lyrics = [];
   let appSettings = {};
   let currentView = "performance";
+  let currentAdminPanel = "projects";
   let reconnectTimer = null;
   const RECONNECT_DELAY = 2000;
 
@@ -39,6 +40,10 @@
 
   // Rehearsal view state
   let rehearsalSelection = [];
+
+  // Projects view state
+  let savedProjects = [];
+  let renamingProjectId = null;
 
   // Client lock — locked by default; only Performance view when locked
   let clientLocked = true;
@@ -95,14 +100,21 @@
   const $transportControls = document.getElementById("transport-controls");
   const $viewPerformance = document.getElementById("view-performance");
   const $viewSetlist = document.getElementById("view-setlist");
-  const $viewSettings = document.getElementById("view-settings");
   const $viewMixer = document.getElementById("view-mixer");
   const $viewRehearsal = document.getElementById("view-rehearsal");
+  const $viewAdmin = document.getElementById("view-admin");
+  const $adminPanelProjects = document.getElementById("admin-panel-projects");
+  const $adminPanelSettings = document.getElementById("admin-panel-settings");
+  const $adminPanelRescan = document.getElementById("admin-panel-rescan");
   const $navPerformance = document.getElementById("nav-performance");
   const $navSetlist = document.getElementById("nav-setlist");
   const $navMixer = document.getElementById("nav-mixer");
   const $navRehearsal = document.getElementById("nav-rehearsal");
-  const $navSettings = document.getElementById("nav-settings");
+  const $navAdmin = document.getElementById("nav-admin");
+  const $navAdminProjects = document.getElementById("nav-admin-projects");
+  const $navAdminSettings = document.getElementById("nav-admin-settings");
+  const $navAdminRescan = document.getElementById("nav-admin-rescan");
+  const $adminSubnav = document.getElementById("admin-subnav");
   const $mixerTrackList = document.getElementById("mixer-track-list");
   const $mixerStatus = document.getElementById("mixer-status");
   const $mixerPresetName = document.getElementById("mixer-preset-name");
@@ -129,6 +141,8 @@
   const $btnSetlistSave = document.getElementById("btn-setlist-save");
   const $btnSetlistDelete = document.getElementById("btn-setlist-delete");
   const $btnSetlistActivate = document.getElementById("btn-setlist-activate");
+  const $projectList = document.getElementById("project-list");
+  const $projectsStatus = document.getElementById("projects-status");
   const $scanOverlay = document.getElementById("scan-overlay");
   const $scanOverlayTitle = document.getElementById("scan-overlay-title");
   const $scanProgressStatus = document.getElementById("scan-progress-status");
@@ -936,6 +950,223 @@
       "setlist-editor-status" + (type ? " " + type : "");
   }
 
+  const RENAME_PROJECT_WARNING =
+    "Update project path?\n\n" +
+    "Use this if you moved or renamed the .als file on disk. " +
+    "StageAble will keep your setlists and mixer presets linked to this project.\n\n" +
+    "This only updates StageAble's record — it does not move or rename the file on disk.";
+
+  function setProjectsStatus(message, type) {
+    if (!$projectsStatus) return;
+    $projectsStatus.textContent = message || "";
+    $projectsStatus.className =
+      "setlist-editor-status" + (type ? " " + type : "");
+  }
+
+  function formatProjectDate(value) {
+    if (!value) return "Never scanned";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Never scanned";
+    return date.toLocaleString();
+  }
+
+  function fetchProjects() {
+    return apiFetch("/api/projects/")
+      .then(function (data) {
+        savedProjects = data || [];
+        renderProjectList();
+      })
+      .catch(function () {
+        setProjectsStatus("Failed to load projects", "error");
+      });
+  }
+
+  function renderProjectList() {
+    if (!$projectList) return;
+    $projectList.innerHTML = "";
+
+    if (!savedProjects.length) {
+      const empty = document.createElement("li");
+      empty.className = "project-list-empty";
+      empty.textContent = "No stored projects yet. Open a Live set and rescan to add one.";
+      $projectList.appendChild(empty);
+      return;
+    }
+
+    savedProjects.forEach(function (project) {
+      const row = document.createElement("li");
+      row.className = "project-row" + (project.is_active ? " is-active" : "");
+      row.dataset.projectId = String(project.id);
+
+      const main = document.createElement("div");
+      main.className = "project-row-main";
+
+      const title = document.createElement("div");
+      title.className = "project-row-title";
+      title.textContent = project.display_name || "Untitled";
+      if (project.is_active) {
+        const badge = document.createElement("span");
+        badge.className = "project-active-badge";
+        badge.textContent = "Active";
+        title.appendChild(badge);
+      }
+
+      const path = document.createElement("div");
+      path.className = "project-row-path";
+      path.textContent = project.file_path || project.identity || "Unsaved project";
+      path.title = project.file_path || project.identity || "";
+
+      const meta = document.createElement("div");
+      meta.className = "project-row-meta";
+      meta.textContent =
+        "Last scanned: " +
+        formatProjectDate(project.scanned_at) +
+        " · " +
+        project.setlist_count +
+        " setlist" +
+        (project.setlist_count === 1 ? "" : "s") +
+        " · " +
+        project.mixer_preset_count +
+        " mixer preset" +
+        (project.mixer_preset_count === 1 ? "" : "s");
+
+      main.appendChild(title);
+      main.appendChild(path);
+      main.appendChild(meta);
+      row.appendChild(main);
+
+      const actions = document.createElement("div");
+      actions.className = "project-row-actions";
+
+      const btnRename = document.createElement("button");
+      btnRename.className = "btn btn-secondary";
+      btnRename.type = "button";
+      btnRename.textContent = "Rename";
+      btnRename.addEventListener("click", function () {
+        startProjectRename(project);
+      });
+
+      const btnDelete = document.createElement("button");
+      btnDelete.className = "btn btn-stop";
+      btnDelete.type = "button";
+      btnDelete.textContent = "Delete";
+      btnDelete.addEventListener("click", function () {
+        deleteProject(project);
+      });
+
+      actions.appendChild(btnRename);
+      actions.appendChild(btnDelete);
+      row.appendChild(actions);
+
+      if (renamingProjectId === project.id) {
+        row.appendChild(buildProjectRenameForm(project));
+      }
+
+      $projectList.appendChild(row);
+    });
+  }
+
+  function buildProjectRenameForm(project) {
+    const form = document.createElement("div");
+    form.className = "project-rename-form";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "setlist-name-input";
+    input.placeholder = "Full path to .als file";
+    input.value = project.file_path || "";
+    input.setAttribute("aria-label", "Project file path");
+
+    const btnSave = document.createElement("button");
+    btnSave.className = "btn btn-play";
+    btnSave.type = "button";
+    btnSave.textContent = "Save path";
+    btnSave.addEventListener("click", function () {
+      saveProjectRename(project, input.value.trim());
+    });
+
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "btn btn-secondary";
+    btnCancel.type = "button";
+    btnCancel.textContent = "Cancel";
+    btnCancel.addEventListener("click", function () {
+      renamingProjectId = null;
+      renderProjectList();
+    });
+
+    form.appendChild(input);
+    form.appendChild(btnSave);
+    form.appendChild(btnCancel);
+    return form;
+  }
+
+  function startProjectRename(project) {
+    if (!confirm(RENAME_PROJECT_WARNING)) return;
+    renamingProjectId = project.id;
+    renderProjectList();
+    const row = $projectList
+      ? $projectList.querySelector('[data-project-id="' + project.id + '"]')
+      : null;
+    if (row) {
+      const input = row.querySelector(".project-rename-form input");
+      if (input) input.focus();
+    }
+  }
+
+  function saveProjectRename(project, filePath) {
+    if (!filePath) {
+      setProjectsStatus("Enter the full path to the .als file", "error");
+      return;
+    }
+    setProjectsStatus("Saving path…", "");
+    apiFetch("/api/projects/" + project.id + "/rename/", {
+      method: "POST",
+      body: { file_path: filePath },
+    })
+      .then(function () {
+        renamingProjectId = null;
+        return fetchProjects();
+      })
+      .then(function () {
+        setProjectsStatus("Project path updated", "success");
+      })
+      .catch(function (err) {
+        const message =
+          err && typeof err === "object"
+            ? Object.values(err).flat().join(" ")
+            : "Failed to update project path";
+        setProjectsStatus(message, "error");
+      });
+  }
+
+  function deleteProject(project) {
+    const label = project.display_name || "this project";
+    let message =
+      'Delete project "' +
+      label +
+      '"?\n\nThis removes the cached scan, setlists, and mixer presets for this project.';
+    if (project.is_active) {
+      message +=
+        "\n\nThis is the active project — the live display will clear until you rescan.";
+    }
+    if (!confirm(message)) return;
+
+    setProjectsStatus("Deleting…", "");
+    apiFetch("/api/projects/" + project.id + "/", { method: "DELETE" })
+      .then(function () {
+        if (renamingProjectId === project.id) {
+          renamingProjectId = null;
+        }
+        return fetchProjects();
+      })
+      .then(function () {
+        setProjectsStatus("Project deleted", "success");
+      })
+      .catch(function () {
+        setProjectsStatus("Failed to delete project", "error");
+      });
+  }
+
   function songNameExists(name) {
     return songs.some(function (s) {
       return s.name === name;
@@ -1282,6 +1513,39 @@
     rehearsalSelection = [];
   }
 
+  function setAdminPanel(panel) {
+    currentAdminPanel = panel;
+    const isProjects = panel === "projects";
+    const isSettings = panel === "settings";
+    const isRescan = panel === "rescan";
+
+    if ($adminPanelProjects) {
+      $adminPanelProjects.hidden = !isProjects;
+    }
+    if ($adminPanelSettings) {
+      $adminPanelSettings.hidden = !isSettings;
+    }
+    if ($adminPanelRescan) {
+      $adminPanelRescan.hidden = !isRescan;
+    }
+    if ($navAdminProjects) {
+      $navAdminProjects.classList.toggle("active", isProjects);
+    }
+    if ($navAdminSettings) {
+      $navAdminSettings.classList.toggle("active", isSettings);
+    }
+    if ($navAdminRescan) {
+      $navAdminRescan.classList.toggle("active", isRescan);
+    }
+
+    if (isSettings) {
+      fetchSettings();
+    }
+    if (isProjects) {
+      fetchProjects();
+    }
+  }
+
   function setView(view, options) {
     options = options || {};
     if (clientLocked && view !== "performance") {
@@ -1302,7 +1566,7 @@
     const isSetlist = view === "setlist";
     const isMixer = view === "mixer";
     const isRehearsal = view === "rehearsal";
-    const isSettings = view === "settings";
+    const isAdmin = view === "admin";
 
     if ($viewPerformance) {
       $viewPerformance.hidden = !isPerformance;
@@ -1316,8 +1580,8 @@
     if ($viewRehearsal) {
       $viewRehearsal.hidden = !isRehearsal;
     }
-    if ($viewSettings) {
-      $viewSettings.hidden = !isSettings;
+    if ($viewAdmin) {
+      $viewAdmin.hidden = !isAdmin;
     }
     if ($navPerformance) {
       $navPerformance.classList.toggle("active", isPerformance);
@@ -1331,11 +1595,8 @@
     if ($navRehearsal) {
       $navRehearsal.classList.toggle("active", isRehearsal);
     }
-    if ($navSettings) {
-      $navSettings.classList.toggle("active", isSettings);
-    }
-    if ($btnRescan) {
-      $btnRescan.hidden = clientLocked || !isPerformance;
+    if ($navAdmin) {
+      $navAdmin.classList.toggle("active", isAdmin);
     }
     if ($btnFullscreen) {
       $btnFullscreen.hidden = !isPerformance;
@@ -1343,9 +1604,6 @@
 
     ensureProgressLoop();
 
-    if (isSettings) {
-      fetchSettings();
-    }
     if (isSetlist) {
       fetchSetlists();
       fetchSongs().then(function () {
@@ -1360,6 +1618,9 @@
       fetchSections().then(function () {
         renderRehearsalList();
       });
+    }
+    if (isAdmin) {
+      setAdminPanel(options.adminPanel || currentAdminPanel);
     }
   }
 
@@ -1383,11 +1644,8 @@
     if ($navRehearsal) {
       $navRehearsal.hidden = clientLocked;
     }
-    if ($navSettings) {
-      $navSettings.hidden = clientLocked;
-    }
-    if ($btnRescan) {
-      $btnRescan.hidden = clientLocked || currentView !== "performance";
+    if ($navAdmin) {
+      $navAdmin.hidden = clientLocked;
     }
     if ($btnFullscreen) {
       $btnFullscreen.hidden = currentView !== "performance";
@@ -1885,6 +2143,23 @@
     if (currentView === "rehearsal") {
       renderRehearsalList();
     }
+    if (currentView === "admin" && currentAdminPanel === "projects" && savedProjects.length) {
+      const activeId =
+        state.active_project && state.active_project.id != null
+          ? state.active_project.id
+          : null;
+      let changed = false;
+      savedProjects.forEach(function (project) {
+        const nextActive = project.id === activeId;
+        if (project.is_active !== nextActive) {
+          project.is_active = nextActive;
+          changed = true;
+        }
+      });
+      if (changed) {
+        renderProjectList();
+      }
+    }
     // Connection badge (scanning takes precedence while project scan runs)
     if (!scanInProgress) {
       setBadge(state.connection_status || "disconnected");
@@ -2326,6 +2601,14 @@
       const btn = e.target.closest("[data-view]");
       if (!btn) return;
       setView(btn.dataset.view);
+    });
+  }
+
+  if ($adminSubnav) {
+    $adminSubnav.addEventListener("click", function (e) {
+      const btn = e.target.closest("[data-admin-panel]");
+      if (!btn) return;
+      setAdminPanel(btn.dataset.adminPanel);
     });
   }
 

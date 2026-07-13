@@ -3,15 +3,18 @@ REST API views for transport control, state queries, and setlist management.
 """
 
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status, viewsets
+from django.db.models import Count
+from rest_framework import mixins, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from .models import AppSettings, MixerPreset, Setlist
+from .models import AppSettings, MixerPreset, ProjectCache, Setlist
 from .serializers import (
     AppSettingsSerializer,
     MixerPresetSerializer,
+    ProjectCacheSerializer,
+    ProjectRenameSerializer,
     SetlistCreateSerializer,
     SetlistSerializer,
 )
@@ -402,6 +405,112 @@ class SetlistViewSet(viewsets.ModelViewSet):
         setlist.save()
         self._reload_active_setlist()
         return Response(SetlistSerializer(setlist).data)
+
+
+class ProjectViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    serializer_class = ProjectCacheSerializer
+
+    def get_queryset(self):
+        return ProjectCache.objects.annotate(
+            setlist_count=Count("setlists", distinct=True),
+            mixer_preset_count=Count("mixer_presets", distinct=True),
+        ).order_by("-updated_at")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["active_project_id"] = _active_project_id()
+        return context
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        project = self.get_object()
+        serializer = self.get_serializer(project)
+        return Response(serializer.data)
+
+    def perform_destroy(self, instance):
+        project_id = instance.id
+        was_active = (
+            engine_state.active_project is not None
+            and engine_state.active_project.get("id") == project_id
+        )
+
+        settings = AppSettings.objects.filter(pk=1).first()
+        if settings and settings.last_active_project_id == project_id:
+            settings.last_active_project = None
+            settings.save(update_fields=["last_active_project", "updated_at"])
+
+        instance.delete()
+
+        if was_active:
+            from .project_cache import clear_project_state
+            from .runtime import get_engine
+
+            clear_project_state(engine_state)
+            get_engine().notify_state_changed()
+
+    @action(detail=True, methods=["post"])
+    def rename(self, request, pk=None):
+        """Update stored path/identity when the .als file was moved or renamed."""
+        project = self.get_object()
+        serializer = ProjectRenameSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        file_path = serializer.validated_data["file_path"].strip()
+        name = serializer.validated_data.get("name", "").strip()
+        if not file_path:
+            raise ValidationError({"file_path": "Path is required."})
+
+        from .project_cache import (
+            compute_project_identity,
+            project_to_state_dict,
+            relocate_project_record,
+        )
+
+        new_identity = compute_project_identity(file_path, name)
+        if (
+            new_identity != project.identity
+            and ProjectCache.objects.filter(identity=new_identity)
+            .exclude(pk=project.pk)
+            .exists()
+        ):
+            raise ValidationError(
+                {"file_path": "Another stored project already uses this path."}
+            )
+
+        if not name:
+            import os
+
+            name = os.path.basename(file_path)
+
+        relocated = relocate_project_record(
+            project,
+            identity=new_identity,
+            name=name,
+            file_path=file_path,
+        )
+
+        if (
+            engine_state.active_project is not None
+            and engine_state.active_project.get("id") == project.id
+        ):
+            engine_state.update(active_project=project_to_state_dict(relocated))
+            from .runtime import get_engine
+
+            get_engine().notify_state_changed()
+
+        data = ProjectCacheSerializer(
+            relocated, context={"active_project_id": _active_project_id()}
+        ).data
+        return Response(data)
 
 
 class MixerPresetViewSet(viewsets.ModelViewSet):

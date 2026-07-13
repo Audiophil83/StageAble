@@ -1,8 +1,8 @@
 # Video 3 — The StageAble Interface
 
-**Runtime target:** ~12–14 min  
+**Runtime target:** ~14–16 min  
 **Audience:** Musicians who already use Ableton Live  
-**Goal:** Viewer can use all four main views for a live show or rehearsal.
+**Goal:** Viewer can use all main views for a live show or rehearsal.
 
 **Prerequisites on screen:** Demo project loaded and scanned ([`demo-project-setup.md`](demo-project-setup.md)). Two devices: one locked (phone), one unlocked (laptop). Setlist and mixer presets prepared per demo guide.
 
@@ -10,7 +10,7 @@
 
 ## Recording checklist
 
-- [ ] Tab navigation visible (Performance, Setlist, Mixer, Rehearsal)
+- [ ] Tab navigation visible (Performance, Setlist, Mixer, Rehearsal, Admin)
 - [ ] Locked phone shows Performance only
 - [ ] Unlock demonstrated on laptop
 - [ ] Performance view walkthrough while playing Drifts
@@ -20,6 +20,7 @@
 - [ ] Mixer toggles and preset save/load
 - [ ] Rehearsal: play one section, loop two contiguous sections
 - [ ] Leave Rehearsal confirmation shown
+- [ ] Admin tab: Projects listed, rename path warning, delete unused project, Rescan section
 
 ---
 
@@ -30,7 +31,7 @@
 **Say:**
 
 - "StageAble runs in any browser — one Mac runs the server and Ableton; phones and tablets are remote displays and controllers."
-- "Four views: **Performance**, **Setlist**, **Mixer**, and **Rehearsal**."
+- "Five views: **Performance**, **Setlist**, **Mixer**, **Rehearsal**, and **Admin**."
 
 ---
 
@@ -41,7 +42,7 @@
 **Say:**
 
 - Devices start **locked** — performers see the show display without accidentally hitting transport.
-- **Unlock** one device to get full access: Setlist editor, Mixer, Rehearsal, Rescan, transport controls.
+- **Unlock** one device to get full access: Setlist editor, Mixer, Rehearsal, Admin, transport controls.
 - Only one device needs to be unlocked for show management; others can stay locked as lyric/chord displays.
 
 ---
@@ -139,11 +140,28 @@
 
 ---
 
+## Section 6 — Admin view (2 min)
+
+**On screen:** Admin tab → Projects sub-tab → list of stored projects → Rename with warning → Delete an unused project → Rescan sub-tab.
+
+**Say:**
+
+- **Admin** groups project management, engine settings, and rescanning
+- StageAble remembers each Ableton project you scan
+- Setlists and mixer presets belong to a specific project
+- If you move or rename the `.als` file on disk, use **Rename** to point StageAble at the new path
+- The warning explains this only updates StageAble's record — it does not move the file
+- **Delete** removes cached scan data, setlists, and mixer presets for projects you no longer use
+- **Rescan** re-reads the arrangement from Ableton after edits
+- **Settings** holds engine options such as OSC host and slide animations
+
+---
+
 ## Closing (30 sec)
 
 **Say:**
 
-- "Performance for the show, Setlist for your running order, Mixer for channel control, Rehearsal for practice."
+- "Performance for the show, Setlist for your running order, Mixer for channel control, Rehearsal for practice, Admin for projects, settings, and rescanning."
 - "Structure your Ableton project, rescan after changes, and you're ready for the stage."
 
 **End card:** Link to user guide, support@stageable.app, website.

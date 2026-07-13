@@ -30,10 +30,9 @@ LAN password / auth for WebSocket and REST (see Phase 3 below).
 
 #### Client Logging
 
-#### Project Manager
-See opened projects
-Delete projects
-Rename projects (in case ableton project has been moved or renamed)
+#### Project Manager — **done**
+
+See opened/stored projects, delete projects, rename projects (when the Ableton project has been moved or renamed).
 
 ---
 

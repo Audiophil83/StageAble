@@ -7,7 +7,7 @@ already use Ableton Live. Tone: practical, demo-driven.
 |-------|--------|---------|
 | 1 — Install & setup | [01-install-and-setup.md](01-install-and-setup.md) | ~6–8 min |
 | 2 — Ableton project structure | [02-ableton-project-structure.md](02-ableton-project-structure.md) | ~12–15 min |
-| 3 — StageAble interface | [03-stageable-interface.md](03-stageable-interface.md) | ~12–14 min |
+| 3 — StageAble interface | [03-stageable-interface.md](03-stageable-interface.md) | ~14–16 min |
 
 ---
 

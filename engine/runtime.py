@@ -1202,6 +1202,11 @@ class RuntimeEngine:
         # 5. Broadcast to WebSocket clients (only if changed)
         self._broadcast()
 
+    def notify_state_changed(self) -> None:
+        """Push the current engine state to all WebSocket clients."""
+        self._prev_snapshot = None
+        self._broadcast()
+
     def _broadcast(self) -> None:
         """Send current state to all connected WebSocket clients."""
         snapshot = self.state.snapshot()

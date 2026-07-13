@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from .models import AppSettings, MixerPreset, Setlist, SetlistEntry
+from .models import AppSettings, MixerPreset, ProjectCache, Setlist, SetlistEntry
 
 
 class AppSettingsSerializer(serializers.ModelSerializer):
@@ -15,6 +15,46 @@ class AppSettingsSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+
+class ProjectCacheSerializer(serializers.ModelSerializer):
+    display_name = serializers.CharField(read_only=True)
+    setlist_count = serializers.IntegerField(read_only=True)
+    mixer_preset_count = serializers.IntegerField(read_only=True)
+    is_active = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectCache
+        fields = [
+            "id",
+            "display_name",
+            "name",
+            "file_path",
+            "identity",
+            "scanned_at",
+            "is_valid",
+            "updated_at",
+            "setlist_count",
+            "mixer_preset_count",
+            "is_active",
+        ]
+        read_only_fields = [
+            "identity",
+            "scanned_at",
+            "is_valid",
+            "updated_at",
+        ]
+
+    def get_is_active(self, obj) -> bool:
+        active_id = self.context.get("active_project_id")
+        return active_id is not None and obj.id == active_id
+
+
+class ProjectRenameSerializer(serializers.Serializer):
+    file_path = serializers.CharField(max_length=1024)
+    name = serializers.CharField(
+        max_length=500, required=False, allow_blank=True, default=""
+    )
 
 
 class MixerPresetSerializer(serializers.ModelSerializer):

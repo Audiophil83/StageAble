@@ -34,7 +34,18 @@ Create these tracks (names are case-insensitive):
 2. On each device, open that URL in a browser.
 3. Unlock controls on one device if you need transport control.
 
-## 5. Trial mode
+## 5. Managing projects
+
+StageAble stores one record per Ableton Live set you scan. Setlists and mixer presets belong to a specific project.
+
+1. Unlock controls on one device.
+2. Open the **Admin** tab, then **Projects**.
+3. Review stored projects, including the active project shown in the header.
+4. **Rename** updates StageAble's stored path when you moved or renamed the `.als` file on disk. This keeps setlists and mixer presets linked; it does not move or rename the file in Finder or Explorer.
+5. **Delete** removes the cached scan, setlists, and mixer presets for a project you no longer need.
+6. After opening a moved project in Ableton, use **Admin → Rescan** so the arrangement cache stays current.
+
+## 6. Trial mode
 
 Without a license key, StageAble runs in **trial mode** for 15 minutes per session. Activate a key from the menu bar to remove the limit.
 

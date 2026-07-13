@@ -82,12 +82,12 @@
 
 ## Section 4 — First Rescan (1 min)
 
-**On screen:** Click **Rescan** in Performance view header (unlocked device).
+**On screen:** Unlock controls → open **Admin → Rescan**.
 
 **Say:**
 
 - StageAble reads your Ableton **Arrangement View** and caches it.
-- After any track or clip changes in Live, hit **Rescan** — from the UI or the menu bar.
+- After any track or clip changes in Live, hit **Rescan** — from **Admin → Rescan** in the UI or the menu bar.
 - We'll set up the actual tracks in the next video; for now, confirm the app is connected and scanning.
 
 ---

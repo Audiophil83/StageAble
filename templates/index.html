@@ -6,7 +6,7 @@
   <title>StageAble — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=28">
+  <link rel="stylesheet" href="/static/style.css?v=30">
   <link rel="stylesheet" href="/static/css/keep-screen-awake.css?v=2">
 </head>
 <body>
@@ -61,9 +61,8 @@
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
           <button id="nav-mixer" class="btn btn-nav-tab" type="button" data-view="mixer">Mixer</button>
           <button id="nav-rehearsal" class="btn btn-nav-tab" type="button" data-view="rehearsal">Rehearsal</button>
-          <button id="nav-settings" class="btn btn-nav-tab" type="button" data-view="settings">Settings</button>
+          <button id="nav-admin" class="btn btn-nav-tab" type="button" data-view="admin">Admin</button>
         </nav>
-        <button id="btn-rescan" class="btn btn-secondary" title="Re-scan arrangement">Rescan</button>
         <button id="btn-fullscreen" class="btn btn-icon" title="Enter full screen" type="button">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 3 21 3 21 9"></polyline>
@@ -219,7 +218,23 @@
         </section>
       </div>
 
-      <div id="view-settings" hidden>
+      <div id="view-admin" hidden>
+        <nav id="admin-subnav" class="admin-subnav" aria-label="Admin sections">
+          <button id="nav-admin-projects" class="btn btn-nav-tab active" type="button" data-admin-panel="projects">Projects</button>
+          <button id="nav-admin-settings" class="btn btn-nav-tab" type="button" data-admin-panel="settings">Settings</button>
+          <button id="nav-admin-rescan" class="btn btn-nav-tab" type="button" data-admin-panel="rescan">Rescan</button>
+        </nav>
+
+        <div id="admin-panel-projects">
+        <section id="projects-panel" class="panel projects-panel">
+          <h2>Projects</h2>
+          <p class="projects-intro">Stored Ableton projects StageAble has scanned. Each project keeps its own setlists and mixer presets.</p>
+          <p id="projects-status" class="setlist-editor-status"></p>
+          <ul id="project-list" class="project-list"></ul>
+        </section>
+        </div>
+
+        <div id="admin-panel-settings" hidden>
         <section id="settings-panel" class="panel settings-panel">
           <h2>Engine Settings</h2>
           <p class="settings-intro">Configuration is stored in the database and applied immediately.</p>
@@ -258,6 +273,15 @@
             <a href="/legal/third-party-licenses" target="_blank" rel="noopener">Third-Party Licenses</a>
           </nav>
         </footer>
+        </div>
+
+        <div id="admin-panel-rescan" hidden>
+        <section id="rescan-panel" class="panel rescan-panel">
+          <h2>Rescan</h2>
+          <p class="rescan-intro">Re-read the arrangement from Ableton Live. Use this after editing tracks, clips, or cue points. Large projects can take several minutes.</p>
+          <button id="btn-rescan" class="btn btn-secondary" type="button">Rescan arrangement</button>
+        </section>
+        </div>
       </div>
     </main>
   </div>
@@ -278,6 +302,6 @@
   <div id="keep-awake-status" class="keep-awake-status hidden" role="status" aria-live="polite"></div>
 
   <script src="/static/js/keep-screen-awake.js?v=5"></script>
-  <script src="/static/app.js?v=28"></script>
+  <script src="/static/app.js?v=30"></script>
 </body>
 </html>
