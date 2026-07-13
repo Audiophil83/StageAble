@@ -1502,7 +1502,14 @@
     }
   }
 
+  function rehearsalLoopWasCreated() {
+    return !!(state.rehearsal && state.rehearsal.loop_enabled);
+  }
+
   function confirmExitRehearsal() {
+    if (!rehearsalLoopWasCreated()) {
+      return true;
+    }
     return confirm(
       "Leave Rehearsal mode?\n\nThis will turn off the arrangement loop in Ableton and reset the loop bracket to the full project length."
     );

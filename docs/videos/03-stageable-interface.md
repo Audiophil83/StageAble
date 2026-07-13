@@ -19,7 +19,7 @@
 - [ ] Auto-advance chain demo (Drifts → STOP → countdown → Neon Sky)
 - [ ] Mixer toggles and preset save/load
 - [ ] Rehearsal: play one section, loop two contiguous sections
-- [ ] Leave Rehearsal confirmation shown
+- [ ] Leave Rehearsal confirmation shown when a section loop is active
 - [ ] Admin tab: Projects listed, rename path warning, delete unused project, Rescan section
 
 ---
@@ -134,7 +134,7 @@
 - **Play** (per row) — jumps to section start and plays once (loop off).
 - **Loop** — select **contiguous** sections via checkboxes, then Loop — sets Ableton's arrangement loop bracket and plays.
 - **Stop** — stops transport and disables loop.
-- Leaving the Rehearsal tab prompts confirmation and resets the loop bracket.
+- Leaving the Rehearsal tab prompts confirmation only when a section loop is active; it then turns off the loop and resets the bracket to the full project.
 
 **Demo:** Select Verse 1 + Chorus (adjacent) → Loop → show looping indicator. Mention that non-contiguous selection is not allowed.
 
