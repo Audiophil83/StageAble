@@ -368,10 +368,7 @@ class ProjectViewSet(
 
     def perform_destroy(self, instance):
         project_id = instance.id
-        was_active = (
-            engine_state.active_project is not None
-            and engine_state.active_project.get("id") == project_id
-        )
+        identity = instance.identity
 
         settings = AppSettings.objects.filter(pk=1).first()
         if settings and settings.last_active_project_id == project_id:
@@ -380,12 +377,10 @@ class ProjectViewSet(
 
         instance.delete()
 
-        if was_active:
-            from .project_cache import clear_project_state
-            from .runtime import get_engine
+        from .runtime import get_engine
 
-            clear_project_state(engine_state)
-            get_engine().notify_state_changed()
+        # Suppress auto-recreation while Ableton still has this Live set open.
+        get_engine().forget_stored_project(identity)
 
     @action(detail=True, methods=["post"])
     def rename(self, request, pk=None):

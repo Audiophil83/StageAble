@@ -154,7 +154,7 @@ class Command(BaseCommand):
                             )
                         )
                         continue
-                    clips = read_arrangement_clips(osc, track.index)
+                    clips, _err = read_arrangement_clips(osc, track.index)
                     if not clips:
                         continue
                     rows_by_section[spec.section] = rows_from_clips(clips)
@@ -237,7 +237,7 @@ class Command(BaseCommand):
                         f"No {section} track found in the Ableton set."
                     )
 
-                clips = read_arrangement_clips(osc, track.index)
+                clips, _err = read_arrangement_clips(osc, track.index)
                 if not clips:
                     raise CommandError(f"{section} track has no arrangement clips.")
 

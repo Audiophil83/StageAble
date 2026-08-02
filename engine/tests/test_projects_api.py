@@ -96,6 +96,57 @@ class ProjectApiTests(TestCase):
         self.assertIsNone(engine_state.timeline)
         self.assertIsNone(engine_state.active_setlist)
 
+    def test_delete_project_suppresses_auto_recreate_from_open_live_set(self):
+        """Deleting while Ableton still has the set open must not recreate it."""
+        from engine.runtime import get_engine
+
+        project = self._create_project("/sets/Show.als")
+        engine = get_engine()
+        engine._current_project_identity = project.identity
+        engine._suppressed_project_identities.clear()
+        engine_state.update(
+            active_project={
+                "id": project.id,
+                "name": project.name,
+                "file_path": project.file_path,
+                "identity": project.identity,
+                "display_name": project.display_name,
+            },
+            timeline=_sample_timeline(),
+        )
+
+        response = self.client.delete(
+            reverse("project-detail", kwargs={"pk": project.id})
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(ProjectCache.objects.filter(identity=project.identity).exists())
+        self.assertTrue(engine._is_project_suppressed(project.identity))
+        self.assertIsNone(engine._current_project_identity)
+
+        # Simulate the slow-poll project check while the same Live set is open.
+        engine.osc.get_project_identity = lambda: (
+            project.identity,
+            project.name,
+            project.file_path,
+        )
+        loaded = engine._apply_project_from_osc(broadcast=False)
+
+        self.assertFalse(loaded)
+        self.assertFalse(ProjectCache.objects.filter(identity=project.identity).exists())
+        self.assertIsNone(engine_state.active_project)
+
+    def test_rescan_clears_delete_suppression(self):
+        from engine.runtime import get_engine
+
+        project = self._create_project("/sets/Show.als")
+        identity = project.identity
+        engine = get_engine()
+        engine.forget_stored_project(identity)
+        self.assertTrue(engine._is_project_suppressed(identity))
+
+        engine._clear_project_suppression(identity)
+        self.assertFalse(engine._is_project_suppressed(identity))
+
     def test_rename_updates_identity_and_preserves_setlists(self):
         project = self._create_project("/old/Show.als")
         setlist = Setlist.objects.create(project=project, name="Tonight")

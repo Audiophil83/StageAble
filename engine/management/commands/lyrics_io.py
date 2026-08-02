@@ -112,7 +112,7 @@ class Command(BaseCommand):
                         "last scan instead."
                     )
                 track_id = self._find_lyrics_track(osc)
-                clips = read_arrangement_clips(osc, track_id)
+                clips, _err = read_arrangement_clips(osc, track_id)
                 if not clips:
                     raise CommandError("LYRICS track has no arrangement clips.")
                 rows = rows_from_clips(clips)
@@ -165,7 +165,7 @@ class Command(BaseCommand):
                 )
 
             track_id = self._find_lyrics_track(osc)
-            clips = read_arrangement_clips(osc, track_id)
+            clips, _err = read_arrangement_clips(osc, track_id)
             if not clips:
                 raise CommandError("LYRICS track has no arrangement clips.")
 

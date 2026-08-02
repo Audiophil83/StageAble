@@ -78,11 +78,24 @@ class OSCServer:
 
         try:
             msg = msg_builder.build()
+        except BuildError:
+            self.logger.error("StageAble Bridge: OSC build error: %s" % (traceback.format_exc()))
+            return
+
+        try:
             if remote_addr is None:
                 remote_addr = self._remote_addr
             self._socket.sendto(msg.dgram, remote_addr)
-        except BuildError:
-            self.logger.error("StageAble Bridge: OSC build error: %s" % (traceback.format_exc()))
+        except OSError as exc:
+            # macOS raises Errno 40 (EMSGSIZE) when the datagram exceeds the
+            # UDP max (~9KB). Callers should use name_chunk for large replies.
+            self.logger.error(
+                "StageAble Bridge: OSC reply too large to send (%s %s args, %d bytes): %s",
+                address,
+                len(params),
+                len(msg.dgram),
+                exc,
+            )
 
     def process_message(self, message, remote_addr):
         if message.address in self._callbacks:

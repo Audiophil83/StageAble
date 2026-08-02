@@ -82,6 +82,9 @@ class RuntimeEngine:
         self._scan_messages: list[str] = []
         self._scan_lock = threading.Lock()
         self._current_project_identity: str | None = None
+        # Identities deleted from the UI — do not auto-recreate while Ableton
+        # still has that Live set open. Cleared on intentional rescan.
+        self._suppressed_project_identities: set[str] = set()
 
     # ── scan progress (WebSocket clients) ─────────────────────────────
 
@@ -764,12 +767,42 @@ class RuntimeEngine:
             in_memory_timeline=in_memory_timeline,
         )
 
+    def forget_stored_project(self, identity: str) -> None:
+        """Stop treating *identity* as a stored project until the user rescans.
+
+        Deleting a project while that Live set is still open would otherwise
+        recreate the cache row on the next project-switch poll.
+        """
+        if not identity:
+            return
+        should_notify = False
+        with self._lock:
+            self._suppressed_project_identities.add(identity)
+            if self._current_project_identity == identity:
+                self._current_project_identity = None
+        active = self.state.active_project
+        if active and active.get("identity") == identity:
+            clear_project_state(self.state)
+            should_notify = True
+        if should_notify:
+            self.notify_state_changed()
+
+    def _clear_project_suppression(self, identity: str) -> None:
+        with self._lock:
+            self._suppressed_project_identities.discard(identity)
+
+    def _is_project_suppressed(self, identity: str) -> bool:
+        with self._lock:
+            return identity in self._suppressed_project_identities
+
     def _initial_scan(self, *, broadcast: bool = False) -> None:
         """Read arrangement data and build the timeline."""
         try:
             project_info = self.osc.get_project_identity()
             if project_info:
                 identity, name, file_path = project_info
+                # Rescan is an explicit request to store this Live set again.
+                self._clear_project_suppression(identity)
                 previous_identity = self._current_project_identity
                 project, relocated = self._resolve_project_record(
                     identity=identity,
@@ -1004,6 +1037,21 @@ class RuntimeEngine:
         if project_info is None:
             return False
         identity, name, file_path = project_info
+
+        if self._is_project_suppressed(identity):
+            # User deleted this project; keep it gone while the set stays open.
+            cleared = False
+            with self._lock:
+                if self._current_project_identity == identity:
+                    self._current_project_identity = None
+                    cleared = True
+            active = self.state.active_project
+            if active and active.get("identity") == identity:
+                clear_project_state(self.state)
+                cleared = True
+            if broadcast and cleared:
+                self._broadcast()
+            return False
 
         previous_identity = self._current_project_identity
         if identity == previous_identity and self.state.timeline is not None:

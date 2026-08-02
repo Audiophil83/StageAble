@@ -32,9 +32,10 @@ _ARRANGEMENT_CLIPS_NAME_CHUNK = "/live/track/get/arrangement_clips/name_chunk"
 _METER_AT_BEATS = "/live/song/get/meter_at_beats"
 _TRANSPORT = "/live/song/get/transport"
 _LOOP_STATE = "/live/song/get/loop_state"
-# Keep chunks small — lyric clip names can be long sentences.
-ARRANGEMENT_CLIP_NAME_CHUNK_SIZE = 40
-ARRANGEMENT_CLIP_BULK_TIMEOUT = 2.0
+# Keep chunks small — macOS UDP often caps near ~9KB (EMSGSIZE). Lyric lines
+# are long, so even modest bulk/chunk replies fail to leave the bridge.
+ARRANGEMENT_CLIP_NAME_CHUNK_SIZE = 8
+ARRANGEMENT_CLIP_BULK_TIMEOUT = 1.5
 ARRANGEMENT_CLIP_CHUNK_TIMEOUT = 5.0
 METER_AT_BEATS_TIMEOUT = 10.0
 METER_AT_BEATS_CHUNK_SIZE = 128
@@ -210,6 +211,7 @@ class AbletonOSCClient:
         *args: Any,
         timeout: float = DEFAULT_TIMEOUT,
         warn_timeout: bool = True,
+        match_args: tuple[Any, ...] | None = None,
     ) -> list[Any] | None:
         """Send an OSC message and wait for the reply.
 
@@ -217,9 +219,14 @@ class AbletonOSCClient:
 
         Independent queries to different addresses may run concurrently via
         ``query_many``; this method only waits for its own reply.
+
+        ``match_args`` overrides which request args must appear as a prefix of
+        the reply (defaults to all ``args``). Use this when the reply shape
+        differs from the request (e.g. name_chunk sends limit, replies total).
         """
         args_tuple = tuple(args)
-        reply_q = self._register_pending(address, args_tuple)
+        pending_key = args_tuple if match_args is None else tuple(match_args)
+        reply_q = self._register_pending(address, pending_key)
         self.send(address, *args)
 
         try:
@@ -229,7 +236,7 @@ class AbletonOSCClient:
                 logger.warning("OSC query timed out: %s %s", address, args)
             return None
         finally:
-            self._unregister_pending(address, args_tuple, reply_q)
+            self._unregister_pending(address, pending_key, reply_q)
 
     def query_many(
         self,
@@ -679,22 +686,43 @@ class AbletonOSCClient:
 
     # Arrangement clips --------------------------------------------------
 
-    def _get_arrangement_clip_names_chunked(self, track_id: int) -> list[str] | None:
+    def _get_arrangement_clip_names_chunked(
+        self, track_id: int, *, chunk_size: int | None = None
+    ) -> list[str] | None:
         """Read arrangement clip names in slices via StageAble Bridge."""
         names: list[str] = []
         offset = 0
         total: int | None = None
+        size = (
+            ARRANGEMENT_CLIP_NAME_CHUNK_SIZE
+            if chunk_size is None
+            else max(1, int(chunk_size))
+        )
 
         while total is None or offset < total:
             r = self.query(
                 _ARRANGEMENT_CLIPS_NAME_CHUNK,
                 track_id,
                 offset,
-                ARRANGEMENT_CLIP_NAME_CHUNK_SIZE,
+                size,
                 timeout=ARRANGEMENT_CLIP_CHUNK_TIMEOUT,
                 warn_timeout=False,
+                # Reply is (track_id, offset, total, ...) — not (..., limit).
+                match_args=(track_id, offset),
             )
             if r is None or len(r) < 3:
+                if size > 1:
+                    smaller = 1 if size <= 4 else max(1, size // 4)
+                    logger.info(
+                        "name_chunk timed out for track %d at offset %d "
+                        "(size %d); retrying with size %d",
+                        track_id,
+                        offset,
+                        size,
+                        smaller,
+                    )
+                    size = smaller
+                    continue
                 if offset == 0:
                     return None
                 logger.warning(
@@ -759,15 +787,8 @@ class AbletonOSCClient:
         )
 
     def get_arrangement_clip_names(self, track_id: int) -> list[str] | None:
-        r = self.query(
-            _ARRANGEMENT_CLIPS_NAME,
-            track_id,
-            timeout=ARRANGEMENT_CLIP_BULK_TIMEOUT,
-            warn_timeout=False,
-        )
-        if r is not None and len(r) > 1:
-            return [str(v) for v in r[1:]]
-
+        # Prefer chunked reads — full-track name replies often exceed the OS
+        # UDP datagram limit (bridge logs OSError EMSGSIZE / Message too long).
         names = self._get_arrangement_clip_names_chunked(track_id)
         if names is not None:
             if names:
@@ -778,9 +799,18 @@ class AbletonOSCClient:
                 )
             return names
 
+        r = self.query(
+            _ARRANGEMENT_CLIPS_NAME,
+            track_id,
+            timeout=ARRANGEMENT_CLIP_BULK_TIMEOUT,
+            warn_timeout=False,
+        )
+        if r is not None and len(r) > 1:
+            return [str(v) for v in r[1:]]
+
         logger.warning(
             "Could not read arrangement clip names for track %d "
-            "(bulk timed out; install/update StageAble Bridge — "
+            "(chunked/bulk failed; install/update StageAble Bridge — "
             "python scripts/install_bridge.py)",
             track_id,
         )

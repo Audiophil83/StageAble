@@ -112,16 +112,38 @@ def find_semantic_tracks(tracks: list[TrackInfo]) -> dict[str, TrackInfo]:
 
 
 def read_arrangement_clips(
-    osc: AbletonOSCClient, track_id: int
-) -> list[ArrangementClip]:
-    """Read all arrangement clips from a track."""
-    names = osc.get_arrangement_clip_names(track_id)
+    osc: AbletonOSCClient, track_id: int, *, label: str = ""
+) -> tuple[list[ArrangementClip], str | None]:
+    """Read all arrangement clips from a track.
+
+    Returns ``(clips, error)``. ``error`` is set when timing data is readable
+    but clip names could not be fetched (typical UDP size failure).
+    """
+    # Start/length payloads are small floats — read them first so we can
+    # detect "clips exist but names failed" (UDP size limit).
     starts = osc.get_arrangement_clip_start_times(track_id)
     lengths = osc.get_arrangement_clip_lengths(track_id)
+    names = osc.get_arrangement_clip_names(track_id)
 
-    if names is None or starts is None or lengths is None:
+    if starts is None or lengths is None:
         logger.warning("Could not read arrangement clips for track %d", track_id)
-        return []
+        label_txt = label or f"track {track_id}"
+        return [], f"Could not read arrangement clips for {label_txt}"
+
+    if names is None:
+        label_txt = label or f"track {track_id}"
+        count = len(starts)
+        logger.warning(
+            "Could not read arrangement clip names for %s (%d clips by timing)",
+            label_txt,
+            count,
+        )
+        if count:
+            return [], (
+                f"{label_txt} has {count} clips but names could not be read "
+                "(OSC UDP message too large). Update StageAble Bridge and rescan."
+            )
+        return [], None
 
     if not (len(names) == len(starts) == len(lengths)):
         logger.error(
@@ -131,12 +153,14 @@ def read_arrangement_clips(
             len(starts),
             len(lengths),
         )
-        return []
+        label_txt = label or f"track {track_id}"
+        return [], f"Clip data length mismatch on {label_txt}"
 
-    clips = []
-    for name, start, length in zip(names, starts, lengths):
-        clips.append(ArrangementClip(name=name, start_time=start, length=length))
-    return clips
+    clips = [
+        ArrangementClip(name=name, start_time=start, length=length)
+        for name, start, length in zip(names, starts, lengths)
+    ]
+    return clips, None
 
 
 def _meter_entries_from_samples(
@@ -281,24 +305,42 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
         tl.is_valid = False
         return tl
 
-    song_clips = read_arrangement_clips(osc, semantic[TRACK_SONGS].index)
+    song_clips, song_err = read_arrangement_clips(
+        osc, semantic[TRACK_SONGS].index, label="SONGS"
+    )
     logger.info("SONGS: %d clips", len(song_clips))
 
     if TRACK_SECTIONS in semantic:
-        section_clips = read_arrangement_clips(osc, semantic[TRACK_SECTIONS].index)
+        section_clips, section_err = read_arrangement_clips(
+            osc, semantic[TRACK_SECTIONS].index, label="SECTIONS"
+        )
         logger.info("SECTIONS: %d clips", len(section_clips))
+    else:
+        section_err = None
 
     if TRACK_LYRICS in semantic:
-        lyric_clips = read_arrangement_clips(osc, semantic[TRACK_LYRICS].index)
+        lyric_clips, lyric_err = read_arrangement_clips(
+            osc, semantic[TRACK_LYRICS].index, label="LYRICS"
+        )
         logger.info("LYRICS: %d clips", len(lyric_clips))
+    else:
+        lyric_err = None
 
     if TRACK_CONTROL in semantic:
-        control_clips = read_arrangement_clips(osc, semantic[TRACK_CONTROL].index)
+        control_clips, control_err = read_arrangement_clips(
+            osc, semantic[TRACK_CONTROL].index, label="CONTROL"
+        )
         logger.info("CONTROL: %d clips", len(control_clips))
+    else:
+        control_err = None
 
     if TRACK_CHORDS in semantic:
-        chord_clips = read_arrangement_clips(osc, semantic[TRACK_CHORDS].index)
+        chord_clips, chord_err = read_arrangement_clips(
+            osc, semantic[TRACK_CHORDS].index, label="CHORDS"
+        )
         logger.info("CHORDS: %d clips", len(chord_clips))
+    else:
+        chord_err = None
 
     timeline = Timeline.build(
         song_clips=song_clips,
@@ -307,6 +349,10 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
         control_clips=control_clips,
         chord_clips=chord_clips,
     )
+
+    for err in (song_err, section_err, lyric_err, control_err, chord_err):
+        if err:
+            timeline.errors.append(err)
 
     if timeline.is_valid:
         logger.info(
