@@ -22,7 +22,7 @@
           <button class="btn btn-nav-tab" type="button" data-tab="guides">Guides</button>
           <button class="btn btn-nav-tab" type="button" data-tab="download">Download</button>
           <button class="btn btn-nav-tab" type="button" data-tab="faq">FAQ</button>
-          <button class="btn btn-nav-tab" type="button" data-tab="buy">Buy</button>
+          <button class="btn btn-nav-tab" type="button" data-tab="source">Source</button>
           <button class="btn btn-nav-tab" type="button" data-tab="contact">Contact</button>
         </nav>
       </div>
@@ -37,8 +37,8 @@
           <p class="lead">Real-time show control for Ableton Live — lyrics, chords, setlists, and transport from any device on your LAN.</p>
           <p class="text-dim">StageAble reads your Ableton arrangement, builds a live timeline of songs, sections, lyrics, and chords, then streams everything to browser clients over WebSocket. No Max for Live required.</p>
           <div class="hero-cta">
-            <a class="btn btn-cta" href="#download" data-goto="download">Download free trial</a>
-            <a class="btn" href="#buy" data-goto="buy">Buy — €49</a>
+            <a class="btn btn-cta" href="#download" data-goto="download">Download</a>
+            <a class="btn" href="#source" data-goto="source">View source</a>
             <a class="btn" href="#guides" data-goto="guides">Guides</a>
           </div>
         </div>
@@ -178,13 +178,13 @@
         </div>
 
         <div class="panel">
-          <h2>Desktop App &amp; Licensing</h2>
+          <h2>Desktop App</h2>
           <ul class="feature-list">
             <li><span class="feature-icon">🍎</span> macOS menu bar app with one-click server start and LAN address display</li>
             <li><span class="feature-icon">🪟</span> Windows system tray app with the same feature set</li>
-            <li><span class="feature-icon">🔑</span> License activation with 15-minute trial mode</li>
             <li><span class="feature-icon">⬆</span> Built-in update checker with appcast support</li>
             <li><span class="feature-icon">🌉</span> Bundled Ableton bridge — install from the menu, no separate AbletonOSC setup</li>
+            <li><span class="feature-icon">📜</span> Open source under the MIT License</li>
           </ul>
         </div>
 
@@ -202,7 +202,7 @@
               <div class="video-thumb coming-soon">Coming soon</div>
               <div class="video-body">
                 <h3>1 — Install &amp; Setup</h3>
-                <p>Download StageAble, install the Ableton bridge, activate your license, and open the web UI on a second device.</p>
+                <p>Download StageAble, install the Ableton bridge, and open the web UI on a second device.</p>
                 <span class="video-duration">~6–8 min</span>
               </div>
             </article>
@@ -235,11 +235,11 @@
           <ol class="doc-steps">
             <li>
               <strong>Download and install</strong>
-              <a href="#download" data-goto="download">Download StageAble</a> for Mac or Windows (free trial — no key needed). Unzip and move the app to Applications (Mac) or a folder of your choice (Windows).
+              <a href="#download" data-goto="download">Download StageAble</a> for Mac or Windows, or <a href="#source" data-goto="source">build from source</a>. Unzip and move the app to Applications (Mac) or a folder of your choice (Windows).
             </li>
             <li>
-              <strong>Activate your license</strong>
-              Launch StageAble and enter your license key via the menu bar (Mac) or system tray (Windows): <strong>Activate License…</strong>
+              <strong>Launch the app</strong>
+              Start StageAble from the menu bar (Mac) or system tray (Windows). No activation or sign-up required.
             </li>
           </ol>
 
@@ -313,8 +313,6 @@
             </li>
           </ol>
 
-          <h3>5. Trial mode</h3>
-          <p>Without a license key, StageAble runs in <strong>trial mode</strong> for 15 minutes per session. Activate a key from the menu to remove the limit.</p>
         </div>
 
       </section>
@@ -323,9 +321,9 @@
       <section id="tab-download" class="tab-panel">
 
         <div class="panel download-hero">
-          <h2>Try StageAble free</h2>
-          <p class="lead">Download the app and test it with your own Ableton project — no license key required.</p>
-          <p class="text-dim">Every download includes a <strong>15-minute trial session</strong>. Restart the app for another session, or <a href="#buy" data-goto="buy">buy a license</a> to remove the limit.</p>
+          <h2>Download StageAble</h2>
+          <p class="lead">Get the desktop app for macOS or Windows, or build from source.</p>
+          <p class="text-dim">StageAble is free and open source under the <strong>MIT License</strong>. No account, key, or subscription required.</p>
         </div>
 
         <div class="download-grid">
@@ -358,8 +356,8 @@
               Mac: move <code>StageAble.app</code> to Applications. Windows: unzip to a folder of your choice.
             </li>
             <li>
-              <strong>Launch and accept the EULA</strong>
-              The app starts in trial mode automatically — no sign-up or credit card needed.
+              <strong>Launch the app</strong>
+              Open StageAble from Applications (Mac) or your install folder (Windows).
             </li>
             <li>
               <strong>Install the Ableton bridge</strong>
@@ -368,10 +366,6 @@
             <li>
               <strong>Open the web UI</strong>
               Note the LAN address shown in the menu, then open it on a phone or tablet. See the <a href="#guides" data-goto="guides">Guides</a> for full setup steps.
-            </li>
-            <li>
-              <strong>Love it? Buy a license</strong>
-              Activate your key via <strong>Activate License…</strong> in the menu. One key works on Mac and Windows.
             </li>
           </ol>
         </div>
@@ -395,16 +389,16 @@
           <div class="faq-list">
 
             <div class="faq-item">
-              <button class="faq-question" type="button">Is this a subscription?</button>
+              <button class="faq-question" type="button">Is StageAble free?</button>
               <div class="faq-answer">
-                No. StageAble is a one-time purchase with a perpetual license. Buy once, use forever on the platforms covered by your license.
+                Yes. StageAble is open-source software released under the MIT License. You can download pre-built apps, build from source, and use it without restrictions.
               </div>
             </div>
 
             <div class="faq-item">
-              <button class="faq-question" type="button">Can I try before buying?</button>
+              <button class="faq-question" type="button">Can I contribute or modify the code?</button>
               <div class="faq-answer">
-                Yes. <a href="#download" data-goto="download">Download StageAble</a> for free — no license key or account required. Each session runs for 15 minutes in trial mode. Restart the app for another session, or buy a license to remove the limit.
+                Yes. Clone the repository, make changes, and submit pull requests. See the <a href="#source" data-goto="source">Source</a> tab and the README for build instructions.
               </div>
             </div>
 
@@ -419,13 +413,6 @@
               <button class="faq-question" type="button">Which platforms are supported?</button>
               <div class="faq-answer">
                 macOS and Windows desktop apps are available. The browser client works on any device with a modern web browser — phones, tablets, and laptops on the same LAN.
-              </div>
-            </div>
-
-            <div class="faq-item">
-              <button class="faq-question" type="button">Does one license work on Mac and Windows?</button>
-              <div class="faq-answer">
-                Yes. A single <code>STA-XXXX-XXXX-XXXX</code> license key activates StageAble on both macOS and Windows.
               </div>
             </div>
 
@@ -455,31 +442,27 @@
 
       </section>
 
-      <!-- ── Buy ───────────────────────────────────────────────── -->
-      <section id="tab-buy" class="tab-panel">
+      <!-- ── Source ─────────────────────────────────────────────── -->
+      <section id="tab-source" class="tab-panel">
 
-        <div class="panel pricing-card">
-          <h2>Get StageAble</h2>
-          <div class="price-amount">€49 <small>one-time</small></div>
-          <p class="price-note">Perpetual license · macOS &amp; Windows · No subscription</p>
-          <a class="btn btn-cta" href="https://stageable.lemonsqueezy.com/buy">Buy StageAble</a>
-          <p class="text-dim trial-link">Not sure yet? <a href="#download" data-goto="download">Download the free trial</a> first.</p>
-          <p class="early-bird">Early adopter pricing: €39 for a limited time</p>
+        <div class="panel">
+          <h2>Open Source</h2>
+          <p class="lead">StageAble is released under the MIT License.</p>
+          <p class="text-dim">You are free to use, modify, and distribute the software. Third-party dependencies retain their own licenses — see <code>THIRD-PARTY-LICENSES.txt</code> in the repository.</p>
 
-          <ul class="pricing-features">
-            <li>Full show control — lyrics, chords, setlists, transport</li>
-            <li>Multi-client browser UI for the whole band</li>
-            <li>Mixer presets and rehearsal mode</li>
-            <li>Bundled Ableton bridge — no Max for Live</li>
-            <li>Free updates within the current major version</li>
-            <li>15-minute trial before you buy</li>
+          <ul class="feature-list">
+            <li><span class="feature-icon">📦</span> Full source code for the engine, web UI, and Ableton bridge</li>
+            <li><span class="feature-icon">🔧</span> Build macOS and Windows desktop apps locally with PyInstaller</li>
+            <li><span class="feature-icon">🤝</span> Contributions welcome via pull requests</li>
           </ul>
+
+          <p>See the README in the repository for development setup, API documentation, and build instructions.</p>
         </div>
 
         <div class="panel">
           <h2>Requirements</h2>
           <ul class="feature-list">
-            <li><span class="feature-icon">🍎</span> macOS or Windows</li>
+            <li><span class="feature-icon">🐍</span> Python 3.11+</li>
             <li><span class="feature-icon">🎹</span> Ableton Live with Arrangement View content</li>
             <li><span class="feature-icon">📶</span> Local network for connecting phones and tablets</li>
           </ul>
@@ -492,7 +475,7 @@
 
         <div class="panel">
           <h2>Get in Touch</h2>
-          <p>Questions about licensing, setup, or live performance workflows? We're here to help.</p>
+          <p>Questions about setup or live performance workflows? We're here to help.</p>
 
           <div class="contact-grid">
             <div class="contact-card">
@@ -501,14 +484,14 @@
               <p class="text-dim">Setup help, bug reports, and feature requests.</p>
             </div>
             <div class="contact-card">
-              <h3>Sales</h3>
-              <p><a href="mailto:sales@stageable.app">sales@stageable.app</a></p>
-              <p class="text-dim">Licensing questions and bulk purchases.</p>
+              <h3>Download</h3>
+              <p><a href="#download" data-goto="download">Download StageAble</a></p>
+              <p class="text-dim">Mac and Windows desktop apps.</p>
             </div>
             <div class="contact-card">
-              <h3>Download</h3>
-              <p><a href="#download" data-goto="download">Free trial download</a></p>
-              <p class="text-dim">Mac and Windows — 15 minutes per session, no key required.</p>
+              <h3>Source</h3>
+              <p><a href="#source" data-goto="source">Open-source repository</a></p>
+              <p class="text-dim">MIT License — build, modify, and contribute.</p>
             </div>
             <div class="contact-card">
               <h3>Documentation</h3>
@@ -524,9 +507,8 @@
 
     <footer>
       <p class="footer-links">
-        <a href="/privacy">Privacy</a> ·
-        <a href="/refunds">Refunds</a> ·
-        <a href="/impressum">Impressum</a>
+        <a href="/legal/license">License (MIT)</a> ·
+        <a href="/legal/third-party-licenses">Third-Party Licenses</a>
       </p>
       <p>StageAble is not affiliated with Ableton AG.</p>
     </footer>

@@ -4,15 +4,14 @@
 **Audience:** Musicians who already use Ableton Live  
 **Goal:** Viewer can install StageAble, connect it to Ableton, and open the web UI on another device.
 
-**Prerequisites on screen:** Fresh Mac (or clean demo), purchase email with download link, Ableton Live installed.
+**Prerequisites on screen:** Fresh Mac (or clean demo), StageAble download or build, Ableton Live installed.
 
 ---
 
 ## Recording checklist
 
-- [ ] StageAble-macOS.zip downloaded and unzipped
+- [ ] StageAble-macOS.zip downloaded and unzipped (or built locally)
 - [ ] StageAble.app in Applications
-- [ ] License activated (or trial mode noted)
 - [ ] Ableton Live opened at least once before bridge install
 - [ ] Bridge installed via menu bar
 - [ ] Live restarted; Control Surface = StageAble
@@ -39,11 +38,9 @@
 
 **Say:**
 
-- Download `StageAble-macOS.zip` from your purchase email.
+- Download `StageAble-macOS.zip` from the project website or GitHub releases, or build the app from source.
 - Move `StageAble.app` to Applications and launch it.
-- First launch shows the license agreement — accept to continue.
-- Activate your license from the menu bar: **Activate License…**
-- Without a license, trial mode gives you **15 minutes per session** — enough to follow along.
+- No license key or activation is required — StageAble is open source under the MIT License.
 
 **Mention briefly:** macOS Gatekeeper may block unsigned builds — right-click → Open if needed.
 
@@ -101,7 +98,7 @@
 
 **Recap checklist (optional on-screen overlay):**
 
-1. StageAble.app installed + licensed
+1. StageAble.app installed
 2. Bridge installed + Live restarted
 3. Control Surface = StageAble
 4. Browser UI open on LAN device

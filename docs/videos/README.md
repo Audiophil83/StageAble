@@ -47,6 +47,6 @@ pre-build the demo set and record Video 1 → 2 → 3 in publish order.
 
 ## Source references
 
-- Install flow: [user-guide.md](../commercial/user-guide.md)
+- Install flow: [01-install-and-setup.md](01-install-and-setup.md) and [README.md](../../README.md)
 - Track rules and cue points: [README.md](../../README.md) (Ableton Arrangement Setup)
 - UI implementation: [templates/index.html](../../templates/index.html), [static/app.js](../../static/app.js)

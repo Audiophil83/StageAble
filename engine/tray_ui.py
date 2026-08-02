@@ -58,10 +58,9 @@ class StageAbleTray:
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Install Ableton Bridge…", self._install_bridge),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Activate License…", self._activate_license),
                 pystray.MenuItem("Check for Updates…", self._check_updates),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("License Agreement…", self._open_eula),
+                pystray.MenuItem("License…", self._open_license),
                 pystray.MenuItem("Third-Party Licenses…", self._open_third_party),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Quit", self._quit),
@@ -135,33 +134,15 @@ class StageAbleTray:
         except BridgeInstallError:
             return
 
-    def _activate_license(self, _icon: object, _item: object) -> None:
-        import tkinter as tk
-        from tkinter import messagebox, simpledialog
+    def _open_license(self, _icon: object, _item: object) -> None:
+        from engine import legal
 
-        from engine import licensing
+        legal.open_document(legal.license_path())
 
-        status = licensing.get_status()
-        if status.mode == licensing.LicenseMode.LICENSED:
-            messagebox.showinfo(
-                "License active",
-                f"StageAble is licensed ({status.license_key_masked}).",
-            )
-            return
+    def _open_third_party(self, _icon: object, _item: object) -> None:
+        from engine import legal
 
-        root = tk.Tk()
-        root.withdraw()
-        key = simpledialog.askstring(
-            "Activate StageAble",
-            "Enter your license key (STA-XXXX-XXXX-XXXX):",
-        )
-        root.destroy()
-        if not key:
-            return
-        try:
-            licensing.activate_license(key)
-        except ValueError as exc:
-            messagebox.showerror("Activation failed", str(exc))
+        legal.open_document(legal.third_party_licenses_path())
 
     def _check_updates(self, _icon: object, _item: object) -> None:
         import tkinter as tk
@@ -186,16 +167,6 @@ class StageAbleTray:
         )
         root.destroy()
 
-    def _open_eula(self, _icon: object, _item: object) -> None:
-        from engine import eula
-
-        eula.open_document(eula.eula_path())
-
-    def _open_third_party(self, _icon: object, _item: object) -> None:
-        from engine import eula
-
-        eula.open_document(eula.third_party_licenses_path())
-
     def _watch_server(self) -> None:
         while not self._stop_event.wait(2):
             if self.process.poll() is None:
@@ -210,28 +181,7 @@ class StageAbleTray:
         stop_daphne(self.process)
         self._icon.stop()
 
-    def _ensure_eula_accepted(self) -> None:
-        from engine import eula
-
-        if eula.is_accepted():
-            return
-        import tkinter as tk
-        from tkinter import messagebox
-
-        root = tk.Tk()
-        root.withdraw()
-        accepted = messagebox.askyesno(
-            "StageAble License Agreement",
-            eula.SUMMARY,
-        )
-        if accepted:
-            eula.mark_accepted()
-        else:
-            self._quit(self._icon, None)
-        root.destroy()
-
     def run(self) -> None:
-        self._ensure_eula_accepted()
         threading.Thread(target=self._poll_address, daemon=True).start()
         threading.Thread(target=self._watch_server, daemon=True).start()
         self._icon.run()

@@ -39,7 +39,7 @@ project_datas = [
     (str(root / "static"), "static"),
     (str(root / "assets"), "assets"),
     (str(root / "VERSION"), "."),
-    (str(root / "EULA.md"), "."),
+    (str(root / "LICENSE"), "."),
     (str(root / "THIRD-PARTY-LICENSES.txt"), "."),
     (str(root / "stageable_bridge"), "stageable_bridge"),
 ]

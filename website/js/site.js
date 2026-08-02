@@ -1,5 +1,5 @@
 (function () {
-  const TABS = ["home", "features", "guides", "download", "faq", "buy", "contact"];
+  const TABS = ["home", "features", "guides", "download", "faq", "source", "contact"];
   const navButtons = document.querySelectorAll(".btn-nav-tab");
   const panels = document.querySelectorAll(".tab-panel");
 

@@ -36,8 +36,8 @@ def _serve_legal_doc(request, filename: str):
     )
 
 
-def eula(request):
-    return _serve_legal_doc(request, "EULA.md")
+def license_doc(request):
+    return _serve_legal_doc(request, "LICENSE")
 
 
 def third_party_licenses(request):
@@ -62,7 +62,7 @@ urlpatterns = [
     path("api/", include("engine.urls")),
     path("favicon.ico", favicon, name="favicon"),
     path("apple-touch-icon.png", apple_touch_icon, name="apple-touch-icon"),
-    path("legal/eula", eula, name="legal-eula"),
+    path("legal/license", license_doc, name="legal-license"),
     path("legal/third-party-licenses", third_party_licenses, name="legal-third-party"),
     path("", IndexView.as_view(), name="home"),
 ]

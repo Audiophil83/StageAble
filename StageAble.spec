@@ -38,8 +38,7 @@ project_datas = [
     (str(root / "static"), "static"),
     (str(root / "assets"), "assets"),
     (str(root / "VERSION"), "."),
-    # End User License Agreement governing use of the app.
-    (str(root / "EULA.md"), "."),
+    (str(root / "LICENSE"), "."),
     # Third-party attribution notices required by the bundled dependencies'
     # licenses (MIT/BSD/Apache/etc.).
     (str(root / "THIRD-PARTY-LICENSES.txt"), "."),

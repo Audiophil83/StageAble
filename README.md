@@ -16,7 +16,6 @@ state to any number of browser clients over WebSocket.
 - Song navigation via named cue points
 - Persistent setlist management via REST API
 - Auto-reconnects to Ableton if the connection drops
-- License activation with 15-minute trial mode (see [Commercial distribution](#commercial-distribution))
 - macOS menu bar and Windows system tray desktop apps with auto-update checks
 
 ---
@@ -195,7 +194,6 @@ reachable.
 | `STAGEABLE_NO_ENGINE` | *(unset)* | Set to any value to prevent auto-starting the engine (useful for running migrations) |
 | `STAGEABLE_FROZEN` | *(unset)* | Set by the PyInstaller launcher; enables production defaults and static file serving |
 | `STAGEABLE_VERSION` | from `VERSION` file | Override the bundled app version string |
-| `STAGEABLE_LICENSE_SECRET` | dev default | HMAC secret for license key validation — **must** be set in production builds |
 | `STAGEABLE_APPCAST_URL` | `https://downloads.stageable.app/appcast-macos.xml` | URL of the Sparkle-style appcast for update checks |
 
 ---
@@ -284,16 +282,9 @@ Connect to `ws://<host>:<port>/ws/engine/`.
   "next_stop": 544.0,
   "timeline_valid": true,
   "timeline_errors": [],
-  "mode": "trial",
-  "trial_seconds_remaining": 842,
-  "license_message": "Trial mode — 15 minute(s) remaining in this session.",
   "last_update": 1716660140.123
 }
 ```
-
-`mode` is one of `licensed`, `trial`, or `trial_expired`. When the trial
-session ends, transport commands return an error until a license key is
-activated from the desktop app.
 
 #### Client -> Server commands
 
@@ -317,16 +308,6 @@ All endpoints are under `/api/`. No authentication required (configurable).
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/status/` | Current engine state snapshot (same shape as WebSocket state) |
-
-#### License
-
-| Method | Endpoint | Body | Description |
-|---|---|---|---|
-| GET | `/api/license/status/` | — | Current license/trial status |
-| POST | `/api/license/activate/` | `{ "license_key": "STA-XXXX-XXXX-XXXX" }` | Activate a purchased license key |
-
-Transport and rehearsal endpoints return HTTP 402 when the trial session has
-expired and no license is active.
 
 #### Transport control
 
@@ -387,13 +368,12 @@ stageable/
 │   ├── routing.py                     WebSocket URL routing
 │   ├── models.py                      Setlist + SetlistEntry Django models
 │   ├── serializers.py                 DRF serializers
-│   ├── licensing.py                   License activation + trial mode
 │   ├── updates.py                     Appcast-based update checker
+│   ├── legal.py                       Bundled license document helpers
 │   ├── paths.py                       Cross-platform app data directories
 │   ├── platform_ui.py                 Desktop UI dispatch (macOS / Windows)
 │   ├── status_ui.py                   macOS menu bar UI (rumps)
 │   ├── tray_ui.py                     Windows system tray UI (pystray)
-│   ├── eula.py                        EULA acceptance helpers
 │   ├── bridge_installer.py            Ableton bridge install logic
 │   ├── admin.py                       Django admin config
 │   ├── startup.py                     One-shot engine auto-start guard
@@ -411,8 +391,7 @@ stageable/
 │   │   └── generate_appcast.py        Sparkle appcast XML generator
 │   └── versioning/
 │       └── next_version.py            Semver bump from Conventional Commits
-├── docs/commercial/                   Paid distribution guides
-├── website/                           Marketing landing page (static HTML)
+├── website/                           Project website (static HTML)
 ├── templates/
 │   └── index.html                     Single-page frontend
 └── static/
@@ -451,18 +430,6 @@ directory.
 **Menu bar address does not update after network change**
 The macOS menu bar app polls the LAN address every 10 seconds and updates
 automatically. Use **Refresh Address** in the menu for an immediate update.
-
-**Trial session ended / transport blocked**
-Without a license key, StageAble runs in trial mode for 15 minutes per
-session. Activate a key via the menu bar (**Activate License…**) or
-`POST /api/license/activate/`. Generate a dev/test key:
-
-```bash
-python -c "from engine.licensing import generate_license_key; print(generate_license_key())"
-```
-
-Set `STAGEABLE_LICENSE_SECRET` to the same secret used in production before
-generating keys for customers.
 
 **OSC query timeouts in the log / LYRICS shows 0 clips**
 Bulk arrangement clip name queries can exceed OSC/UDP size limits when a track
@@ -522,8 +489,8 @@ open dist/StageAble.app
 ```
 
 The bundled app runs as a **macOS menu bar app** (no Dock icon). Click the
-menu bar icon to see the server address, open it in a browser, copy it, activate
-a license, check for updates, or quit.
+menu bar icon to see the server address, open it in a browser, copy it, check
+for updates, or quit.
 
 The bundled app stores its SQLite database in
 `~/Library/Application Support/StageAble/db.sqlite3`.
@@ -578,8 +545,8 @@ $env:WINDOWS_SIGNING_CERT_PASSWORD = "..."
 pwsh scripts/packaging/sign_windows.ps1 dist/StageAble/StageAble.exe
 ```
 
-See [`docs/commercial/release-checklist.md`](docs/commercial/release-checklist.md)
-for the full release workflow.
+See the [Building and releases](#building-and-releases) section above for the
+release workflow.
 
 ### Auto-updates
 
@@ -650,63 +617,11 @@ STAGEABLE_NO_ENGINE=1 python manage.py test engine.tests
 
 ---
 
-## Commercial distribution
-
-StageAble is sold as a **one-time perpetual license** (recommended pricing:
-**€49 / $49** launch, **€69 / $69** after v1.0 stable). Distribution is via
-**direct download** (not the Mac App Store) through a storefront such as
-[Lemon Squeezy](https://www.lemonsqueezy.com/) or Paddle.
-
-### Licensing and trial mode
-
-| Mode | Behaviour |
-|---|---|
-| **Trial** | Full features for 15 minutes per session; timer shown in the web UI |
-| **Trial expired** | Transport commands blocked until a license key is activated |
-| **Licensed** | No time limit; key stored in app data directory |
-
-License keys use the format `STA-XXXX-XXXX-XXXX` (HMAC-signed). Customers
-activate from the desktop app menu (**Activate License…**) or via the REST API.
-
-Implementation: [`engine/licensing.py`](engine/licensing.py).
-
-Generate keys for testing or storefront integration:
-
-```bash
-STAGEABLE_LICENSE_SECRET='your-production-secret' python -c \
-  "from engine.licensing import generate_license_key; print(generate_license_key())"
-```
-
-### Documentation map
-
-| Document | Purpose |
-|---|---|
-| [`planned.md`](planned.md) | Full paid-distribution roadmap with status |
-| [`docs/commercial/storefront-setup.md`](docs/commercial/storefront-setup.md) | Lemon Squeezy / Paddle / Gumroad setup |
-| [`docs/commercial/user-guide.md`](docs/commercial/user-guide.md) | Buyer-oriented setup guide |
-| [`docs/commercial/release-checklist.md`](docs/commercial/release-checklist.md) | Sign, publish, verify releases |
-| [`docs/commercial/v1-release-criteria.md`](docs/commercial/v1-release-criteria.md) | Checklist before tagging v1.0.0 |
-| [`website/index.html`](website/index.html) | Marketing landing page template |
-| [`EULA.md`](EULA.md) | End User License Agreement |
-
-### Remaining manual steps before public launch
-
-- Enroll in the Apple Developer Program and add signing secrets to CI
-- Set up storefront (product, license keys, receipt email)
-- Publish privacy policy, Impressum, and refund pages on the live website
-- Host downloads and appcast on a public CDN (`downloads.stageable.app`)
-- Record YouTube tutorials and run a private beta with performers
-- Purchase a Windows code signing certificate (OV or EV)
-
----
-
 ## License
 
-StageAble is proprietary software. Copyright © 2026 Philipp Schleicher. All rights reserved.
+StageAble is open-source software released under the [MIT License](LICENSE).
 
-Use of the application is governed by its End User License Agreement (EULA). No
-license to copy, modify, redistribute, or resell the StageAble source code or
-binaries is granted except as expressly permitted by that agreement.
+Copyright © 2026 Philipp Schleicher.
 
 StageAble bundles third-party open-source components (Django, Twisted, Channels,
 python-osc, and others) under their respective permissive licenses. Their required
@@ -714,3 +629,5 @@ copyright and license notices are reproduced in
 [`THIRD-PARTY-LICENSES.txt`](THIRD-PARTY-LICENSES.txt). The bundled Ableton Live
 control surface additionally ships its own attribution in
 [`stageable_bridge/NOTICE`](stageable_bridge/NOTICE).
+
+StageAble is not affiliated with or endorsed by Ableton AG.

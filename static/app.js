@@ -2182,10 +2182,7 @@
     }
 
     // Error banner
-    if (state.license_message) {
-      $errorBanner.textContent = state.license_message;
-      $errorBanner.classList.remove("hidden");
-    } else if (state.timeline_errors && state.timeline_errors.length > 0) {
+    if (state.timeline_errors && state.timeline_errors.length > 0) {
       $errorBanner.textContent = state.timeline_errors.join(" | ");
       $errorBanner.classList.remove("hidden");
     } else {

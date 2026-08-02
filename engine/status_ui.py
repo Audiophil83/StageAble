@@ -65,18 +65,13 @@ class StageableStatusApp(rumps.App):
             None,
             rumps.MenuItem("Install Ableton Bridge…", callback=self._install_bridge),
             None,
-            rumps.MenuItem("Activate License…", callback=self._activate_license),
             rumps.MenuItem("Check for Updates…", callback=self._check_updates),
             None,
-            rumps.MenuItem("License Agreement…", callback=self._open_eula),
+            rumps.MenuItem("License…", callback=self._open_license),
             rumps.MenuItem("Third-Party Licenses…", callback=self._open_third_party),
             None,
             rumps.MenuItem("Quit", callback=self._quit),
         ]
-
-        # Present the EULA on first launch once the run loop is active.
-        self._eula_timer = rumps.Timer(self._ensure_eula_accepted, 0.4)
-        self._eula_timer.start()
 
         self._watch_timer = rumps.Timer(self._watch_server, 2)
         self._watch_timer.start()
@@ -156,53 +151,20 @@ class StageableStatusApp(rumps.App):
             ok="Done",
         )
 
-    def _ensure_eula_accepted(self, timer: object) -> None:
-        from engine import eula
+    def _open_license(self, _sender: object) -> None:
+        from engine import legal
 
-        # One-shot: stop the timer so the dialog is only presented once.
-        self._eula_timer.stop()
-        if eula.is_accepted():
-            return
-
-        while True:
-            clicked = rumps.alert(
-                title="StageAble License Agreement",
-                message=eula.SUMMARY,
-                ok="Accept",
-                cancel="Decline & Quit",
-                other="View Full Agreement",
-            )
-            if clicked == -1:  # "View Full Agreement"
-                if not eula.open_document(eula.eula_path()):
-                    rumps.notification(
-                        "StageAble",
-                        "License unavailable",
-                        "Could not open the full EULA document.",
-                    )
-                continue
-            break
-
-        if clicked == 1:  # "Accept"
-            eula.mark_accepted()
-            return
-
-        # "Decline & Quit" (0): shut down the server and exit.
-        self._quit(None)
-
-    def _open_eula(self, _sender: object) -> None:
-        from engine import eula
-
-        if not eula.open_document(eula.eula_path()):
+        if not legal.open_document(legal.license_path()):
             rumps.notification(
                 "StageAble",
                 "License unavailable",
-                "Could not open the EULA document.",
+                "Could not open the license document.",
             )
 
     def _open_third_party(self, _sender: object) -> None:
-        from engine import eula
+        from engine import legal
 
-        if not eula.open_document(eula.third_party_licenses_path()):
+        if not legal.open_document(legal.third_party_licenses_path()):
             rumps.notification(
                 "StageAble",
                 "Licenses unavailable",
@@ -220,36 +182,6 @@ class StageableStatusApp(rumps.App):
         self.url = url
         self.address_item.title = f"Running at {display}"
         rumps.notification("StageAble", "Address updated", url)
-
-    def _activate_license(self, _sender: object) -> None:
-        from engine import licensing
-
-        status = licensing.get_status()
-        if status.mode == licensing.LicenseMode.LICENSED:
-            rumps.alert(
-                title="License active",
-                message=f"StageAble is licensed ({status.license_key_masked}).",
-                ok="OK",
-            )
-            return
-
-        window = rumps.Window(
-            message="Enter your license key (STA-XXXX-XXXX-XXXX):",
-            title="Activate StageAble",
-            default_text="",
-            ok="Activate",
-            cancel="Cancel",
-            dimensions=(320, 24),
-        )
-        response = window.run()
-        if not response.clicked:
-            return
-        try:
-            licensing.activate_license(response.text)
-        except ValueError as exc:
-            rumps.alert(title="Activation failed", message=str(exc), ok="OK")
-            return
-        rumps.notification("StageAble", "License activated", "Thank you for your purchase.")
 
     def _check_updates(self, _sender: object) -> None:
         from engine.updates import check_for_updates

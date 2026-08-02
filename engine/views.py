@@ -21,28 +21,6 @@ from .serializers import (
 from .state import engine_state
 
 
-def _license_blocked_response():
-    from rest_framework.response import Response
-
-    return Response(
-        {
-            "error": (
-                "Your StageAble trial session has ended. "
-                "Activate a license key from the desktop app to continue."
-            )
-        },
-        status=status.HTTP_402_PAYMENT_REQUIRED,
-    )
-
-
-def _require_transport_entitlement():
-    from .licensing import is_entitled
-
-    if is_entitled():
-        return None
-    return _license_blocked_response()
-
-
 def _active_project_id() -> int | None:
     project = engine_state.active_project
     if project:
@@ -66,30 +44,6 @@ def _require_active_project_id() -> int | None:
 
 
 @api_view(["GET"])
-def license_status(request):
-    from .licensing import get_status
-
-    return Response(get_status().to_dict())
-
-
-@api_view(["POST"])
-def license_activate(request):
-    from .licensing import activate_license
-
-    key = request.data.get("license_key") or request.data.get("key")
-    if not key:
-        return Response(
-            {"error": "Missing 'license_key' field"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    try:
-        status_obj = activate_license(str(key))
-    except ValueError as exc:
-        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-    return Response(status_obj.to_dict())
-
-
-@api_view(["GET"])
 def engine_status(request):
     """Return the current engine state snapshot."""
     return Response(engine_state.snapshot())
@@ -97,9 +51,6 @@ def engine_status(request):
 
 @api_view(["POST"])
 def transport_play(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     from .runtime import get_engine
 
     get_engine().cmd_play()
@@ -108,9 +59,6 @@ def transport_play(request):
 
 @api_view(["POST"])
 def transport_stop(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     from .runtime import get_engine
 
     get_engine().cmd_stop()
@@ -119,9 +67,6 @@ def transport_stop(request):
 
 @api_view(["POST"])
 def transport_seek(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     beat = request.data.get("beat")
     if beat is None:
         return Response(
@@ -135,9 +80,6 @@ def transport_seek(request):
 
 @api_view(["POST"])
 def jump_to_song(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     index = request.data.get("index")
     setlist_index = request.data.get("setlist_index")
     if index is None and setlist_index is None:
@@ -158,9 +100,6 @@ def jump_to_song(request):
 
 @api_view(["POST"])
 def jump_to_section(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     start_beat = request.data.get("start_beat")
     if start_beat is None:
         return Response(
@@ -175,9 +114,6 @@ def jump_to_section(request):
 
 @api_view(["POST"])
 def rehearse_play(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     start_beat = request.data.get("start_beat")
     if start_beat is None:
         return Response(
@@ -192,9 +128,6 @@ def rehearse_play(request):
 
 @api_view(["POST"])
 def rehearse_loop(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     start_beats = request.data.get("start_beats")
     if not start_beats:
         return Response(
@@ -212,9 +145,6 @@ def rehearse_loop(request):
 
 @api_view(["POST"])
 def rehearse_stop(request):
-    blocked = _require_transport_entitlement()
-    if blocked is not None:
-        return blocked
     from .runtime import get_engine
 
     get_engine().cmd_rehearse_stop()

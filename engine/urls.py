@@ -13,8 +13,6 @@ router.register(r"mixer-presets", views.MixerPresetViewSet, basename="mixer-pres
 urlpatterns = [
     # Engine state
     path("status/", views.engine_status, name="engine-status"),
-    path("license/status/", views.license_status, name="license-status"),
-    path("license/activate/", views.license_activate, name="license-activate"),
     # Transport
     path("transport/play/", views.transport_play, name="transport-play"),
     path("transport/stop/", views.transport_stop, name="transport-stop"),
