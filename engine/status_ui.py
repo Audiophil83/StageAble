@@ -80,6 +80,16 @@ class StageableStatusApp(rumps.App):
         self._address_timer.start()
         self._last_display = display
 
+        # rumps creates the native NSStatusItem only when run() starts.  This
+        # event fires immediately after that, before the event loop begins.
+        rumps.events.before_start.register(self._keep_menu_bar_item_visible)
+
+    def _keep_menu_bar_item_visible(self) -> None:
+        """Restore the native status item if macOS made it invisible."""
+        from engine.macos_status_item import keep_visible
+
+        keep_visible(self._nsapp.nsstatusitem)
+
     def _open_url(self, _sender: object) -> None:
         webbrowser.open(self.url)
 
@@ -204,6 +214,9 @@ class StageableStatusApp(rumps.App):
         )
 
     def _watch_server(self, _timer: object) -> None:
+        # Reassert visibility while the app is healthy.  In particular this
+        # recovers the item after display changes and sleep/wake transitions.
+        self._keep_menu_bar_item_visible()
         if self.process.poll() is not None:
             code = self.process.returncode
             rumps.notification(
