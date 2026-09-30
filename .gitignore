@@ -17,7 +17,7 @@ db.sqlite3-journal
 # Distribution / packaging
 *.egg-info/
 *.egg
-dist/
+dist*/
 build/
 
 # IDE
