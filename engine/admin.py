@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AppSettings, MixerPreset, ProjectCache, Setlist, SetlistEntry
+from .models import AppSettings, ControlDevice, ControlMapping, MixerPreset, ProjectCache, Setlist, SetlistEntry
 
 
 class SetlistEntryInline(admin.TabularInline):
@@ -53,3 +53,14 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class ControlMappingInline(admin.TabularInline):
+    model = ControlMapping
+    extra = 0
+
+
+@admin.register(ControlDevice)
+class ControlDeviceAdmin(admin.ModelAdmin):
+    list_display = ["name", "adapter", "identifier", "enabled", "updated_at"]
+    inlines = [ControlMappingInline]

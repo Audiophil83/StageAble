@@ -4,20 +4,23 @@ REST API views for transport control, state queries, and setlist management.
 
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Count
-from rest_framework import mixins, status, viewsets
+from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 
-from .models import AppSettings, MixerPreset, ProjectCache, Setlist
+from .models import AppSettings, ControlDevice, ControlMapping, MixerPreset, ProjectCache, Setlist
 from .serializers import (
     AppSettingsSerializer,
+    ControlDeviceSerializer,
+    ControlMappingSerializer,
     MixerPresetSerializer,
     ProjectCacheSerializer,
     ProjectRenameSerializer,
     SetlistCreateSerializer,
     SetlistSerializer,
 )
+from .actions import ACTIONS
 from .state import engine_state
 
 
@@ -38,6 +41,14 @@ def _require_active_project_id() -> int | None:
             project = get_or_create_project_record(identity=identity)
             return project.id
     return project_id
+
+
+class IsLoopback(permissions.BasePermission):
+    """Device configuration can only be changed from the server machine."""
+
+    def has_permission(self, request, view):
+        address = request.META.get("REMOTE_ADDR", "")
+        return address in {"127.0.0.1", "::1"} or address.startswith("127.")
 
 
 # ── Engine state & transport ──────────────────────────────────────────
@@ -62,6 +73,30 @@ def transport_stop(request):
     from .runtime import get_engine
 
     get_engine().cmd_stop()
+    return Response({"status": "ok"})
+
+
+@api_view(["POST"])
+def transport_toggle(request):
+    from .runtime import get_engine
+
+    get_engine().actions.dispatch("transport.toggle_play")
+    return Response({"status": "ok"})
+
+
+@api_view(["POST"])
+def song_previous(request):
+    from .runtime import get_engine
+
+    get_engine().actions.dispatch("song.previous")
+    return Response({"status": "ok"})
+
+
+@api_view(["POST"])
+def song_next(request):
+    from .runtime import get_engine
+
+    get_engine().actions.dispatch("song.next")
     return Response({"status": "ok"})
 
 
@@ -465,3 +500,108 @@ class MixerPresetViewSet(viewsets.ModelViewSet):
         engine = get_engine()
         tracks = engine.cmd_apply_mixer_preset(preset.tracks)
         return Response({"status": "ok", "tracks": tracks})
+
+
+def _device_manager():
+    from .devices import DeviceManager
+    from .runtime import get_engine
+
+    engine = get_engine()
+    if engine.device_manager is None:
+        engine.device_manager = DeviceManager(engine)
+        engine.device_manager.start()
+    return engine.device_manager
+
+
+class ControlDeviceViewSet(viewsets.ModelViewSet):
+    serializer_class = ControlDeviceSerializer
+    permission_classes = [IsLoopback]
+    http_method_names = ["get", "patch", "delete", "post", "head", "options"]
+
+    def get_queryset(self):
+        return ControlDevice.objects.prefetch_related("mappings").all()
+
+    def list(self, request, *args, **kwargs):
+        return Response({"actions": ACTIONS, "devices": _device_manager().snapshot()})
+
+    def partial_update(self, request, *args, **kwargs):
+        response = super().partial_update(request, *args, **kwargs)
+        _device_manager().refresh()
+        return response
+
+    def destroy(self, request, *args, **kwargs):
+        """Clear saved mappings while leaving connected hardware discoverable."""
+        device = self.get_object()
+        device.mappings.all().delete()
+        device.enabled = False
+        device.save(update_fields=["enabled", "updated_at"])
+        _device_manager().broadcast("devices_changed", {"devices": _device_manager().snapshot()})
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"])
+    def refresh(self, request):
+        return Response({"actions": ACTIONS, "devices": _device_manager().refresh()})
+
+    @action(detail=False, methods=["post"], url_path="pair-bluetooth")
+    def pair_bluetooth(self, request):
+        from .devices.macos_hid import MacBluetoothHidAdapter
+
+        try:
+            MacBluetoothHidAdapter.open_pairing()
+        except RuntimeError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status": "opened"})
+
+    @action(detail=False, methods=["post"], url_path="open-device-permission")
+    def open_device_permission(self, request):
+        from .devices.macos_hid import MacBluetoothHidAdapter
+
+        try:
+            MacBluetoothHidAdapter.open_permission(request.data.get("kind", "input"))
+        except RuntimeError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"status": "opened"})
+
+    @action(detail=False, methods=["post"], url_path="broker-input")
+    def broker_input(self, request):
+        from .devices.base import InputEvent
+
+        required = ("adapter", "identifier", "trigger")
+        if any(field not in request.data for field in required):
+            return Response({"error": "Invalid broker input"}, status=status.HTTP_400_BAD_REQUEST)
+        _device_manager().handle_input(InputEvent(
+            adapter=request.data["adapter"],
+            identifier=request.data["identifier"],
+            trigger=request.data["trigger"],
+            pressed=bool(request.data.get("pressed", True)),
+            value=request.data.get("value"),
+        ))
+        return Response({"status": "ok"})
+
+    @action(detail=False, methods=["post"], url_path="broker-state")
+    def broker_state(self, request):
+        devices = request.data.get("devices", [])
+        broker_status = request.data.get("status", {})
+        if not isinstance(devices, list) or not isinstance(broker_status, dict):
+            return Response({"error": "Invalid broker state"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"devices": _device_manager().update_external(devices, broker_status)})
+
+    @action(detail=True, methods=["post"])
+    def learn(self, request, pk=None):
+        action_name = request.data.get("action")
+        try:
+            session = _device_manager().start_learn(int(pk), action_name)
+        except (ValueError, ControlDevice.DoesNotExist) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(session)
+
+    @action(detail=False, methods=["post"], url_path="cancel-learn")
+    def cancel_learn(self, request):
+        _device_manager().cancel_learn()
+        return Response({"status": "cancelled"})
+
+
+class ControlMappingViewSet(viewsets.ModelViewSet):
+    queryset = ControlMapping.objects.select_related("device").all()
+    serializer_class = ControlMappingSerializer
+    permission_classes = [IsLoopback]

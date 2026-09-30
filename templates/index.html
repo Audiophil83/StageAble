@@ -222,6 +222,7 @@
         <nav id="admin-subnav" class="admin-subnav" aria-label="Admin sections">
           <button id="nav-admin-projects" class="btn btn-nav-tab active" type="button" data-admin-panel="projects">Projects</button>
           <button id="nav-admin-settings" class="btn btn-nav-tab" type="button" data-admin-panel="settings">Settings</button>
+          <button id="nav-admin-devices" class="btn btn-nav-tab" type="button" data-admin-panel="devices" hidden>Devices</button>
           <button id="nav-admin-rescan" class="btn btn-nav-tab" type="button" data-admin-panel="rescan">Rescan</button>
         </nav>
 
@@ -273,6 +274,25 @@
             <a href="/legal/third-party-licenses" target="_blank" rel="noopener">Third-Party Licenses</a>
           </nav>
         </footer>
+        </div>
+
+        <div id="admin-panel-devices" hidden>
+        <section class="panel devices-panel">
+          <div class="devices-heading">
+            <div>
+              <h2>Control Devices</h2>
+              <p class="settings-intro">Connect controllers to this Mac, then learn a button for each performance action.</p>
+            </div>
+            <div class="devices-actions">
+              <button id="btn-device-refresh" class="btn btn-secondary" type="button">Refresh</button>
+              <button id="btn-bluetooth-pair" class="btn btn-secondary" type="button">Open Bluetooth Pairing</button>
+              <button class="btn btn-secondary" type="button" data-device-permission="input">Input Monitoring</button>
+              <button class="btn btn-secondary" type="button" data-device-permission="accessibility">Accessibility</button>
+            </div>
+          </div>
+          <p id="devices-status" class="settings-status"></p>
+          <div id="device-list" class="device-list"></div>
+        </section>
         </div>
 
         <div id="admin-panel-rescan" hidden>

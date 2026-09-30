@@ -9,6 +9,8 @@ router = DefaultRouter()
 router.register(r"setlists", views.SetlistViewSet, basename="setlist")
 router.register(r"projects", views.ProjectViewSet, basename="project")
 router.register(r"mixer-presets", views.MixerPresetViewSet, basename="mixer-preset")
+router.register(r"devices", views.ControlDeviceViewSet, basename="device")
+router.register(r"device-mappings", views.ControlMappingViewSet, basename="device-mapping")
 
 urlpatterns = [
     # Engine state
@@ -16,6 +18,9 @@ urlpatterns = [
     # Transport
     path("transport/play/", views.transport_play, name="transport-play"),
     path("transport/stop/", views.transport_stop, name="transport-stop"),
+    path("transport/toggle/", views.transport_toggle, name="transport-toggle"),
+    path("transport/previous-song/", views.song_previous, name="song-previous"),
+    path("transport/next-song/", views.song_next, name="song-next"),
     path("transport/seek/", views.transport_seek, name="transport-seek"),
     path("transport/jump-to-song/", views.jump_to_song, name="jump-to-song"),
     path(

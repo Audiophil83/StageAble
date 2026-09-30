@@ -197,3 +197,59 @@ class SetlistEntry(models.Model):
 
     def __str__(self):
         return f"{self.order}. {self.song_name}"
+
+
+class ControlDevice(models.Model):
+    """A locally attached controller configured to operate StageAble."""
+
+    adapter = models.CharField(max_length=40)
+    identifier = models.CharField(max_length=500)
+    name = models.CharField(max_length=300)
+    enabled = models.BooleanField(default=True)
+    config = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["adapter", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["adapter", "identifier"], name="unique_control_device"
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ControlMapping(models.Model):
+    """A normalized physical input mapped to one StageAble action."""
+
+    device = models.ForeignKey(
+        ControlDevice, on_delete=models.CASCADE, related_name="mappings"
+    )
+    trigger = models.JSONField(default=dict)
+    trigger_key = models.CharField(max_length=500)
+    action = models.CharField(max_length=80)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["device_id", "action", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["device", "trigger_key"], name="unique_control_trigger"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.device}: {self.action}"
+
+    def save(self, *args, **kwargs):
+        import json
+
+        self.trigger_key = json.dumps(
+            self.trigger, sort_keys=True, separators=(",", ":")
+        )
+        super().save(*args, **kwargs)

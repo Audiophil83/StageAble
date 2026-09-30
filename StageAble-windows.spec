@@ -60,6 +60,8 @@ for package in (
     "pythonosc",
     "pystray",
     "PIL",
+    "mido",
+    "rtmidi",
 ):
     pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(
         package,
@@ -78,6 +80,11 @@ hiddenimports += [
     "engine.models",
     "engine.views",
     "engine.serializers",
+    "engine.actions",
+    "engine.devices.base",
+    "engine.devices.manager",
+    "engine.devices.midi",
+    "engine.devices.macos_hid",
     "engine.admin",
     "engine.management.commands.run_engine",
     "engine.management.commands.serve",

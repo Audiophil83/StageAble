@@ -17,6 +17,34 @@ state to any number of browser clients over WebSocket.
 - Persistent setlist management via REST API
 - Auto-reconnects to Ableton if the connection drops
 - macOS menu bar and Windows system tray desktop apps with auto-update checks
+- Server-side MIDI Learn and macOS Bluetooth HID remote control
+
+## MIDI and Bluetooth controllers
+
+Open **Admin → Devices** in a browser on the computer running StageAble. Device
+administration is intentionally unavailable to other computers on the LAN.
+
+MIDI Learn supports Note, Control Change, and Program Change messages. Notes
+fire on note-on and re-arm on release. CC controls fire when crossing value 64
+upward and re-arm below 64. Available actions are Play/Pause, Stop, Previous
+Song, and Next Song. Mappings are global to the StageAble installation and work
+even when no browser is open.
+
+On macOS, **Open Bluetooth Pairing** opens the native Bluetooth Settings pane.
+Pair the remote there, return to StageAble, and click **Refresh**. Keyboard-style
+Bluetooth HID remotes can then be learned like MIDI controls. macOS may require
+StageAble to be enabled under **System Settings → Privacy & Security → Input
+Monitoring**; restart StageAble after granting access.
+Grant **Accessibility** as well when using Play/Pause or skip buttons. StageAble
+uses it to stop a mapped remote media key from also launching or controlling
+Apple Music. While an enabled Bluetooth remote is connected, those media keys
+are captured for StageAble rather than passed to other macOS applications.
+
+Bluetooth support is limited to controls exposed by macOS as keyboard HID input.
+Voice, touch, motion, vendor-specific BLE services, and gamepad protocols are not
+supported. Fire TV remote models vary, and models that do not expose standard HID
+buttons may not be compatible. Windows device input is planned but not enabled in
+this release.
 
 ---
 

@@ -85,6 +85,10 @@ class RuntimeEngine:
         # Identities deleted from the UI — do not auto-recreate while Ableton
         # still has that Live set open. Cleared on intentional rescan.
         self._suppressed_project_identities: set[str] = set()
+        self.device_manager = None
+        from .actions import ActionDispatcher
+
+        self.actions = ActionDispatcher(self)
 
     # ── scan progress (WebSocket clients) ─────────────────────────────
 
@@ -224,6 +228,14 @@ class RuntimeEngine:
             target=self._bootstrap_load, daemon=True, name="engine-bootstrap"
         ).start()
 
+        try:
+            from .devices import DeviceManager
+
+            self.device_manager = DeviceManager(self)
+            self.device_manager.start()
+        except Exception:
+            logger.exception("Device manager failed to start; engine will continue")
+
         logger.info(
             "Runtime engine poll loop started (%d Hz); project loaded from cache",
             ENGINE_POLL_HZ,
@@ -236,6 +248,8 @@ class RuntimeEngine:
             self._thread.join(timeout=3)
         if self._slow_poll_thread:
             self._slow_poll_thread.join(timeout=3)
+        if self.device_manager:
+            self.device_manager.stop()
         self.osc.stop()
         self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
         logger.info("Runtime engine stopped")
@@ -257,6 +271,13 @@ class RuntimeEngine:
                 self.osc.set_current_song_time(pending)
                 self._pending_position = None
             self.osc.transport_play()
+
+    def cmd_toggle_play(self) -> None:
+        """Toggle transport using the latest shared engine state."""
+        if self.state.is_playing:
+            self.cmd_stop()
+        else:
+            self.cmd_play()
 
     def cmd_stop(self) -> None:
         with self._lock:
@@ -431,6 +452,32 @@ class RuntimeEngine:
         with self._lock:
             self._cancel_auto_advance()
             self._jump_to_setlist_index_no_cancel(setlist_index)
+
+    def _navigation_index(self) -> tuple[int | None, int]:
+        """Return current index and list length for performance navigation."""
+        if self.state.active_setlist:
+            entries = self.state.active_setlist.get("entries") or []
+            return self.state.active_setlist_index, len(entries)
+        songs = self.state.timeline.all_songs() if self.state.timeline else []
+        return self.state.active_song_index, len(songs)
+
+    def _jump_navigation_index(self, index: int) -> None:
+        if self.state.active_setlist:
+            self.cmd_jump_to_setlist_index(index)
+        else:
+            self.cmd_jump_to_song(index)
+
+    def cmd_previous_song(self) -> None:
+        with self._lock:
+            current, length = self._navigation_index()
+            if current is not None and 0 < current < length:
+                self._jump_navigation_index(current - 1)
+
+    def cmd_next_song(self) -> None:
+        with self._lock:
+            current, length = self._navigation_index()
+            if current is not None and 0 <= current + 1 < length:
+                self._jump_navigation_index(current + 1)
 
     def _jump_to_setlist_index_no_cancel(self, setlist_index: int) -> None:
         active = self.state.active_setlist

@@ -73,8 +73,14 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
         try:
             if cmd == "play":
                 engine.cmd_play()
+            elif cmd == "toggle_play":
+                engine.actions.dispatch("transport.toggle_play")
             elif cmd == "stop":
                 engine.cmd_stop()
+            elif cmd == "previous_song":
+                engine.actions.dispatch("song.previous")
+            elif cmd == "next_song":
+                engine.actions.dispatch("song.next")
             elif cmd == "seek":
                 beat = float(content.get("beat", 0))
                 engine.cmd_seek(beat)
@@ -184,5 +190,13 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
                 "in_progress": event.get("in_progress", False),
                 "done": event.get("done", False),
                 "messages": event.get("messages", []),
+            }
+        )
+
+    async def engine_device_event(self, event):
+        await self.send_json(
+            {
+                "type": event.get("event", "devices_changed"),
+                "data": event.get("data", {}),
             }
         )

@@ -79,6 +79,8 @@ def start_daphne(bind_host: str, port: int) -> subprocess.Popen[str]:
     """Start Daphne as a background subprocess."""
     root = project_root()
     env = os.environ.copy()
+    if sys.platform == "darwin":
+        env["STAGEABLE_DEVICE_BROKER"] = "1"
     env.pop("STAGEABLE_NO_ENGINE", None)
     if getattr(sys, "frozen", False):
         cmd = [
@@ -145,15 +147,28 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
     show_ui = status_ui if status_ui is not None else sys.platform in ("darwin", "win32")
 
     process = start_daphne(bind_host, port)
+    device_broker = None
+    if sys.platform == "darwin":
+        try:
+            from engine.devices.broker import MacDeviceBroker
+
+            device_broker = MacDeviceBroker(port)
+            device_broker.start()
+        except Exception:
+            logger.exception("Could not start macOS device broker")
 
     if show_ui:
         try:
             run_status_ui(url, display, process, bind_host, port)
         finally:
+            if device_broker:
+                device_broker.stop()
             stop_daphne(process)
         return process.returncode or 0
 
     def _on_term(signum: int, _frame: object) -> None:
+        if device_broker:
+            device_broker.stop()
         stop_daphne(process)
         raise SystemExit(signum)
 
@@ -166,6 +181,9 @@ def run_server(bind_host: str, port: int, *, status_ui: bool | None = None) -> i
     except KeyboardInterrupt:
         stop_daphne(process)
         return 0
+    finally:
+        if device_broker:
+            device_broker.stop()
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

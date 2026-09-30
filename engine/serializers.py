@@ -2,7 +2,17 @@
 
 from rest_framework import serializers
 
-from .models import AppSettings, MixerPreset, ProjectCache, Setlist, SetlistEntry
+from .models import (
+    AppSettings,
+    ControlDevice,
+    ControlMapping,
+    MixerPreset,
+    ProjectCache,
+    Setlist,
+    SetlistEntry,
+)
+from .actions import ACTIONS
+from .devices.base import trigger_key
 
 
 class AppSettingsSerializer(serializers.ModelSerializer):
@@ -107,3 +117,53 @@ class SetlistCreateSerializer(serializers.ModelSerializer):
                 SetlistEntry.objects.create(setlist=instance, **entry_data)
 
         return instance
+
+
+class ControlMappingSerializer(serializers.ModelSerializer):
+    action_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ControlMapping
+        fields = ["id", "device", "trigger", "action", "action_label", "enabled", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at", "action_label"]
+
+    def get_action_label(self, obj):
+        return ACTIONS.get(obj.action, obj.action)
+
+    def validate_action(self, value):
+        if value not in ACTIONS:
+            raise serializers.ValidationError("Unknown action")
+        return value
+
+    def validate(self, attrs):
+        device = attrs.get("device", getattr(self.instance, "device", None))
+        trigger = attrs.get("trigger", getattr(self.instance, "trigger", None))
+        if device and trigger is not None:
+            duplicate = ControlMapping.objects.filter(
+                device=device, trigger_key=trigger_key(trigger)
+            )
+            if self.instance:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise serializers.ValidationError(
+                    {"trigger": "This input is already mapped for the device."}
+                )
+        return attrs
+
+    def create(self, validated_data):
+        validated_data["trigger_key"] = trigger_key(validated_data["trigger"])
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "trigger" in validated_data:
+            validated_data["trigger_key"] = trigger_key(validated_data["trigger"])
+        return super().update(instance, validated_data)
+
+
+class ControlDeviceSerializer(serializers.ModelSerializer):
+    mappings = ControlMappingSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ControlDevice
+        fields = ["id", "adapter", "identifier", "name", "enabled", "config", "mappings", "created_at", "updated_at"]
+        read_only_fields = ["adapter", "identifier", "config", "created_at", "updated_at"]

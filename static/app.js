@@ -18,6 +18,8 @@
   let appSettings = {};
   let currentView = "performance";
   let currentAdminPanel = "projects";
+  let controlDevices = [];
+  let controlActions = {};
   let reconnectTimer = null;
   const RECONNECT_DELAY = 2000;
 
@@ -105,6 +107,7 @@
   const $viewAdmin = document.getElementById("view-admin");
   const $adminPanelProjects = document.getElementById("admin-panel-projects");
   const $adminPanelSettings = document.getElementById("admin-panel-settings");
+  const $adminPanelDevices = document.getElementById("admin-panel-devices");
   const $adminPanelRescan = document.getElementById("admin-panel-rescan");
   const $navPerformance = document.getElementById("nav-performance");
   const $navSetlist = document.getElementById("nav-setlist");
@@ -113,6 +116,7 @@
   const $navAdmin = document.getElementById("nav-admin");
   const $navAdminProjects = document.getElementById("nav-admin-projects");
   const $navAdminSettings = document.getElementById("nav-admin-settings");
+  const $navAdminDevices = document.getElementById("nav-admin-devices");
   const $navAdminRescan = document.getElementById("nav-admin-rescan");
   const $adminSubnav = document.getElementById("admin-subnav");
   const $mixerTrackList = document.getElementById("mixer-track-list");
@@ -130,6 +134,10 @@
   const $rehearsalStatus = document.getElementById("rehearsal-status");
   const $settingsForm = document.getElementById("settings-form");
   const $settingsStatus = document.getElementById("settings-status");
+  const $deviceList = document.getElementById("device-list");
+  const $devicesStatus = document.getElementById("devices-status");
+  const $btnDeviceRefresh = document.getElementById("btn-device-refresh");
+  const $btnBluetoothPair = document.getElementById("btn-bluetooth-pair");
   const $autoAdvanceInfo = document.getElementById("auto-advance-info");
   const $setlistName = document.getElementById("setlist-name");
   const $setlistLoad = document.getElementById("setlist-load");
@@ -738,6 +746,13 @@
         handleUnlockCheck(!!msg.requires_warning);
       } else if (msg.type === "scan_status" || msg.type === "scan_progress") {
         applyScanStatus(msg);
+      } else if (msg.type === "devices_changed") {
+        if (msg.data && msg.data.devices) {
+          controlDevices = msg.data.devices;
+          renderDevices();
+        }
+      } else if (msg.type === "device_learn") {
+        handleDeviceLearn(msg.data || {});
       }
     };
 
@@ -886,6 +901,76 @@
       method: "PATCH",
       body: formData,
     });
+  }
+
+  function setDevicesStatus(message, type) {
+    if (!$devicesStatus) return;
+    $devicesStatus.textContent = message || "";
+    $devicesStatus.className = "settings-status" + (type ? " " + type : "");
+  }
+
+  function describeTrigger(trigger) {
+    if (!trigger) return "Unknown input";
+    if (trigger.type === "note") return "Note " + trigger.note + " · ch " + (trigger.channel + 1);
+    if (trigger.type === "cc") return "CC " + trigger.control + " · ch " + (trigger.channel + 1);
+    if (trigger.type === "program") return "Program " + trigger.program + " · ch " + (trigger.channel + 1);
+    if (trigger.type === "hid") return "HID " + trigger.usage_page + ":" + trigger.usage;
+    return JSON.stringify(trigger);
+  }
+
+  function renderDevices() {
+    if (!$deviceList) return;
+    $deviceList.innerHTML = "";
+    if (!controlDevices.length) {
+      $deviceList.innerHTML = '<p class="form-hint">No supported devices found. Connect a MIDI controller or pair a Bluetooth HID remote, then refresh.</p>';
+      return;
+    }
+    controlDevices.forEach(function (device) {
+      const card = document.createElement("article");
+      card.className = "device-card";
+      const options = Object.keys(controlActions).map(function (key) {
+        return '<option value="' + escHtml(key) + '">' + escHtml(controlActions[key]) + "</option>";
+      }).join("");
+      const mappings = (device.mappings || []).map(function (mapping) {
+        return '<li><span>' + escHtml(mapping.action_label || mapping.action) + ' ← ' + escHtml(describeTrigger(mapping.trigger)) + '</span>' +
+          '<button class="btn btn-small btn-danger" data-delete-mapping="' + mapping.id + '" type="button">Delete</button></li>';
+      }).join("");
+      card.innerHTML =
+        '<div class="device-card-heading"><div><strong>' + escHtml(device.name) + '</strong>' +
+        '<span class="device-meta">' + escHtml(device.adapter) + ' · ' + (device.connected ? "Connected" : "Disconnected") + '</span></div>' +
+        '<label><input data-device-toggle="' + device.id + '" type="checkbox" ' + (device.enabled ? "checked" : "") + '> Enabled</label></div>' +
+        (device.adapter === "bluetooth_hid" ? '<p class="device-meta">Input Monitoring: ' + (device.details && device.details.input_monitoring ? "Allowed" : "Denied") + ' · Accessibility: ' + (device.details && device.details.accessibility ? "Allowed" : "Denied") + '</p>' : "") +
+        (device.error ? '<p class="device-error">' + escHtml(device.error) + '</p>' : "") +
+        (device.last_input ? '<p class="device-meta">Last input: ' + escHtml(describeTrigger(device.last_input.trigger)) + '</p>' : "") +
+        '<div class="device-learn"><select data-action-for="' + device.id + '">' + options + '</select>' +
+        '<button class="btn btn-play" data-learn-device="' + device.id + '" type="button" ' + (!device.connected || !device.enabled ? "disabled" : "") + '>Learn input</button></div>' +
+        '<ul class="device-mappings">' + (mappings || '<li class="form-hint">No mappings yet.</li>') + '</ul>' +
+        '<button class="btn btn-small btn-danger" data-delete-device="' + device.id + '" type="button">Clear configuration</button>';
+      $deviceList.appendChild(card);
+    });
+  }
+
+  function fetchDevices(refresh) {
+    return apiFetch(refresh ? "/api/devices/refresh/" : "/api/devices/", refresh ? {method: "POST"} : {})
+      .then(function (data) {
+        controlDevices = data.devices || [];
+        controlActions = data.actions || controlActions;
+        if ($navAdminDevices) $navAdminDevices.hidden = false;
+        renderDevices();
+        return data;
+      });
+  }
+
+  function handleDeviceLearn(data) {
+    if (data.status === "listening") setDevicesStatus("Listening for input…", "");
+    else if (data.status === "learned") { setDevicesStatus("Input learned", "success"); fetchDevices(false); }
+    else if (data.status === "conflict") {
+      if (confirm("That input is already mapped. Reassign it to the selected action?")) {
+        apiFetch("/api/device-mappings/" + data.mapping_id + "/", {method: "PATCH", body: {action: data.requested_action}})
+          .then(function () { setDevicesStatus("Input reassigned", "success"); return fetchDevices(false); });
+      } else setDevicesStatus("Learn cancelled", "");
+    } else if (data.status === "timeout") setDevicesStatus("Learn timed out", "error");
+    else setDevicesStatus("Learn cancelled", "");
   }
 
   function fetchSetlists() {
@@ -1524,6 +1609,7 @@
     currentAdminPanel = panel;
     const isProjects = panel === "projects";
     const isSettings = panel === "settings";
+    const isDevices = panel === "devices";
     const isRescan = panel === "rescan";
 
     if ($adminPanelProjects) {
@@ -1532,6 +1618,7 @@
     if ($adminPanelSettings) {
       $adminPanelSettings.hidden = !isSettings;
     }
+    if ($adminPanelDevices) $adminPanelDevices.hidden = !isDevices;
     if ($adminPanelRescan) {
       $adminPanelRescan.hidden = !isRescan;
     }
@@ -1541,6 +1628,7 @@
     if ($navAdminSettings) {
       $navAdminSettings.classList.toggle("active", isSettings);
     }
+    if ($navAdminDevices) $navAdminDevices.classList.toggle("active", isDevices);
     if ($navAdminRescan) {
       $navAdminRescan.classList.toggle("active", isRescan);
     }
@@ -1551,6 +1639,7 @@
     if (isProjects) {
       fetchProjects();
     }
+    if (isDevices) fetchDevices(false).catch(function () { setDevicesStatus("Device administration is only available on the server Mac.", "error"); });
   }
 
   function setView(view, options) {
@@ -2546,7 +2635,7 @@
   // ── Event handlers ───────────────────────────────────────────────
 
   $btnPlay.addEventListener("click", function () {
-    send({ command: state.is_playing ? "stop" : "play" });
+    send({ command: "toggle_play" });
   });
 
   $btnStop.addEventListener("click", function () {
@@ -2554,33 +2643,11 @@
   });
 
   $btnPrev.addEventListener("click", function () {
-    const list = getPerformanceSongs();
-    if (state.active_setlist) {
-      const currentIdx = findPerformanceListIndex(state.active_setlist_index);
-      if (currentIdx != null && currentIdx > 0) {
-        jumpToPerformanceIndex(currentIdx - 1);
-      }
-      return;
-    }
-    const idx = (state.active_song_index != null ? state.active_song_index : 0) - 1;
-    if (idx >= 0) {
-      jumpToPerformanceIndex(idx);
-    }
+    send({ command: "previous_song" });
   });
 
   $btnNext.addEventListener("click", function () {
-    const list = getPerformanceSongs();
-    if (state.active_setlist) {
-      const currentIdx = findPerformanceListIndex(state.active_setlist_index);
-      if (currentIdx != null && currentIdx + 1 < list.length) {
-        jumpToPerformanceIndex(currentIdx + 1);
-      }
-      return;
-    }
-    const idx = (state.active_song_index != null ? state.active_song_index : 0) + 1;
-    if (idx < list.length) {
-      jumpToPerformanceIndex(idx);
-    }
+    send({ command: "next_song" });
   });
 
   $btnRescan.addEventListener("click", function () {
@@ -2651,6 +2718,58 @@
             : "Failed to save settings";
         setSettingsStatus(message, "error");
       });
+    });
+  }
+
+  if ($btnDeviceRefresh) {
+    $btnDeviceRefresh.addEventListener("click", function () {
+      setDevicesStatus("Refreshing…", "");
+      fetchDevices(true).then(function () { setDevicesStatus("Devices refreshed", "success"); })
+        .catch(function () { setDevicesStatus("Could not refresh devices", "error"); });
+    });
+  }
+
+  if ($btnBluetoothPair) {
+    $btnBluetoothPair.addEventListener("click", function () {
+      apiFetch("/api/devices/pair-bluetooth/", {method: "POST"})
+        .then(function () {
+          setDevicesStatus("Bluetooth Settings opened on this Mac. Pair the remote there, then refresh.", "success");
+          setTimeout(function () { fetchDevices(true).catch(function () {}); }, 5000);
+        })
+        .catch(function (err) { setDevicesStatus((err && (err.error || err.detail)) || "Could not open Bluetooth Settings", "error"); });
+    });
+  }
+
+  document.querySelectorAll("[data-device-permission]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      apiFetch("/api/devices/open-device-permission/", {method: "POST", body: {kind: button.dataset.devicePermission}})
+        .then(function () { setDevicesStatus("Permission Settings opened. Enable StageAble, then restart it.", "success"); })
+        .catch(function () { setDevicesStatus("Could not open Permission Settings", "error"); });
+    });
+  });
+
+  if ($deviceList) {
+    $deviceList.addEventListener("change", function (e) {
+      const id = e.target.dataset.deviceToggle;
+      if (!id) return;
+      apiFetch("/api/devices/" + id + "/", {method: "PATCH", body: {enabled: e.target.checked}})
+        .then(function () { return fetchDevices(false); })
+        .catch(function () { setDevicesStatus("Could not update device", "error"); });
+    });
+    $deviceList.addEventListener("click", function (e) {
+      const learnId = e.target.dataset.learnDevice;
+      const mappingId = e.target.dataset.deleteMapping;
+      const deviceId = e.target.dataset.deleteDevice;
+      if (learnId) {
+        const select = $deviceList.querySelector('[data-action-for="' + learnId + '"]');
+        apiFetch("/api/devices/" + learnId + "/learn/", {method: "POST", body: {action: select.value}})
+          .then(function () { setDevicesStatus("Listening for input…", ""); })
+          .catch(function (err) { setDevicesStatus((err && (err.error || err.detail)) || "Could not start learn", "error"); });
+      } else if (mappingId) {
+        apiFetch("/api/device-mappings/" + mappingId + "/", {method: "DELETE"}).then(function () { return fetchDevices(false); });
+      } else if (deviceId && confirm("Clear all mappings and disable this device?")) {
+        apiFetch("/api/devices/" + deviceId + "/", {method: "DELETE"}).then(function () { return fetchDevices(false); });
+      }
     });
   }
 
@@ -2853,7 +2972,7 @@
       case "Space":
         if (clientLocked) return;
         e.preventDefault();
-        send({ command: state.is_playing ? "stop" : "play" });
+        send({ command: "toggle_play" });
         break;
       case "ArrowRight":
         if (clientLocked) return;
@@ -2987,6 +3106,9 @@
     setView("performance");
     applyLockState();
     fetchSettings();
+    fetchDevices(false).catch(function () {
+      if ($navAdminDevices) $navAdminDevices.hidden = true;
+    });
     loadCachedArrangement();
     connect();
   }

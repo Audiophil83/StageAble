@@ -62,6 +62,10 @@ for package in (
     "sortedcontainers",
     "pythonosc",
     "rumps",
+    "mido",
+    "rtmidi",
+    "hid",
+    "Quartz",
 ):
     pkg_datas, pkg_binaries, pkg_hiddenimports = collect_all(
         package,
@@ -80,6 +84,12 @@ hiddenimports += [
     "engine.models",
     "engine.views",
     "engine.serializers",
+    "engine.actions",
+    "engine.devices.base",
+    "engine.devices.manager",
+    "engine.devices.midi",
+    "engine.devices.macos_hid",
+    "engine.devices.broker",
     "engine.admin",
     "engine.management.commands.run_engine",
     "engine.management.commands.serve",
@@ -158,5 +168,6 @@ app = BUNDLE(
         "LSUIElement": True,
         "CFBundleShortVersionString": app_version,
         "CFBundleVersion": app_version,
+        "NSBluetoothAlwaysUsageDescription": "StageAble uses Bluetooth to configure show-control remotes.",
     },
 )
