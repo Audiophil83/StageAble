@@ -52,10 +52,11 @@ class MacDeviceBroker:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=2):
-                pass
+            with urllib.request.urlopen(request, timeout=2) as response:
+                return json.loads(response.read().decode("utf-8"))
         except Exception:
             logger.debug("Device broker could not reach server", exc_info=True)
+            return None
 
     def _input(self, event: InputEvent):
         self._post("broker-input", {
@@ -71,8 +72,7 @@ class MacDeviceBroker:
             try:
                 self.adapter.refresh()
                 devices = self.adapter.discover()
-                self.adapter.set_capture_media(bool(devices))
-                self._post("broker-state", {
+                response = self._post("broker-state", {
                     "devices": [{
                         "adapter": item.adapter,
                         "identifier": item.identifier,
@@ -83,6 +83,7 @@ class MacDeviceBroker:
                     } for item in devices],
                     "status": self.adapter.status(),
                 })
+                self.adapter.set_capture_media(bool(response and response.get("capture_media")))
             except Exception:
                 logger.exception("Device broker refresh failed")
             self._stop.wait(3.0)

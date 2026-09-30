@@ -177,6 +177,15 @@ class DeviceManager:
             self._external_status["bluetooth_hid"] = status
         return self.refresh()
 
+    @staticmethod
+    def bluetooth_media_capture_enabled() -> bool:
+        return ControlMapping.objects.filter(
+            device__adapter="bluetooth_hid",
+            device__enabled=True,
+            enabled=True,
+            trigger__usage_page=0x0C,
+        ).exists()
+
     def start_learn(self, device_id: int, action: str):
         if action not in ACTIONS:
             raise ValueError("Unknown action")

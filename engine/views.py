@@ -584,7 +584,11 @@ class ControlDeviceViewSet(viewsets.ModelViewSet):
         broker_status = request.data.get("status", {})
         if not isinstance(devices, list) or not isinstance(broker_status, dict):
             return Response({"error": "Invalid broker state"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"devices": _device_manager().update_external(devices, broker_status)})
+        manager = _device_manager()
+        return Response({
+            "devices": manager.update_external(devices, broker_status),
+            "capture_media": manager.bluetooth_media_capture_enabled(),
+        })
 
     @action(detail=True, methods=["post"])
     def learn(self, request, pk=None):

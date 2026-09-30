@@ -201,36 +201,6 @@ class MacBluetoothHidAdapter(InputAdapter):
                 19: 0xB3,  # fast forward
                 20: 0xB4,  # rewind
             }
-            mac_key_usages = {
-                36: 0x28,  # return / OK
-                48: 0x2B,  # tab
-                49: 0x2C,  # space
-                51: 0x2A,  # backspace
-                53: 0x29,  # escape / back
-                123: 0x50, # left
-                124: 0x4F, # right
-                125: 0x51, # down
-                126: 0x52, # up
-            }
-
-            def fallback_identifier():
-                if not self._read_errors:
-                    return None
-                for item in self._descriptions.values():
-                    return item["identifier"]
-                return None
-
-            def emit(identifier, page, usage, pressed):
-                event = InputEvent(
-                    self.kind,
-                    identifier,
-                    {"type": "hid", "usage_page": page, "usage": usage},
-                    pressed,
-                    1 if pressed else 0,
-                )
-                # Never block the WindowServer event-tap callback on ORM/action work.
-                threading.Thread(target=self.callback, args=(event,), daemon=True).start()
-
             def receive(_proxy, event_type, event, _refcon):
                 if not self._capture_media:
                     return event
@@ -239,22 +209,11 @@ class MacBluetoothHidAdapter(InputAdapter):
                     key_code = (int(native.data1()) & 0xFFFF0000) >> 16
                     usage = media_usages.get(key_code)
                     if usage is not None:
-                        identifier = fallback_identifier()
-                        if identifier:
-                            state = (int(native.data1()) & 0x0000FF00) >> 8
-                            emit(identifier, 0x0C, usage, state == 0x0A)
                         return None
-                identifier = fallback_identifier()
-                if identifier and event_type in (Quartz.kCGEventKeyDown, Quartz.kCGEventKeyUp):
-                    key_code = int(Quartz.CGEventGetIntegerValueField(event, Quartz.kCGKeyboardEventKeycode))
-                    usage = mac_key_usages.get(key_code, 0x1000 + key_code)
-                    emit(identifier, 0x07, usage, event_type == Quartz.kCGEventKeyDown)
                 return event
 
             event_type = getattr(Quartz, "kCGEventSystemDefined", 14)
             mask = Quartz.CGEventMaskBit(event_type)
-            mask |= Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown)
-            mask |= Quartz.CGEventMaskBit(Quartz.kCGEventKeyUp)
             tap = Quartz.CGEventTapCreate(
                 Quartz.kCGSessionEventTap,
                 Quartz.kCGHeadInsertEventTap,
