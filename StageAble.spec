@@ -14,6 +14,11 @@ if not app_version and version_file.is_file():
     app_version = version_file.read_text(encoding="utf-8").strip()
 if not app_version:
     app_version = "0.0.0-dev"
+target_arch = os.environ.get("STAGEABLE_TARGET_ARCH", "").strip() or None
+if target_arch not in {None, "x86_64", "arm64", "universal2"}:
+    raise ValueError(
+        "STAGEABLE_TARGET_ARCH must be one of: x86_64, arm64, universal2"
+    )
 hook_dir = str(root / "scripts" / "packaging" / "hooks")
 
 # Optional/test-only subpackages that fail to import during analysis.
@@ -142,7 +147,7 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
+    target_arch=target_arch,
     codesign_identity=None,
     entitlements_file=None,
     icon=str(root / "assets" / "StageAble.icns"),

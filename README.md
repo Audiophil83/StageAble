@@ -508,13 +508,67 @@ required), so CI uses a **macOS `act_runner`** for release builds.
 
 ### Local macOS build
 
+The automated Gitea release is an Apple Silicon (`arm64`) application. Use a
+separate virtual environment for each architecture.
+
+#### Apple Silicon (`arm64`)
+
+Run Python natively on an Apple Silicon Mac:
+
 ```bash
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt pyinstaller pillow
-python scripts/build_mac_app.py
+/Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13 \
+  -m venv .venv-arm64
+.venv-arm64/bin/python -m pip install --upgrade pip
+.venv-arm64/bin/python -m pip install --no-cache-dir \
+  -r requirements.txt pyinstaller
+.venv-arm64/bin/python scripts/build_mac_app.py --target-arch arm64
+lipo -archs dist/StageAble.app/Contents/MacOS/StageAble
 open dist/StageAble.app
 ```
+
+The `lipo` command must print `arm64`.
+
+#### Intel (`x86_64`)
+
+On an Apple Silicon Mac, run dependency installation and PyInstaller under
+Rosetta. Use the universal2 installer from
+[python.org](https://www.python.org/downloads/macos/), which provides the
+required Intel Python slice.
+
+```bash
+arch -x86_64 /Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13 \
+  -m venv .venv-x86_64
+arch -x86_64 .venv-x86_64/bin/python -m pip install --upgrade pip
+arch -x86_64 .venv-x86_64/bin/python -m pip install --no-cache-dir \
+  -r requirements-macos-x86_64.txt pyinstaller
+arch -x86_64 .venv-x86_64/bin/python scripts/build_mac_app.py \
+  --target-arch x86_64
+lipo -archs dist/StageAble.app/Contents/MacOS/StageAble
+open dist/StageAble.app
+```
+
+The `lipo` command must print `x86_64`. The Intel requirements file pins a few
+transitive dependencies whose newest releases do not provide usable Python
+3.13 Intel wheels. Do not install Pillow in this environment; it is only a
+Windows dependency.
+
+The build defaults to the architecture currently executing Python. Explicit
+targets remain available for diagnostics and testing:
+
+```bash
+python scripts/build_mac_app.py --target-arch universal2
+python scripts/build_mac_app.py --target-arch x86_64
+python scripts/build_mac_app.py --target-arch arm64
+```
+
+The equivalent environment variable is `STAGEABLE_TARGET_ARCH`. Accepted
+values are `universal2`, `x86_64`, and `arm64`. Always use a separate virtual
+environment per architecture. The build script uses PyInstaller's clean mode,
+which avoids reusing cached analysis from a different build.
+
+A universal2 build currently fails because several third-party Python 3.13
+packages ship single-architecture native extensions. Build separate `x86_64`
+and `arm64` apps instead of combining completed PyInstaller apps with `lipo`.
 
 The bundled app runs as a **macOS menu bar app** (no Dock icon). Click the
 menu bar icon to see the server address, open it in a browser, copy it, check
@@ -617,7 +671,10 @@ The workflow uses the Mac runner's installed `python3` (not
 **Mac runner setup (one-time):**
 
 1. Enable Actions in your Gitea instance and repo
-2. Ensure Python 3.11+ is available: `python3 --version`
+2. Install the Python 3.13 universal2 distribution from
+   [python.org](https://www.python.org/downloads/macos/). Ensure `python3.13`
+   resolves to that installation and verify `file -L "$(command -v
+   python3.13)"` reports both `x86_64` and `arm64`.
 3. Install and register `act_runner` on a Mac with host execution:
 
    ```bash

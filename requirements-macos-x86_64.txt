@@ -1,0 +1,9 @@
+# Intel-compatible transitive dependency versions for Python 3.13.
+# Newer releases currently lack usable x86_64 wheels and may build arm64
+# extensions even when pip is running under Rosetta.
+-r requirements.txt
+
+cbor2==5.9.0
+cryptography==46.0.7
+pyOpenSSL==25.3.0
+service-identity==24.2.0
