@@ -7,6 +7,43 @@ state to any number of browser clients over WebSocket.
 
 ---
 
+## See it in action
+
+<p align="center">
+  <img src="screenshots/performance_controlling.png" alt="StageAble performance view with transport controls" width="48%" />
+  <img src="screenshots/performance_readonly.png" alt="StageAble read-only performance display" width="48%" />
+</p>
+<p align="center"><em>Control the show from the performance view, or share a focused read-only display with performers.</em></p>
+
+<p align="center">
+  <img src="screenshots/rehearsal_mode.png" alt="StageAble rehearsal mode" width="48%" />
+  <img src="screenshots/setlist_editor.png" alt="StageAble setlist editor" width="48%" />
+</p>
+<p align="center"><em>Rehearse with live song data and keep the setlist in order.</em></p>
+
+<p align="center">
+  <img src="screenshots/mixer.png" alt="StageAble mixer" width="48%" />
+  <img src="screenshots/scan_projects.png" alt="StageAble project scan dialog" width="48%" />
+</p>
+<p align="center"><em>Manage mixer tracks and refresh arrangement data without leaving the browser.</em></p>
+
+<details>
+<summary><strong>More screenshots</strong></summary>
+<br />
+<p align="center">
+  <img src="screenshots/project_settings.png" alt="StageAble project settings" width="96%" />
+</p>
+<p align="center">
+  <img src="screenshots/engine_settings.png" alt="StageAble engine settings" width="96%" />
+</p>
+<p align="center">
+  <img src="screenshots/macos_menubar.png" alt="StageAble macOS menu bar app" width="36%" />
+  <img src="screenshots/macos_menubar2.png" alt="StageAble macOS menu bar app settings" width="30%" />
+</p>
+</details>
+
+---
+
 ## Features
 
 - Song / section / chord / lyrics overlay resolved in real time from the playhead
