@@ -83,6 +83,43 @@ supported. Fire TV remote models vary, and models that do not expose standard HI
 buttons may not be compatible. Windows device input is planned but not enabled in
 this release.
 
+## Optional X32 control
+
+StageAble can control a Behringer X32 over OSC while the X-LIVE USB connection
+continues carrying Ableton audio. The integration is disabled by default. Unlock
+the client, open **Admin → Settings**, enter the X32 network address, enable the
+connection, and save. A new **X32** tab then provides:
+
+- **Mixer:** meters, numeric level/trim/pan controls, solo, mute, polarity, stereo
+  links, routed phantom power, bidirectional channel names, and 16 sends for all
+  32 input channels. Local desktop clients can open X32-Edit.
+- **FX:** level, pan, mute and bus sends for the four stereo FX returns.
+- **Control Event:** complete captures of every parameter supported by this
+  integration, selected-change operations, forward execution, and rollback.
+
+Snapshots and operations belong to the active Ableton project. Assign keywords
+to them, create a dedicated arrangement track named `X32`, and use those keywords
+as clip names. An event runs once when playback crosses the clip start; seeking
+past a clip does not run it.
+
+The X32 must be reachable through its ETHERNET port on the same wired or Wi-Fi
+network as StageAble. OSC uses UDP port 10023. Only browser clients with StageAble
+controls unlocked can edit or execute mixer actions.
+
+### Develop without a console
+
+Run StageAble's deterministic control-only simulator:
+
+```bash
+STAGEABLE_NO_ENGINE=1 python manage.py run_x32_simulator
+```
+
+Configure StageAble to use `127.0.0.1` when it runs on the same computer. The
+simulator supports the parameter set above, identity/status probes, multi-client
+updates, and synthetic meters. It does not implement the complete `/node`
+synchronization surface required by X32-Edit, simulate audio, or replace final
+testing on a physical console.
+
 ---
 
 ## Prerequisites

@@ -15,6 +15,8 @@ class AppSettings(models.Model):
     """Singleton row storing engine configuration."""
 
     ableton_osc_host = models.CharField(max_length=255, default="127.0.0.1")
+    x32_enabled = models.BooleanField(default=False)
+    x32_host = models.CharField(max_length=255, blank=True, default="")
     sliding_animation_enabled = models.BooleanField(
         default=False,
         help_text="Beat-aligned section/chord/lyrics slide on web clients.",
@@ -168,6 +170,71 @@ class MixerPreset(models.Model):
 
     class Meta:
         ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.name
+
+
+class X32CaptureState(models.Model):
+    """Current full-state baseline used to record X32 changes for one project."""
+
+    project = models.OneToOneField(
+        ProjectCache,
+        on_delete=models.CASCADE,
+        related_name="x32_capture_state",
+    )
+    baseline = models.JSONField(default=dict, blank=True)
+    coverage = models.JSONField(default=dict, blank=True)
+    captured_at = models.DateTimeField(auto_now=True)
+
+
+class X32Snapshot(models.Model):
+    """Immutable complete capture of StageAble's supported X32 parameters."""
+
+    project = models.ForeignKey(
+        ProjectCache,
+        on_delete=models.CASCADE,
+        related_name="x32_snapshots",
+    )
+    name = models.CharField(max_length=200)
+    keyword = models.CharField(max_length=200, blank=True, default="")
+    values = models.JSONField(default=dict)
+    coverage = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"], name="unique_x32_snapshot_name"
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class X32Operation(models.Model):
+    """Selected X32 changes with stable forward and rollback target values."""
+
+    project = models.ForeignKey(
+        ProjectCache,
+        on_delete=models.CASCADE,
+        related_name="x32_operations",
+    )
+    name = models.CharField(max_length=200)
+    apply_keyword = models.CharField(max_length=200, blank=True, default="")
+    rollback_keyword = models.CharField(max_length=200, blank=True, default="")
+    changes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "name"], name="unique_x32_operation_name"
+            ),
+        ]
 
     def __str__(self):
         return self.name

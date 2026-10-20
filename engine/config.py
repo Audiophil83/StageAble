@@ -19,17 +19,23 @@ if TYPE_CHECKING:
 @dataclass(frozen=True)
 class AppSettingsData:
     ableton_osc_host: str
+    x32_enabled: bool = False
+    x32_host: str = ""
 
 
 def _env_defaults() -> dict:
     return {
         "ableton_osc_host": django_settings.ABLETON_OSC_HOST,
+        "x32_enabled": False,
+        "x32_host": "",
     }
 
 
 def _to_data(obj: AppSettings | AppSettingsData) -> AppSettingsData:
     return AppSettingsData(
         ableton_osc_host=obj.ableton_osc_host,
+        x32_enabled=obj.x32_enabled,
+        x32_host=obj.x32_host,
     )
 
 

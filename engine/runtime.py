@@ -132,7 +132,8 @@ class RuntimeEngine:
     def _timeline_summary(tl: Timeline) -> str:
         return (
             f"Timeline built: {len(tl.songs)} songs, {len(tl.sections)} sections, "
-            f"{len(tl.lyrics)} lyrics, {len(tl.chords)} chords, {len(tl.stops)} stops"
+            f"{len(tl.lyrics)} lyrics, {len(tl.chords)} chords, {len(tl.stops)} stops, "
+            f"{len(tl.x32_events)} X32 events"
         )
 
     def _run_arrangement_scan(self, *, broadcast: bool) -> None:
@@ -236,6 +237,13 @@ class RuntimeEngine:
         except Exception:
             logger.exception("Device manager failed to start; engine will continue")
 
+        try:
+            from .x32 import get_x32_service
+
+            get_x32_service().configure_from_settings()
+        except Exception:
+            logger.exception("X32 service failed to start; engine will continue")
+
         logger.info(
             "Runtime engine poll loop started (%d Hz); project loaded from cache",
             ENGINE_POLL_HZ,
@@ -250,6 +258,9 @@ class RuntimeEngine:
             self._slow_poll_thread.join(timeout=3)
         if self.device_manager:
             self.device_manager.stop()
+        from .x32 import get_x32_service
+
+        get_x32_service().stop()
         self.osc.stop()
         self.state.update(connection_status=ConnectionStatus.DISCONNECTED)
         logger.info("Runtime engine stopped")
@@ -642,8 +653,16 @@ class RuntimeEngine:
         """Apply updated configuration from the database."""
         cfg = get_app_settings()
 
+        from .x32 import get_x32_service
+
+        get_x32_service().configure(cfg.x32_enabled, cfg.x32_host)
+
         if self.osc.host == cfg.ableton_osc_host:
-            logger.info("Engine settings applied (host=%s)", cfg.ableton_osc_host)
+            logger.info(
+                "Engine settings applied (Ableton=%s, X32=%s)",
+                cfg.ableton_osc_host,
+                cfg.x32_host if cfg.x32_enabled else "disabled",
+            )
             return
 
         was_running = self._running
@@ -1240,6 +1259,12 @@ class RuntimeEngine:
                 # STOP crossing — playhead entered a CONTROL STOP clip while playing
                 delta = position - prev_pos
                 if is_playing and 0 < delta <= MAX_PLAY_STEP_BEATS:
+                    for x32_event in tl.x32_events_crossed(
+                        prev_pos,
+                        position,
+                        include_start=not self.state.is_playing,
+                    ):
+                        self._dispatch_x32_event(x32_event.name)
                     stop_evt = tl.stop_entered(prev_pos, position)
                     if stop_evt:
                         logger.info(
@@ -1301,6 +1326,29 @@ class RuntimeEngine:
         """Push the current engine state to all WebSocket clients."""
         self._prev_snapshot = None
         self._broadcast()
+
+    def _dispatch_x32_event(self, keyword: str) -> None:
+        """Execute one reached X32 keyword without blocking transport polling."""
+        project = self.state.active_project
+        project_id = project.get("id") if project else None
+        if project_id is None:
+            logger.warning("Skipping X32 event %r: no active project", keyword)
+            return
+
+        def work() -> None:
+            try:
+                from .x32 import get_x32_service
+
+                service = get_x32_service()
+                if not service.status()["enabled"]:
+                    logger.info("Skipping X32 event %r: integration disabled", keyword)
+                    return
+                service.execute_keyword(project_id, keyword)
+                logger.info("Executed X32 event %r", keyword)
+            except Exception:
+                logger.exception("X32 event %r failed", keyword)
+
+        threading.Thread(target=work, daemon=True, name="x32-event").start()
 
     def _broadcast(self) -> None:
         """Send current state to all connected WebSocket clients."""

@@ -25,6 +25,7 @@ class EventType(str, Enum):
     LYRIC = "LYRIC"
     CHORD = "CHORD"
     STOP = "STOP"
+    X32 = "X32"
 
 
 @dataclass(frozen=True, order=True)
@@ -111,6 +112,7 @@ class Timeline:
     lyrics: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     chords: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     stops: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
+    x32_events: SortedList = field(default_factory=lambda: SortedList(key=lambda e: e.start_beat))
     meter_map: MeterMap = field(default_factory=MeterMap)
 
     # Validation state
@@ -127,6 +129,7 @@ class Timeline:
         lyric_clips: list[ArrangementClip] | None = None,
         control_clips: list[ArrangementClip] | None = None,
         chord_clips: list[ArrangementClip] | None = None,
+        x32_clips: list[ArrangementClip] | None = None,
     ) -> Timeline:
         """Construct a validated Timeline from raw clip data."""
         tl = cls()
@@ -243,6 +246,21 @@ class Timeline:
                         clip.start_time,
                     )
 
+        # -- X32 keyword events ----------------------------------------
+        if x32_clips:
+            for clip in sorted(x32_clips, key=lambda c: c.start_time):
+                keyword = clip.name.strip()
+                if not keyword:
+                    continue
+                tl.x32_events.add(
+                    TimelineEvent(
+                        start_beat=clip.start_time,
+                        end_beat=clip.start_time + max(clip.length, 0.001),
+                        type=EventType.X32,
+                        name=keyword,
+                    )
+                )
+
         if tl.errors:
             for err in tl.errors:
                 logger.error("Timeline validation: %s", err)
@@ -294,6 +312,19 @@ class Timeline:
         if idx < len(self.stops):
             return self.stops[idx]
         return None
+
+    def x32_events_crossed(
+        self, prev_beat: float, cur_beat: float, *, include_start: bool = False
+    ) -> list[TimelineEvent]:
+        """Return X32 event starts crossed during continuous forward playback."""
+        if cur_beat <= prev_beat:
+            return []
+        return [
+            event
+            for event in self.x32_events
+            if (prev_beat < event.start_beat <= cur_beat)
+            or (include_start and prev_beat == event.start_beat)
+        ]
 
     def all_songs(self) -> list[TimelineEvent]:
         return list(self.songs)

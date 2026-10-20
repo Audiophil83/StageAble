@@ -40,6 +40,14 @@
   let editorMixerPreset = { id: null, name: "" };
   let mixerPresetApplying = false;
 
+  // X32 view state
+  let x32Mixer = { status: {}, channels: [] };
+  let x32Control = { baseline_ready: false, changes: [], operations: [], snapshots: [] };
+  let currentX32Panel = "mixer";
+  let selectedX32Channel = 1;
+  let x32PollTimer = null;
+  let x32MixerEditing = false;
+
   // Rehearsal view state
   let rehearsalSelection = [];
 
@@ -103,6 +111,7 @@
   const $viewPerformance = document.getElementById("view-performance");
   const $viewSetlist = document.getElementById("view-setlist");
   const $viewMixer = document.getElementById("view-mixer");
+  const $viewX32 = document.getElementById("view-x32");
   const $viewRehearsal = document.getElementById("view-rehearsal");
   const $viewAdmin = document.getElementById("view-admin");
   const $adminPanelProjects = document.getElementById("admin-panel-projects");
@@ -112,12 +121,27 @@
   const $navPerformance = document.getElementById("nav-performance");
   const $navSetlist = document.getElementById("nav-setlist");
   const $navMixer = document.getElementById("nav-mixer");
+  const $navX32 = document.getElementById("nav-x32");
   const $navRehearsal = document.getElementById("nav-rehearsal");
   const $navAdmin = document.getElementById("nav-admin");
   const $navAdminProjects = document.getElementById("nav-admin-projects");
   const $navAdminSettings = document.getElementById("nav-admin-settings");
   const $navAdminDevices = document.getElementById("nav-admin-devices");
   const $navAdminRescan = document.getElementById("nav-admin-rescan");
+  const $x32Subnav = document.getElementById("x32-subnav");
+  const $x32PanelMixer = document.getElementById("x32-panel-mixer");
+  const $x32PanelEvents = document.getElementById("x32-panel-events");
+  const $x32ConnectionStatus = document.getElementById("x32-connection-status");
+  const $x32ChannelStrips = document.getElementById("x32-channel-strips");
+  const $x32ChannelDetail = document.getElementById("x32-channel-detail");
+  const $x32ChannelDetailTitle = document.getElementById("x32-channel-detail-title");
+  const $x32ChannelControls = document.getElementById("x32-channel-controls");
+  const $x32ChannelSends = document.getElementById("x32-channel-sends");
+  const $x32MixerStatus = document.getElementById("x32-mixer-status");
+  const $x32EventsStatus = document.getElementById("x32-events-status");
+  const $x32ChangeList = document.getElementById("x32-change-list");
+  const $x32SnapshotList = document.getElementById("x32-snapshot-list");
+  const $x32OperationList = document.getElementById("x32-operation-list");
   const $adminSubnav = document.getElementById("admin-subnav");
   const $mixerTrackList = document.getElementById("mixer-track-list");
   const $mixerStatus = document.getElementById("mixer-status");
@@ -733,6 +757,30 @@
           mixerPending = null;
           applyMixerTracks(msg.tracks);
         }
+      } else if (msg.type === "x32_ack") {
+        if (msg.command === "x32_test") {
+          const result = msg.data || {};
+          const identity = [result.model || "X32", result.firmware || ""]
+            .filter(Boolean)
+            .join(" · ");
+          setSettingsStatus("Connected to " + identity, "success");
+        } else {
+          const messages = {
+            x32_initialize_baseline: "Recording external changes from the captured baseline.",
+            x32_save_operation: "Operation saved. Recording continues from the current mixer state.",
+            x32_save_snapshot: "Snapshot saved. Recording continues from the current mixer state.",
+            x32_apply_operation: "Operation applied.",
+            x32_rollback_operation: "Operation rolled back.",
+            x32_restore_snapshot: "Snapshot loaded.",
+            x32_refresh: "Mixer state refreshed.",
+            x32_set: "Mixer updated.",
+            x32_phantom: "Phantom power updated.",
+            x32_open_editor: "X32-Edit opened.",
+            x32_delete: "Deleted.",
+          };
+          setX32Status(messages[msg.command] || "Completed.", "success");
+        }
+        fetchX32Data();
       } else if (msg.type === "error") {
         console.error("Server error:", msg.message);
         if (currentView === "mixer") {
@@ -740,6 +788,8 @@
           syncMixerFromState();
           setMixerStatus(msg.message, "error");
         }
+        if (currentView === "x32") setX32Status(msg.message, "error");
+        if (msg.command === "x32_test") setSettingsStatus(msg.message, "error");
       } else if (msg.type === "lock_state") {
         setClientLocked(!!msg.locked);
       } else if (msg.type === "unlock_check") {
@@ -862,6 +912,7 @@
         appSettings = data;
         populateSettingsForm();
         applySlidingAnimationFromSettings();
+        updateX32Availability();
       })
       .catch(console.error);
   }
@@ -1575,6 +1626,12 @@
   function populateSettingsForm() {
     if (!$settingsForm || !appSettings) return;
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
+    if ($settingsForm.x32_enabled) {
+      $settingsForm.x32_enabled.checked = appSettings.x32_enabled === true;
+    }
+    if ($settingsForm.x32_host) {
+      $settingsForm.x32_host.value = appSettings.x32_host || "";
+    }
     if ($settingsForm.sliding_animation_enabled) {
       $settingsForm.sliding_animation_enabled.checked =
         appSettings.sliding_animation_enabled === true;
@@ -1661,6 +1718,7 @@
     const isPerformance = view === "performance";
     const isSetlist = view === "setlist";
     const isMixer = view === "mixer";
+    const isX32 = view === "x32";
     const isRehearsal = view === "rehearsal";
     const isAdmin = view === "admin";
 
@@ -1673,6 +1731,7 @@
     if ($viewMixer) {
       $viewMixer.hidden = !isMixer;
     }
+    if ($viewX32) $viewX32.hidden = !isX32;
     if ($viewRehearsal) {
       $viewRehearsal.hidden = !isRehearsal;
     }
@@ -1688,6 +1747,7 @@
     if ($navMixer) {
       $navMixer.classList.toggle("active", isMixer);
     }
+    if ($navX32) $navX32.classList.toggle("active", isX32);
     if ($navRehearsal) {
       $navRehearsal.classList.toggle("active", isRehearsal);
     }
@@ -1709,6 +1769,12 @@
     if (isMixer) {
       fetchMixerPresets();
       fetchMixerTracks();
+    }
+    if (isX32) {
+      fetchX32Data();
+      startX32Polling();
+    } else {
+      stopX32Polling();
     }
     if (isRehearsal) {
       fetchSections().then(function () {
@@ -1736,6 +1802,9 @@
     }
     if ($navMixer) {
       $navMixer.hidden = clientLocked;
+    }
+    if ($navX32) {
+      $navX32.hidden = clientLocked || appSettings.x32_enabled !== true;
     }
     if ($navRehearsal) {
       $navRehearsal.hidden = clientLocked;
@@ -2230,6 +2299,183 @@
     $settingsStatus.className = "settings-status" + (type ? " " + type : "");
   }
 
+  // ── X32 ─────────────────────────────────────────────────────────
+
+  function updateX32Availability() {
+    if ($navX32) {
+      $navX32.hidden = clientLocked || appSettings.x32_enabled !== true;
+    }
+    if (appSettings.x32_enabled !== true && currentView === "x32") {
+      setView("performance");
+    }
+  }
+
+  function setX32Status(message, type) {
+    [$x32MixerStatus, $x32EventsStatus, document.getElementById("x32-fx-status")].forEach(function (element) {
+      if (!element) return;
+      element.textContent = message || "";
+      element.className = "mixer-status" + (type ? " " + type : "");
+    });
+  }
+
+  function startX32Polling() {
+    stopX32Polling();
+    x32PollTimer = setInterval(fetchX32Data, 1000);
+  }
+
+  function stopX32Polling() {
+    if (x32PollTimer) clearInterval(x32PollTimer);
+    x32PollTimer = null;
+  }
+
+  function fetchX32Data() {
+    if (appSettings.x32_enabled !== true) return Promise.resolve();
+    return Promise.all([
+      apiFetch("/api/x32/mixer/"),
+      apiFetch("/api/x32/control-events/").catch(function () { return null; }),
+    ]).then(function (data) {
+      x32Mixer = data[0] || { status: {}, channels: [] };
+      if (data[1]) x32Control = data[1];
+      renderX32();
+    }).catch(function (err) {
+      setX32Status((err && (err.error || err.detail)) || "Could not load X32 state", "error");
+    });
+  }
+
+  function setX32Panel(panel) {
+    currentX32Panel = panel;
+    document.getElementById("x32-panel-fx").hidden = panel !== "fx";
+    if ($x32PanelMixer) $x32PanelMixer.hidden = panel !== "mixer";
+    if ($x32PanelEvents) $x32PanelEvents.hidden = panel !== "events";
+    if ($x32Subnav) {
+      $x32Subnav.querySelectorAll("[data-x32-panel]").forEach(function (button) {
+        button.classList.toggle("active", button.dataset.x32Panel === panel);
+      });
+    }
+    fetchX32Data();
+  }
+
+  function sendX32(command, data, busyText) {
+    if (clientLocked) return;
+    setX32Status(busyText || "Working…", "");
+    send(Object.assign({ command: command }, data || {}));
+  }
+
+  function x32Number(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function renderX32() {
+    const status = x32Mixer.status || {};
+    if ($x32ConnectionStatus) {
+      $x32ConnectionStatus.textContent = status.online
+        ? ((status.model || "X32") + (status.firmware ? " · " + status.firmware : ""))
+        : "Offline";
+      $x32ConnectionStatus.classList.toggle("online", !!status.online);
+    }
+    const editorButton = document.getElementById("btn-x32-open-editor");
+    if (editorButton) editorButton.hidden = !x32Mixer.desktop_local;
+    const focused = $viewX32 && $viewX32.contains(document.activeElement) && document.activeElement.matches("input");
+    if (!x32MixerEditing && !focused) { renderX32Mixer(); renderX32FX(); }
+    renderX32ControlEvents();
+  }
+
+  function renderX32Mixer() {
+    if (!$x32ChannelStrips) return;
+    const channels = x32Mixer.channels || [];
+    $x32ChannelStrips.innerHTML = channels.map(function (channel) {
+      const level = channel.level == null ? -90 : channel.level;
+      const meter = Math.max(0, Math.min(100, (channel.meter || 0) * 100));
+      return '<article class="x32-strip' + (channel.channel === selectedX32Channel ? ' selected' : '') + '" data-x32-channel="' + channel.channel + '">' +
+        '<button class="x32-channel-number" type="button" data-x32-select="' + channel.channel + '" aria-label="Select channel ' + channel.channel + ' sends">' + String(channel.channel).padStart(2, '0') + '</button>' +
+        '<input class="x32-strip-name" type="text" maxlength="12" value="' + escAttr(channel.name) + '" data-x32-key="ch.' + channel.channel + '.name" aria-label="Channel ' + channel.channel + ' name">' +
+        x32RangeControl("Trim", "ch." + channel.channel + ".gain", -18, 18, 0.5, channel.gain == null ? 0 : channel.gain) +
+        x32RangeControl("Pan", "ch." + channel.channel + ".pan", -100, 100, 1, channel.pan == null ? 0 : channel.pan) +
+        '<div class="x32-level-controls"><div class="x32-fader-scale" aria-hidden="true"><span>+10</span><span>0</span><span>−30</span><span>−∞</span></div><div class="x32-meter"><span style="height:' + meter + '%"></span></div>' +
+        '<input class="x32-fader" type="range" min="-90" max="10" step="0.5" value="' + level + '" data-x32-key="ch.' + channel.channel + '.level" aria-label="' + escAttr(channel.name) + ' level"></div>' +
+        x32Numeric("Level (dB)", "ch." + channel.channel + ".level", -90, 10, 0.5, level) +
+        '<div class="x32-strip-switches">' +
+        x32Toggle("Ø", "ch." + channel.channel + ".polarity", channel.polarity) +
+        x32Toggle("Link", "link." + (channel.channel % 2 ? channel.channel : channel.channel - 1), channel.link) +
+        '<button type="button" class="btn x32-state' + (channel.phantom ? ' active danger' : '') + '" data-x32-phantom="' + channel.channel + '" data-value="' + !!channel.phantom + '" ' + (channel.phantom == null ? 'disabled title="No available physical headamp"' : 'title="48 V phantom power on headamp ' + channel.headamp + '"') + '>48V</button></div><div class="x32-strip-actions">' +
+        '<button class="btn x32-state' + (channel.solo ? ' active' : '') + '" type="button" data-x32-toggle="solo" data-channel="' + channel.channel + '">Solo</button>' +
+        '<button class="btn x32-state' + (channel.mute ? ' active danger' : '') + '" type="button" data-x32-toggle="mute" data-channel="' + channel.channel + '">Mute</button>' +
+        '</div></article>';
+    }).join("");
+
+    const channel = channels.find(function (item) { return item.channel === selectedX32Channel; });
+    if (!$x32ChannelDetail || !channel) {
+      if ($x32ChannelDetail) $x32ChannelDetail.hidden = true;
+      return;
+    }
+    $x32ChannelDetail.hidden = false;
+    $x32ChannelDetailTitle.textContent = channel.name + " · Bus sends";
+    $x32ChannelControls.innerHTML = "";
+    $x32ChannelSends.innerHTML = (channel.sends || []).map(function (value, index) {
+      return x32RangeControl("Bus " + (index + 1), "ch." + channel.channel + ".send." + (index + 1), -90, 10, 0.5, value == null ? -90 : value);
+    }).join("");
+  }
+
+  function x32RangeControl(label, key, min, max, step, value) {
+    return '<label class="x32-range-control"><span>' + escHtml(label) + '</span>' +
+      '<input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + value + '" data-x32-key="' + escHtml(key) + '">' +
+      '<input class="x32-number" type="text" inputmode="decimal" data-x32-number data-min="' + min + '" data-max="' + max + '" value="' + Number(value).toFixed(step < 1 ? 1 : 0) + '" data-x32-key="' + escHtml(key) + '" aria-label="' + escHtml(label) + ' numeric value"></label>';
+  }
+
+  function x32Numeric(label, key, min, max, step, value) {
+    return '<label class="x32-numeric"><span>' + escHtml(label) + '</span><input class="x32-number" type="text" inputmode="decimal" data-x32-number data-min="' + min + '" data-max="' + max + '" value="' + Number(value).toFixed(1) + '" data-x32-key="' + escHtml(key) + '"></label>';
+  }
+
+  function x32Toggle(label, key, value) {
+    return '<button class="btn x32-state' + (value ? ' active' : '') + '" type="button" data-x32-bool="' + escHtml(key) + '" aria-pressed="' + !!value + '" title="' + (label === 'Ø' ? 'Invert polarity' : label === 'Link' ? 'Stereo link with adjacent channel' : escAttr(label)) + '" data-value="' + !!value + '"' + (value == null ? ' disabled' : '') + '>' + escHtml(label) + '</button>';
+  }
+
+  function renderX32FX() {
+    const container = document.getElementById("x32-fx-returns");
+    if (!container) return;
+    const expanded = new Set(Array.from(container.querySelectorAll("details[open]")).map(function (item) { return item.dataset.fxReturn; }));
+    const returns = x32Mixer.fx_returns || [];
+    container.innerHTML = Array.from({length: 4}, function (_, slot) {
+      return '<section class="x32-fx-slot"><header><span class="x32-eyebrow">STEREO RETURN</span><h3>FX ' + (slot + 1) + '</h3></header><div class="x32-fx-pair">' + returns.slice(slot * 2, slot * 2 + 2).map(function (item) {
+      const prefix = "fxrtn." + item.channel + ".";
+      return '<article class="x32-fx-return"><h4>' + (item.channel % 2 ? 'Left' : 'Right') + '</h4>' +
+        x32RangeControl("Level (dB)", prefix + "level", -90, 10, 0.5, item.level == null ? -90 : item.level) +
+        x32RangeControl("Pan", prefix + "pan", -100, 100, 1, item.pan == null ? 0 : item.pan) +
+        x32Toggle("Mute", prefix + "mute", item.mute) +
+        '<details data-fx-return="' + item.channel + '"' + (expanded.has(String(item.channel)) ? ' open' : '') + '><summary>Bus sends</summary><div class="x32-fx-sends">' + Array.from({length: 16}, function (_, i) {
+          const value = item["send." + (i + 1)];
+          return x32RangeControl("Bus " + (i + 1), prefix + "send." + (i + 1), -90, 10, 0.5, value == null ? -90 : value);
+        }).join("") + '</div></details></article>';
+      }).join("") + '</div></section>';
+    }).join("");
+  }
+
+  function renderX32ControlEvents() {
+    if (!$x32ChangeList) return;
+    const changes = x32Control.changes || [];
+    const priorSelection = new Map(Array.from(
+      $x32ChangeList.querySelectorAll('input[type="checkbox"]')
+    ).map(function (input) { return [input.value, input.checked]; }));
+    const baselineButton = document.getElementById("btn-x32-baseline");
+    if (baselineButton) baselineButton.textContent = x32Control.baseline_ready ? "Reset recording baseline" : "Start recording changes";
+    $x32ChangeList.innerHTML = changes.length ? changes.map(function (change) {
+      const checked = !priorSelection.has(change.key) || priorSelection.get(change.key);
+      return '<label class="x32-change"><input type="checkbox" value="' + escHtml(change.key) + '"' + (checked ? ' checked' : '') + '>' +
+        '<span><strong>' + escHtml(change.label) + '</strong><small>' + escHtml(change.before.text) + ' → ' + escHtml(change.after.text) + '</small></span></label>';
+    }).join("") : '<div class="x32-empty"><span class="x32-empty-symbol" aria-hidden="true">◎</span><strong>' + (x32Control.baseline_ready ? 'Listening for changes' : 'Ready to record') + '</strong><p>' + (x32Control.baseline_ready ? 'Mixer edits will appear here. Select the changes you want to keep.' : 'Start a recording, then adjust your mixer to create an operation.') + '</p></div>';
+
+    $x32SnapshotList.innerHTML = (x32Control.snapshots || []).map(function (snapshot) {
+      return '<article class="x32-saved-item"><div><strong>' + escHtml(snapshot.name) + '</strong><small>' + escHtml(snapshot.keyword || 'No keyword') + '</small></div>' +
+        '<div><button class="btn btn-secondary" data-x32-restore-snapshot="' + snapshot.id + '">Load</button><button class="btn btn-stop" data-x32-delete="snapshot:' + snapshot.id + '">Delete</button></div></article>';
+    }).join("") || '<p class="mixer-intro">No snapshots saved.</p>';
+
+    $x32OperationList.innerHTML = (x32Control.operations || []).map(function (operation) {
+      return '<article class="x32-saved-item"><div><strong>' + escHtml(operation.name) + '</strong><small>' + escHtml(operation.apply_keyword || 'No apply keyword') + ' · ' + escHtml(operation.rollback_keyword || 'No rollback keyword') + ' · ' + operation.changes.length + ' changes</small></div>' +
+        '<div><button class="btn btn-secondary" data-x32-apply-operation="' + operation.id + '">Apply</button><button class="btn btn-stop" data-x32-rollback-operation="' + operation.id + '">Rollback</button><button class="btn btn-stop" data-x32-delete="operation:' + operation.id + '">Delete</button></div></article>';
+    }).join("") || '<p class="mixer-intro">No operations saved.</p>';
+  }
+
   // ── Rendering ────────────────────────────────────────────────────
 
   function render() {
@@ -2626,6 +2872,10 @@
     return bars + " bars";
   }
 
+  function escAttr(s) {
+    return escHtml(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   function escHtml(s) {
     const d = document.createElement("div");
     d.textContent = s || "";
@@ -2683,6 +2933,108 @@
     });
   }
 
+  if ($x32Subnav) {
+    $x32Subnav.addEventListener("click", function (e) {
+      const button = e.target.closest("[data-x32-panel]");
+      if (button) setX32Panel(button.dataset.x32Panel);
+    });
+  }
+
+  if ($viewX32) {
+    $viewX32.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("[data-x32-key]")) x32MixerEditing = true;
+    });
+    $viewX32.addEventListener("click", function (e) {
+      const select = e.target.closest("[data-x32-select]");
+      if (select) {
+        selectedX32Channel = parseInt(select.dataset.x32Select, 10);
+        renderX32Mixer();
+        return;
+      }
+      const boolean = e.target.closest("[data-x32-bool]");
+      if (boolean) return sendX32("x32_set", {key: boolean.dataset.x32Bool, value: boolean.dataset.value !== "true"});
+      const phantom = e.target.closest("[data-x32-phantom]");
+      if (phantom) return sendX32("x32_phantom", {channel: Number(phantom.dataset.x32Phantom), value: phantom.dataset.value !== "true"});
+      const toggle = e.target.closest("[data-x32-toggle]");
+      if (toggle) {
+        const channel = parseInt(toggle.dataset.channel, 10);
+        const item = (x32Mixer.channels || []).find(function (entry) { return entry.channel === channel; });
+        if (item) sendX32("x32_set", { key: "ch." + channel + "." + toggle.dataset.x32Toggle, value: !item[toggle.dataset.x32Toggle] });
+        return;
+      }
+      const apply = e.target.closest("[data-x32-apply-operation]");
+      if (apply) return sendX32("x32_apply_operation", { id: parseInt(apply.dataset.x32ApplyOperation, 10) }, "Applying operation…");
+      const rollback = e.target.closest("[data-x32-rollback-operation]");
+      if (rollback) return sendX32("x32_rollback_operation", { id: parseInt(rollback.dataset.x32RollbackOperation, 10) }, "Rolling back operation…");
+      const restore = e.target.closest("[data-x32-restore-snapshot]");
+      if (restore) return sendX32("x32_restore_snapshot", { id: parseInt(restore.dataset.x32RestoreSnapshot, 10) }, "Loading snapshot…");
+      const remove = e.target.closest("[data-x32-delete]");
+      if (remove) {
+        const parts = remove.dataset.x32Delete.split(":");
+        if (confirm("Delete this X32 " + parts[0] + "?")) sendX32("x32_delete", { kind: parts[0], id: parseInt(parts[1], 10) }, "Deleting…");
+      }
+    });
+    $viewX32.addEventListener("focusin", function (e) {
+      if (e.target.matches("[data-x32-number]")) e.target.select();
+    });
+    $viewX32.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && e.target.matches("input[data-x32-key]")) {
+        e.preventDefault();
+        if (e.target.checkValidity()) e.target.blur();
+        else e.target.reportValidity();
+      }
+    });
+    $viewX32.addEventListener("change", function (e) {
+      const input = e.target.closest("[data-x32-key]");
+      if (!input) return;
+      const numeric = input.hasAttribute("data-x32-number");
+      if (numeric) {
+        const value = Number(input.value.trim());
+        input.setCustomValidity(input.value.trim() === "" || !Number.isFinite(value) || value < Number(input.dataset.min) || value > Number(input.dataset.max)
+          ? "Enter a value from " + input.dataset.min + " to " + input.dataset.max : "");
+      }
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return;
+      }
+      sendX32("x32_set", { key: input.dataset.x32Key, value: input.type === "text" && !numeric ? input.value : Number(input.value) }, "Updating mixer…");
+    });
+    $viewX32.addEventListener("input", function (e) {
+      const input = e.target.closest("input[data-x32-key]");
+      if (!input || (input.type === "text" && !input.hasAttribute("data-x32-number"))) return;
+      input.setCustomValidity("");
+      $viewX32.querySelectorAll("input[data-x32-key]").forEach(function (other) {
+        if (other !== input && other.dataset.x32Key === input.dataset.x32Key) other.value = input.value;
+      });
+    });
+  }
+  window.addEventListener("pointerup", function () { x32MixerEditing = false; });
+  window.addEventListener("pointercancel", function () { x32MixerEditing = false; });
+
+  const $btnX32Editor = document.getElementById("btn-x32-open-editor");
+  if ($btnX32Editor) $btnX32Editor.addEventListener("click", function () { sendX32("x32_open_editor", {}, "Opening X32-Edit…"); });
+  const $btnX32Refresh = document.getElementById("btn-x32-refresh");
+  if ($btnX32Refresh) $btnX32Refresh.addEventListener("click", function () { sendX32("x32_refresh", {}, "Refreshing all supported settings…"); });
+  const $btnX32Baseline = document.getElementById("btn-x32-baseline");
+  if ($btnX32Baseline) $btnX32Baseline.addEventListener("click", function () { sendX32("x32_initialize_baseline", {}, "Capturing complete baseline…"); });
+  const $btnX32SaveSnapshot = document.getElementById("btn-x32-save-snapshot");
+  if ($btnX32SaveSnapshot) $btnX32SaveSnapshot.addEventListener("click", function () {
+    sendX32("x32_save_snapshot", {
+      name: document.getElementById("x32-snapshot-name").value.trim(),
+      keyword: document.getElementById("x32-snapshot-keyword").value.trim(),
+    }, "Capturing complete snapshot…");
+  });
+  const $btnX32SaveOperation = document.getElementById("btn-x32-save-operation");
+  if ($btnX32SaveOperation) $btnX32SaveOperation.addEventListener("click", function () {
+    const selected = Array.from($x32ChangeList.querySelectorAll('input[type="checkbox"]:checked')).map(function (input) { return input.value; });
+    sendX32("x32_save_operation", {
+      name: document.getElementById("x32-operation-name").value.trim(),
+      apply_keyword: document.getElementById("x32-operation-apply-keyword").value.trim(),
+      rollback_keyword: document.getElementById("x32-operation-rollback-keyword").value.trim(),
+      selected_keys: selected,
+    }, "Saving operation and advancing baseline…");
+  });
+
   if ($btnLock) {
     $btnLock.addEventListener("click", toggleClientLock);
   }
@@ -2698,6 +3050,8 @@
     );
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
+      x32_enabled: !!$settingsForm.x32_enabled.checked,
+      x32_host: $settingsForm.x32_host.value.trim(),
       sliding_animation_enabled: !!$settingsForm.sliding_animation_enabled.checked,
       sliding_animation_duration_ms: Number.isFinite(durationRaw)
         ? Math.max(0, Math.min(2000, durationRaw))
@@ -2709,6 +3063,7 @@
         appSettings = data;
         populateSettingsForm();
         applySlidingAnimationFromSettings();
+        updateX32Availability();
         setSettingsStatus("Saved", "success");
       })
       .catch(function (err) {
@@ -2718,6 +3073,18 @@
             : "Failed to save settings";
         setSettingsStatus(message, "error");
       });
+    });
+  }
+
+  const $btnX32Test = document.getElementById("btn-x32-test");
+  if ($btnX32Test) {
+    $btnX32Test.addEventListener("click", function () {
+      if (!appSettings.x32_enabled) {
+        setSettingsStatus("Save and enable the X32 connection first.", "error");
+        return;
+      }
+      setSettingsStatus("Testing X32 connection…", "");
+      send({ command: "x32_test" });
     });
   }
 

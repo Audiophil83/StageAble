@@ -10,6 +10,8 @@ from .models import (
     ProjectCache,
     Setlist,
     SetlistEntry,
+    X32Operation,
+    X32Snapshot,
 )
 from .actions import ACTIONS
 from .devices.base import trigger_key
@@ -20,11 +22,24 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         model = AppSettings
         fields = [
             "ableton_osc_host",
+            "x32_enabled",
+            "x32_host",
             "sliding_animation_enabled",
             "sliding_animation_duration_ms",
             "updated_at",
         ]
         read_only_fields = ["updated_at"]
+
+    def validate(self, attrs):
+        enabled = attrs.get(
+            "x32_enabled", getattr(self.instance, "x32_enabled", False)
+        )
+        host = attrs.get("x32_host", getattr(self.instance, "x32_host", ""))
+        if enabled and not str(host).strip():
+            raise serializers.ValidationError(
+                {"x32_host": "Enter the X32 IP address before enabling the connection."}
+            )
+        return attrs
 
 
 class ProjectCacheSerializer(serializers.ModelSerializer):
@@ -72,6 +87,23 @@ class MixerPresetSerializer(serializers.ModelSerializer):
         model = MixerPreset
         fields = ["id", "name", "tracks", "created_at", "updated_at"]
         read_only_fields = ["created_at", "updated_at"]
+
+
+class X32SnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = X32Snapshot
+        fields = ["id", "name", "keyword", "coverage", "created_at"]
+        read_only_fields = ["coverage", "created_at"]
+
+
+class X32OperationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = X32Operation
+        fields = [
+            "id", "name", "apply_keyword", "rollback_keyword", "changes",
+            "created_at",
+        ]
+        read_only_fields = ["changes", "created_at"]
 
 
 class SetlistEntrySerializer(serializers.ModelSerializer):

@@ -23,6 +23,7 @@ TRACK_SECTIONS = "sections"
 TRACK_LYRICS = "lyrics"
 TRACK_CONTROL = "control"
 TRACK_CHORDS = "chords"
+TRACK_X32 = "x32"
 
 SEMANTIC_TRACKS = {
     TRACK_SONGS,
@@ -30,6 +31,7 @@ SEMANTIC_TRACKS = {
     TRACK_LYRICS,
     TRACK_CONTROL,
     TRACK_CHORDS,
+    TRACK_X32,
 }
 
 MIXER_TRACK_PREFIX = "[MIX]"
@@ -94,7 +96,7 @@ def scan_mixer_tracks(
 
 
 def find_semantic_tracks(tracks: list[TrackInfo]) -> dict[str, TrackInfo]:
-    """Identify the semantic tracks (SONGS, SECTIONS, LYRICS, CONTROL, CHORDS)."""
+    """Identify StageAble semantic tracks, including the optional X32 track."""
     found: dict[str, TrackInfo] = {}
     for t in tracks:
         normalised = t.name.strip().lower()
@@ -293,6 +295,7 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
     lyric_clips: list[ArrangementClip] | None = None
     control_clips: list[ArrangementClip] | None = None
     chord_clips: list[ArrangementClip] | None = None
+    x32_clips: list[ArrangementClip] | None = None
 
     if TRACK_SONGS not in semantic:
         logger.error("No SONGS track found — timeline will be invalid")
@@ -342,15 +345,24 @@ def scan_arrangement(osc: AbletonOSCClient) -> Timeline:
     else:
         chord_err = None
 
+    if TRACK_X32 in semantic:
+        x32_clips, x32_err = read_arrangement_clips(
+            osc, semantic[TRACK_X32].index, label="X32"
+        )
+        logger.info("X32: %d clips", len(x32_clips))
+    else:
+        x32_err = None
+
     timeline = Timeline.build(
         song_clips=song_clips,
         section_clips=section_clips,
         lyric_clips=lyric_clips,
         control_clips=control_clips,
         chord_clips=chord_clips,
+        x32_clips=x32_clips,
     )
 
-    for err in (song_err, section_err, lyric_err, control_err, chord_err):
+    for err in (song_err, section_err, lyric_err, control_err, chord_err, x32_err):
         if err:
             timeline.errors.append(err)
 

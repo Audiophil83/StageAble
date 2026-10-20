@@ -6,7 +6,7 @@
   <title>StageAble — Live Show Control</title>
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/static/style.css?v=30">
+  <link rel="stylesheet" href="/static/style.css?v=34">
   <link rel="stylesheet" href="/static/css/keep-screen-awake.css?v=2">
 </head>
 <body>
@@ -60,6 +60,7 @@
           <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
           <button id="nav-mixer" class="btn btn-nav-tab" type="button" data-view="mixer">Mixer</button>
+          <button id="nav-x32" class="btn btn-nav-tab" type="button" data-view="x32" hidden>X32</button>
           <button id="nav-rehearsal" class="btn btn-nav-tab" type="button" data-view="rehearsal">Rehearsal</button>
           <button id="nav-admin" class="btn btn-nav-tab" type="button" data-view="admin">Admin</button>
         </nav>
@@ -218,6 +219,82 @@
         </section>
       </div>
 
+      <div id="view-x32" hidden>
+        <nav id="x32-subnav" class="admin-subnav" aria-label="X32 sections">
+          <button class="btn btn-nav-tab active" type="button" data-x32-panel="mixer">Mixer</button>
+          <button class="btn btn-nav-tab" type="button" data-x32-panel="fx">FX</button>
+          <button class="btn btn-nav-tab" type="button" data-x32-panel="events">Control Event</button>
+          <span id="x32-connection-status" class="x32-connection-status">Offline</span>
+        </nav>
+
+        <div id="x32-panel-mixer">
+          <section class="panel x32-panel">
+            <div class="x32-toolbar">
+              <div>
+                <h2>Input mixer</h2>
+                <p class="mixer-intro">32 inputs · Select a channel number to edit its sends.</p>
+              </div>
+              <button id="btn-x32-open-editor" class="btn btn-secondary" type="button" hidden>Open X32-Edit</button>
+              <button id="btn-x32-refresh" class="btn btn-secondary" type="button">Refresh mixer</button>
+            </div>
+            <p id="x32-mixer-status" class="mixer-status"></p>
+            <div id="x32-channel-strips" class="x32-channel-strips"></div>
+            <section id="x32-channel-detail" class="x32-channel-detail" hidden>
+              <h3 id="x32-channel-detail-title">Channel</h3>
+              <div id="x32-channel-controls" class="x32-channel-controls"></div>
+              <span class="x32-detail-hint">Send levels · dB</span>
+              <div id="x32-channel-sends" class="x32-channel-sends"></div>
+            </section>
+          </section>
+        </div>
+
+        <div id="x32-panel-fx" hidden>
+          <section class="panel x32-panel">
+            <h2>FX returns</h2>
+            <p class="mixer-intro">Four stereo returns · Independent left and right controls.</p>
+            <p id="x32-fx-status" class="mixer-status"></p>
+            <div id="x32-fx-returns" class="x32-fx-grid"></div>
+          </section>
+        </div>
+
+        <div id="x32-panel-events" hidden>
+          <section class="panel x32-panel">
+            <div class="x32-toolbar">
+              <div>
+                <h2>Control Event</h2>
+                <p class="mixer-intro">Capture mixer changes as reusable operations, or save a complete snapshot.</p>
+              </div>
+              <button id="btn-x32-baseline" class="btn btn-secondary" type="button">Start recording changes</button>
+            </div>
+            <p id="x32-events-status" class="mixer-status"></p>
+            <div class="x32-event-grid">
+              <section class="x32-event-card">
+                <div class="x32-card-heading"><span class="x32-eyebrow">01 / RECORD</span><h3>Recorded changes</h3></div>
+                <div id="x32-change-list" class="x32-change-list"></div>
+                <div class="x32-save-form">
+                  <label class="x32-field"><span>Operation name</span><input id="x32-operation-name" type="text" placeholder="Operation name"></label>
+                  <label class="x32-field"><span>Apply keyword</span><input id="x32-operation-apply-keyword" type="text" placeholder="Apply keyword"></label>
+                  <label class="x32-field"><span>Rollback keyword</span><input id="x32-operation-rollback-keyword" type="text" placeholder="Rollback keyword"></label>
+                  <button id="btn-x32-save-operation" class="btn btn-play" type="button">Save selected operation</button>
+                </div>
+              </section>
+              <section class="x32-event-card">
+                <div class="x32-card-heading"><span class="x32-eyebrow">02 / CAPTURE</span><h3>Snapshots & operations</h3></div>
+                <div class="x32-save-form">
+                  <label class="x32-field"><span>Snapshot name</span><input id="x32-snapshot-name" type="text" placeholder="Snapshot name"></label>
+                  <label class="x32-field"><span>Ableton keyword</span><input id="x32-snapshot-keyword" type="text" placeholder="Ableton keyword"></label>
+                  <button id="btn-x32-save-snapshot" class="btn btn-play" type="button">Save snapshot</button>
+                </div>
+                <h3>Snapshots</h3>
+                <div id="x32-snapshot-list" class="x32-saved-list"></div>
+                <h3>Operations</h3>
+                <div id="x32-operation-list" class="x32-saved-list"></div>
+              </section>
+            </div>
+          </section>
+        </div>
+      </div>
+
       <div id="view-admin" hidden>
         <nav id="admin-subnav" class="admin-subnav" aria-label="Admin sections">
           <button id="nav-admin-projects" class="btn btn-nav-tab active" type="button" data-admin-panel="projects">Projects</button>
@@ -244,6 +321,21 @@
               <label for="setting-osc-host">Ableton OSC Host</label>
               <input id="setting-osc-host" name="ableton_osc_host" type="text" required>
             </div>
+            <fieldset class="settings-fieldset">
+              <legend>X32 integration</legend>
+              <div class="form-group form-group-checkbox">
+                <label for="setting-x32-enabled">
+                  <input id="setting-x32-enabled" name="x32_enabled" type="checkbox">
+                  Enable X32 control
+                </label>
+              </div>
+              <div class="form-group">
+                <label for="setting-x32-host">X32 IP address or hostname</label>
+                <input id="setting-x32-host" name="x32_host" type="text" placeholder="192.168.1.100">
+                <p class="form-hint">OSC uses the X32 ETHERNET connection on UDP port 10023.</p>
+              </div>
+              <button id="btn-x32-test" class="btn btn-secondary" type="button">Test X32 connection</button>
+            </fieldset>
             <div class="form-group form-group-checkbox">
               <label for="setting-sliding-animation">
                 <input id="setting-sliding-animation" name="sliding_animation_enabled" type="checkbox">
@@ -322,6 +414,6 @@
   <div id="keep-awake-status" class="keep-awake-status hidden" role="status" aria-live="polite"></div>
 
   <script src="/static/js/keep-screen-awake.js?v=5"></script>
-  <script src="/static/app.js?v=30"></script>
+  <script src="/static/app.js?v=34"></script>
 </body>
 </html>

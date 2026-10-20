@@ -289,6 +289,7 @@ def timeline_to_data(timeline: Timeline) -> dict[str, Any]:
         "lyrics": [_event_row(e) for e in timeline.lyrics],
         "chords": [_event_row(e) for e in timeline.chords],
         "stops": [_event_row(e) for e in timeline.stops],
+        "x32_events": [_event_row(e) for e in timeline.x32_events],
         "meter_map": [_meter_row(e) for e in meter_entries],
     }
 
@@ -323,6 +324,8 @@ def timeline_from_data(data: dict[str, Any]) -> Timeline:
         tl.chords.add(evt)
     for evt in _events_from_rows(data.get("stops") or [], EventType.STOP):
         tl.stops.add(evt)
+    for evt in _events_from_rows(data.get("x32_events") or [], EventType.X32):
+        tl.x32_events.add(evt)
 
     meter_rows = data.get("meter_map") or []
     if meter_rows:

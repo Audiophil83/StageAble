@@ -245,6 +245,40 @@ def mixer_track_mute(request, track_index: int):
     return Response({"status": "ok", "tracks": engine.get_mixer_tracks(live=False)})
 
 
+# ── X32 (read-only REST; mutations require an unlocked WebSocket) ────
+
+
+@api_view(["GET"])
+def x32_status(request):
+    from .x32 import get_x32_service
+
+    return Response(get_x32_service().status())
+
+
+@api_view(["GET"])
+def x32_mixer(request):
+    from .x32 import get_x32_service
+
+    from .x32.desktop import is_local_client
+
+    data = get_x32_service().mixer_state()
+    data["desktop_local"] = is_local_client(request.META.get("REMOTE_ADDR", ""))
+    return Response(data)
+
+
+@api_view(["GET"])
+def x32_control_events(request):
+    from .x32 import get_x32_service
+
+    project_id = _active_project_id()
+    if project_id is None:
+        return Response(
+            {"error": "No active Ableton project"},
+            status=status.HTTP_409_CONFLICT,
+        )
+    return Response(get_x32_service().control_state(project_id))
+
+
 # ── Song / section data ──────────────────────────────────────────────
 
 

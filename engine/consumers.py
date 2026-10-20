@@ -16,6 +16,7 @@ from .client_lock import disconnect as client_lock_disconnect
 from .client_lock import lock as client_lock
 from .client_lock import unlock as client_unlock
 from .client_lock import unlock_requires_warning
+from .client_lock import is_unlocked
 from .runtime import WS_GROUP
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,18 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
         engine = get_engine()
 
         try:
+            if cmd.startswith("x32_"):
+                if not is_unlocked(self.channel_name):
+                    await self.send_json(
+                        {
+                            "type": "error",
+                            "command": cmd,
+                            "message": "Unlock controls to change X32 state",
+                        }
+                    )
+                    return
+                await self._handle_x32_command(cmd, content)
+                return
             if cmd == "play":
                 engine.cmd_play()
             elif cmd == "toggle_play":
@@ -173,8 +186,80 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
         except Exception as e:
             logger.exception("Error handling command %s", cmd)
             await self.send_json(
-                {"type": "error", "message": f"Command failed: {e}"}
+                {"type": "error", "command": cmd, "message": f"Command failed: {e}"}
             )
+
+    async def _handle_x32_command(self, cmd, content):
+        from .models import ProjectCache
+        from .state import engine_state
+        from .x32 import get_x32_service
+
+        project = engine_state.active_project
+        project_id = project.get("id") if project else None
+        service = get_x32_service()
+        if cmd == "x32_open_editor":
+            from .x32.desktop import open_editor
+            result = await sync_to_async(open_editor, thread_sensitive=False)(self.scope.get("client", ("",))[0])
+        elif cmd == "x32_phantom":
+            result = await sync_to_async(service.set_phantom, thread_sensitive=False)(
+                content.get("channel"), content.get("value")
+            )
+        elif cmd == "x32_test":
+            result = await sync_to_async(service.test_connection, thread_sensitive=False)()
+        elif cmd == "x32_refresh":
+            await sync_to_async(service.capture_all, thread_sensitive=False)()
+            result = service.mixer_state()
+        elif cmd == "x32_set":
+            result = await sync_to_async(service.set_parameter, thread_sensitive=False)(
+                str(content.get("key", "")), content.get("value")
+            )
+        else:
+            if project_id is None or not await sync_to_async(
+                ProjectCache.objects.filter(id=project_id).exists
+            )():
+                await self.send_json({"type": "error", "message": "No active Ableton project"})
+                return
+            result = await self._handle_x32_project_command(
+                service, project_id, cmd, content
+            )
+
+        await self.send_json({"type": "x32_ack", "command": cmd, "data": result})
+
+    async def _handle_x32_project_command(self, service, project_id, cmd, content):
+        if cmd == "x32_initialize_baseline":
+            result = await sync_to_async(service.initialize_baseline, thread_sensitive=False)(project_id)
+        elif cmd == "x32_save_snapshot":
+            result = await sync_to_async(service.save_snapshot, thread_sensitive=False)(
+                project_id,
+                str(content.get("name", "")),
+                str(content.get("keyword", "")),
+            )
+        elif cmd == "x32_save_operation":
+            result = await sync_to_async(service.save_operation, thread_sensitive=False)(
+                project_id,
+                str(content.get("name", "")),
+                str(content.get("apply_keyword", "")),
+                str(content.get("rollback_keyword", "")),
+                list(content.get("selected_keys") or []),
+            )
+        elif cmd in {"x32_apply_operation", "x32_rollback_operation"}:
+            result = await sync_to_async(service.execute_operation_id, thread_sensitive=False)(
+                project_id,
+                int(content.get("id")),
+                rollback=cmd == "x32_rollback_operation",
+            )
+        elif cmd == "x32_restore_snapshot":
+            result = await sync_to_async(service.restore_snapshot_id, thread_sensitive=False)(
+                project_id, int(content.get("id"))
+            )
+        elif cmd == "x32_delete":
+            await sync_to_async(service.delete_item, thread_sensitive=False)(
+                project_id, str(content.get("kind", "")), int(content.get("id"))
+            )
+            result = {"status": "deleted"}
+        else:
+            raise ValueError(f"Unknown command: {cmd}")
+        return result
 
     # ── Group message handlers ────────────────────────────────────────
 
