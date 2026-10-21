@@ -576,9 +576,9 @@ position in Live’s arrangement ruler.
 ## Building and releases
 
 StageAble ships as a **macOS `.app`** menu bar bundle and a **Windows folder**
-distribution, both built with [PyInstaller](https://pyinstaller.org/). A Linux
-Gitea runner **cannot** produce a working `.app` (macOS Mach-O binaries are
-required), so CI uses a **macOS `act_runner`** for release builds.
+distribution, both built with [PyInstaller](https://pyinstaller.org/). GitHub
+Actions builds these on hosted macOS and Windows runners. The existing Gitea
+workflow uses a macOS `act_runner`; macOS apps must be built on macOS.
 
 ### Local macOS build
 
@@ -721,6 +721,42 @@ python scripts/packaging/generate_appcast.py \
 Override the appcast URL with `STAGEABLE_APPCAST_URL`. A full
 [Sparkle](https://sparkle-project.org/) framework embed is optional; the
 current implementation opens the download URL in the browser.
+
+### GitHub Actions CI/CD
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds standalone
+distributions for Apple Silicon Macs, Intel Macs, and Windows x64 using Python
+3.13. Users do not need to install Python. Extract the macOS ZIP to get
+`StageAble.app`; on Windows, extract the entire folder and run `StageAble.exe`
+inside it (keep its supporting files together).
+
+To publish a release:
+
+1. Update `VERSION` to the intended stable version (`X.Y.Z`) and commit it with
+   the workflow and application changes.
+2. Push the commit to GitHub, then push a matching version tag, for example:
+
+   ```bash
+   git tag v0.6.0
+   git push origin v0.6.0
+   ```
+
+   Use a new version/tag for subsequent releases. The workflow rejects tags
+   that do not match `VERSION`.
+3. After all three builds and Django system checks succeed, the workflow
+   publishes a GitHub Release with the three ZIPs, `SHA256SUMS.txt`, and generated
+   release notes. It uses GitHub's automatic `GITHUB_TOKEN`; no personal token
+   or self-hosted runner is required. Repository policies must allow Actions
+   and the release job's `contents: write` permission.
+
+For a build without publishing, use **Actions → Build and release → Run
+workflow**. Download the ZIPs from that run's artifacts (retained for 14 days).
+Manual runs never publish a release, even when run against a tag.
+
+The GitHub workflow currently produces unsigned distributions; Apple Developer
+signing/notarization and Windows Authenticode signing are separate setup steps
+(see [Code signing](#code-signing)). It publishes downloads to GitHub Releases
+only; it does not update the CDN or the app's existing update feed.
 
 ### Gitea Actions CI/CD
 

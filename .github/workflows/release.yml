@@ -1,0 +1,133 @@
+name: Build and release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS-arm64
+            runner: macos-15
+            python-arch: arm64
+            target-arch: arm64
+            requirements: requirements.txt
+          - platform: macOS-x86_64
+            runner: macos-15-intel
+            python-arch: x64
+            target-arch: x86_64
+            requirements: requirements-macos-x86_64.txt
+          - platform: Windows-x86_64
+            runner: windows-2022
+            python-arch: x64
+            target-arch: x86_64
+            requirements: requirements.txt
+    env:
+      STAGEABLE_NO_ENGINE: '1'
+      DJANGO_SETTINGS_MODULE: stageable.settings
+      BUILD_PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.python-arch }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Validate release version
+        shell: python
+        run: |
+          import os
+          import re
+          from pathlib import Path
+
+          version = Path('VERSION').read_text(encoding='utf-8').strip()
+          if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+              raise SystemExit('VERSION must contain a stable version such as 0.6.0')
+          if os.environ['GITHUB_REF_TYPE'] == 'tag':
+              if os.environ['GITHUB_REF_NAME'] != f'v{version}':
+                  raise SystemExit('Release tag must match VERSION (v' + version + ')')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'STAGEABLE_VERSION={version}\n')
+
+      - name: Install dependencies
+        run: python -m pip install -r "${{ matrix.requirements }}"
+
+      - name: Django system check
+        run: python manage.py check
+
+      - name: Build macOS app
+        if: runner.os == 'macOS'
+        run: python scripts/build_mac_app.py --target-arch "${{ matrix.target-arch }}"
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent dist/StageAble.app "dist/StageAble-${BUILD_PLATFORM}-${STAGEABLE_VERSION}.zip"
+
+      - name: Build Windows app
+        if: runner.os == 'Windows'
+        run: python scripts/build_windows_app.py
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (!(Test-Path dist/StageAble/StageAble.exe)) {
+            throw 'Expected StageAble.exe was not built'
+          }
+          Compress-Archive -Path dist/StageAble -DestinationPath "dist/StageAble-${env:BUILD_PLATFORM}-${env:STAGEABLE_VERSION}.zip"
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: StageAble-${{ matrix.platform }}
+          path: dist/StageAble-*.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: StageAble-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum StageAble-*.zip > SHA256SUMS.txt
+
+      - name: Publish release with all distributions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS.txt \
+            --verify-tag --title "StageAble $RELEASE_TAG" --generate-notes
