@@ -3002,6 +3002,10 @@
     $viewX32.addEventListener("input", function (e) {
       const input = e.target.closest("input[data-x32-key]");
       if (!input || (input.type === "text" && !input.hasAttribute("data-x32-number"))) return;
+      if (input.hasAttribute("data-x32-number")) {
+        const value = Number(input.value.trim());
+        if (!Number.isFinite(value) || value < Number(input.dataset.min) || value > Number(input.dataset.max)) return;
+      }
       input.setCustomValidity("");
       $viewX32.querySelectorAll("input[data-x32-key]").forEach(function (other) {
         if (other !== input && other.dataset.x32Key === input.dataset.x32Key) other.value = input.value;
