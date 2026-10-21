@@ -742,12 +742,23 @@ To publish a release:
    ```
 
    Use a new version/tag for subsequent releases. The workflow rejects tags
-   that do not match `VERSION`.
+   that do not match `VERSION`. You can also create a release through GitHub's
+   **Releases → Draft a new release** page and create a new matching tag there.
 3. After all three builds and Django system checks succeed, the workflow
    publishes a GitHub Release with the three ZIPs, `SHA256SUMS.txt`, and generated
    release notes. It uses GitHub's automatic `GITHUB_TOKEN`; no personal token
    or self-hosted runner is required. Repository policies must allow Actions
    and the release job's `contents: write` permission.
+
+If the release already exists, the workflow uploads the ZIPs and checksums to
+it, replacing assets with the same names while preserving your release title,
+notes, and draft/prerelease status.
+
+If an older workflow failed with `a release with the same tag name already
+exists`, the builds are still available as artifacts on the failed Actions
+run. Download and extract the three artifacts, then attach the contained ZIPs
+to the existing release using **Edit release**. Re-running that old run uses
+the old workflow at the original commit, so it does not pick up this fix.
 
 For a build without publishing, use **Actions → Build and release → Run
 workflow**. Download the ZIPs from that run's artifacts (retained for 14 days).
