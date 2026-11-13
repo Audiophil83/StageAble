@@ -23,6 +23,7 @@ class AppSettingsSerializer(serializers.ModelSerializer):
         fields = [
             "ableton_osc_host",
             "x32_enabled",
+            "xlive_enabled",
             "x32_host",
             "sliding_animation_enabled",
             "sliding_animation_duration_ms",

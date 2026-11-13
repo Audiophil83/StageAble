@@ -60,6 +60,7 @@
           <button id="nav-performance" class="btn btn-nav-tab active" type="button" data-view="performance">Performance</button>
           <button id="nav-setlist" class="btn btn-nav-tab" type="button" data-view="setlist">Setlist</button>
           <button id="nav-mixer" class="btn btn-nav-tab" type="button" data-view="mixer">Mixer</button>
+          <button id="nav-xlive" class="btn btn-nav-tab" type="button" data-view="xlive" hidden>x-Live</button>
           <button id="nav-x32" class="btn btn-nav-tab" type="button" data-view="x32" hidden>X32</button>
           <button id="nav-rehearsal" class="btn btn-nav-tab" type="button" data-view="rehearsal">Rehearsal</button>
           <button id="nav-admin" class="btn btn-nav-tab" type="button" data-view="admin">Admin</button>
@@ -143,11 +144,14 @@
         <div id="auto-advance-info" class="auto-advance-info hidden"></div>
       </section>
 
+
       <!-- Setlist / Song List -->
       <section id="setlist-panel" class="panel">
         <h2>Songs</h2>
         <ul id="song-list" class="song-list"></ul>
       </section>
+
+      <section id="xlive-performance" class="panel xlive-controls" hidden><strong>X-Live · SD recording</strong><span class="xlive-transport-state" aria-live="polite">Unknown</span><div class="xlive-buttons"><button type="button" class="btn btn-secondary" data-xlive-action="record">Start Recording</button><button type="button" class="btn btn-secondary" data-xlive-action="stop">Stop Recording</button><button type="button" class="btn btn-secondary" data-xlive-action="addmarker">Add Marker</button></div></section>
 
       </div>
 
@@ -219,6 +223,21 @@
         </section>
       </div>
 
+      <div id="view-xlive" hidden>
+        <section class="panel xlive-controls">
+          <h2>X-Live · SD recorder</h2>
+          <p class="xlive-transport-state" aria-live="polite">Unknown</p>
+          <p id="xlive-message" role="status"></p>
+          <div class="xlive-buttons"><button type="button" class="btn btn-secondary" data-xlive-action="record">Start Recording</button><button type="button" class="btn btn-secondary" data-xlive-action="stop">Stop Recording</button><button type="button" class="btn btn-secondary" data-xlive-action="addmarker">Add Marker</button><button type="button" class="btn btn-secondary" data-xlive-action="play">Play</button><button type="button" class="btn btn-secondary" data-xlive-action="pause">Pause</button><button type="button" class="btn btn-secondary" data-xlive-action="clearalert">Clear alert</button></div>
+          <div id="xlive-preferences" class="xlive-buttons"></div>
+          <label>Position (milliseconds) <input id="xlive-position" type="number" min="0" max="86399999" value="0"></label>
+          <button type="button" class="btn btn-secondary" data-xlive-action="setposition">Seek</button>
+          <h3>Card & session status</h3><dl id="xlive-details"></dl>
+          <h3>Recordings on active SD card</h3><div id="xlive-sessions"></div>
+          <h3>Markers in selected session</h3><div id="xlive-markers"></div>
+          <button type="button" class="btn btn-stop" data-xlive-action="formatcard">Format active SD card…</button>
+        </section>
+      </div>
       <div id="view-x32" hidden>
         <nav id="x32-subnav" class="admin-subnav" aria-label="X32 sections">
           <button class="btn btn-nav-tab active" type="button" data-x32-panel="mixer">Mixer</button>
@@ -306,7 +325,7 @@
         <div id="admin-panel-projects">
         <section id="projects-panel" class="panel projects-panel">
           <h2>Projects</h2>
-          <p class="projects-intro">Stored Ableton projects StageAble has scanned. Each project keeps its own setlists and mixer presets.</p>
+          <p class="projects-intro">Stored Ableton projects StageAble has scanned. Each project keeps its own setlists and mixer presets. If the open set appears as an empty duplicate, use Recover saved project on the previously scanned entry with the same path.</p>
           <p id="projects-status" class="setlist-editor-status"></p>
           <ul id="project-list" class="project-list"></ul>
         </section>
@@ -334,6 +353,7 @@
                 <input id="setting-x32-host" name="x32_host" type="text" placeholder="192.168.1.100">
                 <p class="form-hint">OSC uses the X32 ETHERNET connection on UDP port 10023.</p>
               </div>
+              <div class="form-group"><label><input name="xlive_enabled" type="checkbox"> Enable X-Live SD recorder controls</label></div>
               <button id="btn-x32-test" class="btn btn-secondary" type="button">Test X32 connection</button>
             </fieldset>
             <div class="form-group form-group-checkbox">
@@ -414,6 +434,6 @@
   <div id="keep-awake-status" class="keep-awake-status hidden" role="status" aria-live="polite"></div>
 
   <script src="/static/js/keep-screen-awake.js?v=5"></script>
-  <script src="/static/app.js?v=34"></script>
+  <script src="/static/app.js?v=35"></script>
 </body>
 </html>

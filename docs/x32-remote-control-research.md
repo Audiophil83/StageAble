@@ -140,3 +140,52 @@ Console scenes and snippets can be exposed later as explicit recall actions. Sta
 
 Useful protocol references for the expansion work are Patrick-Gilles Maillot's [X32 OSC documentation and utilities](https://sites.google.com/site/patrickmaillot/x32), including the published [channel schema](https://github.com/pmaillot/X32-Behringer/blob/master/X32Channel.h), [headamp schema](https://github.com/pmaillot/X32-Behringer/blob/master/X32Headamp.h), and [FX schema](https://github.com/pmaillot/X32-Behringer/blob/master/X32Fx.h).
 
+
+## X-Live SD recorder
+
+Enable **X-Live SD recorder controls** in Preferences alongside the X32 connection.
+Unlocked clients see the **x-Live** tab and a separate
+**X-Live · SD recording** panel in Performance with Start Recording, Stop
+Recording, and Add Marker. These commands address the SD recorder only and do
+not send Ableton transport commands. No active Ableton project is required.
+
+The tab provides record, stop, play, pause, seek (milliseconds), active SD card,
+recording track count, playback source, routing mode, session selection/deletion,
+marker selection/addition/update/deletion, clear alert, and card formatting.
+Deletion and formatting require a browser confirmation. Existing WebSocket
+control locking applies to every mutation; the REST endpoint is read-only.
+
+### Protocol findings
+
+The supplied [MIDI table](https://behringer.world/mediawiki/index.php/X32_MIDI_Table)
+returned HTTP 403 during research. The implementation instead uses the existing
+OSC/UDP connection, with endpoints confirmed against Patrick-Gilles Maillot's
+[OSC protocol v4.02](https://www.z80ne.com/behringer/docs/X32-OSC%20v.4.0.pdf)
+(pp. 57, 66–71) and [protocol source](https://github.com/pmaillot/X32-Behringer/blob/master/X32PrefStat.h).
+
+- Recordings can be enumerated as sessions on the **active** SD card using
+  `/-urec/sessionmax` and `/-urec/session/001/name` through `100/name`.
+  This is session metadata, not a filesystem browser or audio download API.
+- The selected session exposes marker count and marker positions through
+  `/-urec/markermax` and `/-urec/marker/001/time` through `100/time`.
+  Reading lists does not automatically select sessions or change cards.
+- `/-stat/urec/state` reports stopped (0), paused (1), playing (2), recording (3).
+  Record uses value **3**, unlike the separate front-panel USB tape recorder.
+- `/-prefs/card/URECsdsel` selects/reports SD1 (0) or SD2 (1).
+- Other readable states include both SD card states and information strings,
+  elapsed/remaining time, selected session and marker, session length, sample
+  rate, track count, spanning/offset, battery state, error code/message, and
+  recording/playback/routing preferences.
+
+State is refreshed periodically by the server and updated from console feedback.
+Unanswered fields display Unknown; a missing list response is distinguished from
+an explicit zero count. Changing cards clears cached session/marker data;
+changing sessions clears markers. Offline controls remain visible but disabled,
+with an explicit Offline status. An OSC send is
+not treated as confirmation that recording started: the display follows console
+feedback. The checkbox is an explicit user opt-in, not automatic card detection.
+
+Validation covers command ranges, enable/connection guards, transport addresses,
+list queries and cache invalidation with a fake client. A real X-Live card is
+still required to verify firmware-specific query support, unsolicited updates,
+SD switching, spanning behavior, and recording/marker operation during a show.

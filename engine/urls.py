@@ -45,6 +45,7 @@ urlpatterns = [
         name="mixer-track-mute",
     ),
     path("settings/", views.app_settings, name="app-settings"),
+    path("x32/xlive/", views.x32_xlive, name="x32-xlive"),
     path("x32/status/", views.x32_status, name="x32-status"),
     path("x32/mixer/", views.x32_mixer, name="x32-mixer"),
     path("x32/control-events/", views.x32_control_events, name="x32-control-events"),

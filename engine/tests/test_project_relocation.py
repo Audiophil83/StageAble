@@ -231,3 +231,25 @@ class CueFingerprintTests(TestCase):
             compute_cue_fingerprint(cues),
             compute_cue_fingerprint(list(reversed(cues))),
         )
+
+
+class ExactPathRecognitionTests(TestCase):
+    def test_fallback_identity_is_repaired_by_exact_path_without_arrangement_probe(self):
+        project = ProjectCache.objects.create(identity='unsaved:unknown', file_path='/sets/Show.als')
+        setlist = Setlist.objects.create(project=project, name='Tonight')
+        resolved, relocated = resolve_or_relocate_project_record(
+            identity='/sets/Show.als', file_path='/sets/Show.als', name='Show')
+        self.assertTrue(relocated)
+        self.assertEqual(resolved.pk, project.pk)
+        self.assertEqual(resolved.identity, '/sets/Show.als')
+        self.assertEqual(ProjectCache.objects.exclude(identity="legacy:imported").count(), 1)
+        setlist.refresh_from_db()
+        self.assertEqual(setlist.project_id, project.pk)
+
+    def test_ambiguous_same_path_is_not_automatically_combined(self):
+        for identity in ('unsaved:first', 'unsaved:second'):
+            ProjectCache.objects.create(identity=identity, file_path='/sets/Show.als')
+        resolved, relocated = resolve_or_relocate_project_record(
+            identity='/sets/Show.als', file_path='/sets/Show.als')
+        self.assertFalse(relocated)
+        self.assertEqual(ProjectCache.objects.exclude(identity="legacy:imported").count(), 3)

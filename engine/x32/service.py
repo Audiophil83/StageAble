@@ -42,6 +42,8 @@ class X32Service:
         self._model = ""
         self._firmware = ""
         self._live: dict[str, int | float | str] = {}
+        self._xlive = {}
+        self._xlive_enabled = False
         self._headamps = {}
         self._phantom = {}
         self._meters = [0.0] * 32
@@ -67,6 +69,10 @@ class X32Service:
         from ..config import get_app_settings_model
 
         settings = get_app_settings_model()
+        with self._lock:
+            self._xlive_enabled = settings.xlive_enabled
+            if not self._xlive_enabled:
+                self._xlive = {}
         self.configure(settings.x32_enabled, settings.x32_host)
 
     def start(self) -> None:
@@ -87,6 +93,7 @@ class X32Service:
             client, self._client = self._client, None
             self._online = False
             self._live = {}
+            self._xlive = {}
             self._headamps = {}
             self._phantom = {}
             self._meters = [0.0] * 32
@@ -101,12 +108,56 @@ class X32Service:
         with self._lock:
             return {
                 "enabled": self._enabled,
+                "xlive_enabled": self._xlive_enabled,
                 "host": self._host,
                 "online": self._online,
                 "model": self._model,
                 "firmware": self._firmware,
                 "coverage": coverage(),
             }
+
+    def xlive_state(self):
+        with self._lock:
+            values = dict(self._xlive) if self._online and self._xlive_enabled else {}
+        def rows(kind, field):
+            count = values.get(f"/-urec/{kind}max")
+            if not isinstance(count, int):
+                return []
+            return [{"index": i, field: values.get(f"/-urec/{kind}/{i:03d}/{field}")}
+                    for i in range(1, min(100, max(0, count)) + 1)]
+        return {"status": self.status(), "values": values,
+                "sessions": rows("session", "name"), "markers": rows("marker", "time")}
+
+    def refresh_xlive(self):
+        from .xlive import STATE_ADDRESSES
+        if not self._xlive_enabled or not self._online:
+            return
+        client = self._require_client()
+        with self._io_lock:
+            replies = client.query_many(STATE_ADDRESSES, timeout=0.3, chunk_size=32)
+            for address, value in replies.items():
+                self._on_update(address, value)
+            addresses = []
+            for kind, field in (("session", "name"), ("marker", "time")):
+                count = replies.get(f"/-urec/{kind}max")
+                if isinstance(count, int):
+                    addresses += [f"/-urec/{kind}/{i:03d}/{field}" for i in range(1, min(100, max(0, count)) + 1)]
+            for address, value in client.query_many(addresses, timeout=0.3).items():
+                self._on_update(address, value)
+
+    def xlive_command(self, action, value=None):
+        from .xlive import COMMANDS
+        self._require_online()
+        if not self._xlive_enabled:
+            raise X32Error("Enable X-Live in settings first")
+        if not isinstance(action, str) or action not in COMMANDS:
+            raise X32Error("Unknown X-Live command")
+        address, fixed, low, high = COMMANDS[action]
+        value = fixed if fixed is not None else value
+        if type(value) is not int or not low <= value <= high:
+            raise X32Error(f"X-Live value must be an integer from {low} to {high}")
+        self._require_client().send(address, value)
+        return {"sent": action}
 
     def test_connection(self) -> dict[str, Any]:
         self._require_enabled()
@@ -411,12 +462,15 @@ class X32Service:
             now = time.monotonic()
             try:
                 client.send("/xremote")
+                self.refresh_xlive()
                 client.send("/meters", "meters/1")
                 if now >= next_probe:
                     reply = client.query("/info", timeout=0.8)
                     online = isinstance(reply, list) and len(reply) >= 4
                     with self._lock:
                         self._online = online
+                        if not online:
+                            self._xlive = {}
                         if online:
                             self._model = str(reply[2])
                             self._firmware = str(reply[3])
@@ -433,6 +487,15 @@ class X32Service:
             time.sleep(4.0)
 
     def _on_update(self, address: str, value: Any) -> None:
+        if address.startswith(("/-urec/", "/-stat/urec/", "/-prefs/card/UREC")):
+            with self._lock:
+                # Lists belong to the selected card/session; discard stale entries on change.
+                if address == "/-prefs/card/URECsdsel" and self._xlive.get(address) != value:
+                    self._xlive = {}
+                if address == "/-urec/sessionpos" and self._xlive.get(address) != value:
+                    self._xlive = {k: v for k, v in self._xlive.items() if not k.startswith("/-urec/marker")}
+                self._xlive[address] = value
+            return
         if address == "/meters/1" and isinstance(value, (bytes, bytearray)):
             self._decode_meters(value)
             return

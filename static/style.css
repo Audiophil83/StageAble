@@ -1766,3 +1766,11 @@ body.fullscreen-mode .song-list li {
   text-decoration: underline;
 }
 
+
+/* Separate hardware SD transport from Ableton controls. */
+.xlive-controls { border-left: 4px solid #d98564; margin-top: 18px; }
+.xlive-buttons, .xlive-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+.xlive-controls strong { margin-right: 18px; color: #e6a48a; }
+#xlive-details { display: grid; grid-template-columns: minmax(130px, 1fr) 2fr; gap: 6px 16px; }
+#xlive-details dd { margin: 0; overflow-wrap: anywhere; }
+.xlive-transport-state { color: #e6a48a; }

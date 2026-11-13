@@ -758,6 +758,7 @@
           applyMixerTracks(msg.tracks);
         }
       } else if (msg.type === "x32_ack") {
+        if (msg.command === "x32_xlive") document.getElementById("xlive-message").textContent = "Command sent; waiting for console state.";
         if (msg.command === "x32_test") {
           const result = msg.data || {};
           const identity = [result.model || "X32", result.firmware || ""]
@@ -788,6 +789,7 @@
           syncMixerFromState();
           setMixerStatus(msg.message, "error");
         }
+        if (msg.command === "x32_xlive") document.getElementById("xlive-message").textContent = msg.message;
         if (currentView === "x32") setX32Status(msg.message, "error");
         if (msg.command === "x32_test") setSettingsStatus(msg.message, "error");
       } else if (msg.type === "lock_state") {
@@ -1190,6 +1192,17 @@
         deleteProject(project);
       });
 
+      const activeDuplicate = savedProjects.find(function (item) { return item.is_active; });
+      if (!project.is_active && project.scanned_at && project.file_path && activeDuplicate &&
+          activeDuplicate.file_path === project.file_path && !activeDuplicate.scanned_at) {
+        const btnRecover = document.createElement("button");
+        btnRecover.className = "btn btn-play";
+        btnRecover.type = "button";
+        btnRecover.textContent = "Recover saved project";
+        btnRecover.addEventListener("click", function () { recoverProject(project, activeDuplicate); });
+        actions.appendChild(btnRecover);
+      }
+
       actions.appendChild(btnRename);
       actions.appendChild(btnDelete);
       row.appendChild(actions);
@@ -1199,6 +1212,23 @@
       }
 
       $projectList.appendChild(row);
+    });
+  }
+
+  function recoverProject(project, duplicate) {
+    if (clientLocked) return;
+    if (!confirm('Recover "' + project.display_name + '" for the open Live set?\n\nRestore its saved scan, ' +
+        project.setlist_count + ' setlist(s), and ' + project.mixer_preset_count +
+        ' mixer preset(s). Only the empty duplicate entry will be removed. Ableton playback will continue.')) return;
+    setProjectsStatus("Recovering saved project…", "");
+    apiFetch("/api/projects/" + project.id + "/recover/", {
+      method: "POST", body: {active_project_id: duplicate.id},
+    }).then(function () {
+      return Promise.all([fetchProjects(), fetchSetlists(), fetchMixerPresets(), loadCachedArrangement()]);
+    }).then(function () {
+      setProjectsStatus("Saved project recovered. Its scan, setlists, and mixer presets are available again.", "success");
+    }).catch(function (err) {
+      setProjectsStatus(err && typeof err === "object" ? Object.values(err).flat().join(" ") : "Recovery failed", "error");
     });
   }
 
@@ -1626,6 +1656,7 @@
   function populateSettingsForm() {
     if (!$settingsForm || !appSettings) return;
     $settingsForm.ableton_osc_host.value = appSettings.ableton_osc_host || "";
+    $settingsForm.xlive_enabled.checked = appSettings.xlive_enabled === true;
     if ($settingsForm.x32_enabled) {
       $settingsForm.x32_enabled.checked = appSettings.x32_enabled === true;
     }
@@ -1719,6 +1750,8 @@
     const isSetlist = view === "setlist";
     const isMixer = view === "mixer";
     const isX32 = view === "x32";
+    document.getElementById("view-xlive").hidden = view !== "xlive";
+    document.getElementById("nav-xlive").classList.toggle("active", view === "xlive");
     const isRehearsal = view === "rehearsal";
     const isAdmin = view === "admin";
 
@@ -1773,6 +1806,9 @@
     if (isX32) {
       fetchX32Data();
       startX32Polling();
+    } else if (appSettings.x32_enabled && appSettings.xlive_enabled) {
+      fetchX32Data();
+      startX32Polling();
     } else {
       stopX32Polling();
     }
@@ -1792,6 +1828,7 @@
   }
 
   function applyLockState() {
+    renderXLiveAvailability();
     if ($btnLock) {
       $btnLock.classList.toggle("is-unlocked", !clientLocked);
       $btnLock.title = clientLocked ? "Unlock controls" : "Lock controls";
@@ -2301,7 +2338,68 @@
 
   // ── X32 ─────────────────────────────────────────────────────────
 
+  let xliveData = { status: {}, values: {}, sessions: [], markers: [] };
+  let xliveFetching = false;
+  function renderXLiveAvailability() {
+    const visible = appSettings.x32_enabled === true && appSettings.xlive_enabled === true;
+    const online = xliveData.status.online === true;
+    document.getElementById("nav-xlive").hidden = !visible || clientLocked;
+    document.getElementById("xlive-performance").hidden = !visible || clientLocked;
+    document.querySelectorAll("[data-xlive-action], [data-xlive-pref], #xlive-position").forEach(function (el) { el.disabled = !visible || !online || clientLocked; });
+    const transport = online
+      ? (["Stopped", "Paused", "Playing", "Recording"][(xliveData.values || {})["/-stat/urec/state"]] || "Unknown · waiting for X-Live response")
+      : "Offline · connect X32 to use X-Live controls";
+    document.querySelectorAll(".xlive-transport-state").forEach(function (el) { el.textContent = transport; });
+    if ((!visible || clientLocked) && currentView === "xlive") setView("performance");
+  }
+  function fetchXLive() {
+    if (!appSettings.xlive_enabled || xliveFetching) { renderXLiveAvailability(); return; }
+    xliveFetching = true;
+    apiFetch("/api/x32/xlive/").then(function (data) {
+      xliveData = data;
+      renderXLiveAvailability();
+      const v = data.values || {};
+      const labels = {sessionlen: "Session length (ms)", sessionpos: "Selected session", markerpos: "Selected marker", tracks: "Session tracks", sessionmax: "Recordings", markermax: "Markers", sessionoffs: "Span offset (ms)", sd1info: "SD 1", sd2info: "SD 2", errormessage: "Error", errorcode: "Error code"};
+      let details = "";
+      function detail(label, value) { details += "<dt>" + escHtml(label) + "</dt><dd>" + escHtml(value == null ? "Unknown" : String(value)) + "</dd>"; }
+      Object.keys(labels).forEach(function (key) { detail(labels[key], v["/-urec/" + key]); });
+      detail("Elapsed (ms)", v["/-stat/urec/etime"]); detail("Remaining (ms)", v["/-stat/urec/rtime"]);
+      detail("Battery", ["None", "Good", "Low"][v["/-urec/batterystate"]]);
+      detail("Sample rate", ["44.1 kHz", "48 kHz"][v["/-urec/srate"]]);
+      detail("Spanning", ["None", "Part 1 of 2", "Part 2 of 2", "Jump to part 2"][v["/-urec/sessionspan"]]);
+      [1, 2].forEach(function (i) { detail("SD " + i + " state", ["No card", "Ready", "Protected", "Error"][v["/-urec/sd" + i + "state"]]); });
+      document.getElementById("xlive-details").innerHTML = details;
+      const prefs = {sdsel: ["Active SD card", "SD 1", "SD 2"], tracks: ["Recording tracks", "32", "16", "8"], playb: ["Playback source", "SD", "USB"], rout: ["Routing", "Record", "Play", "Auto"]};
+      if (!document.getElementById("xlive-preferences").contains(document.activeElement)) {
+        document.getElementById("xlive-preferences").innerHTML = Object.keys(prefs).map(function (key) {
+          return "<label>" + prefs[key][0] + ' <select data-xlive-pref="' + key + '"><option value="">Unknown</option>' + prefs[key].slice(1).map(function (label, i) { return '<option value="' + i + '"' + (v["/-prefs/card/UREC" + key] === i ? " selected" : "") + '>' + label + '</option>'; }).join("") + "</select></label>";
+        }).join("");
+      }
+      function button(action, i, label) { return '<button type="button" class="btn btn-secondary" data-xlive-action="' + action + '" data-value="' + i + '">' + label + '</button>'; }
+      document.getElementById("xlive-sessions").innerHTML = data.sessions.map(function (row) { return '<div class="xlive-row">' + escHtml(row.index + ". " + (row.name == null ? "Waiting for name…" : row.name)) + button("selsession", row.index, "Select") + button("delsession", row.index, "Delete…") + '</div>'; }).join("") || (v["/-urec/sessionmax"] === 0 ? "No recordings." : "Waiting for recording list…");
+      document.getElementById("xlive-markers").innerHTML = data.markers.map(function (row) { return '<div class="xlive-row">' + escHtml(row.index + ". " + (row.time == null ? "Unknown" : row.time + " ms")) + button("selmarker", row.index, "Go to") + button("savemarker", row.index, "Update position") + button("delmarker", row.index, "Delete…") + '</div>'; }).join("") || (v["/-urec/markermax"] === 0 ? "No markers." : "Waiting for marker list…");
+      renderXLiveAvailability();
+    }).catch(function () {
+      xliveData.status.online = false; renderXLiveAvailability();
+    }).finally(function () { xliveFetching = false; });
+  }
+  document.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-xlive-action]");
+    if (!button || button.disabled || clientLocked) return;
+    const action = button.dataset.xliveAction;
+    if (["formatcard", "delsession", "delmarker"].includes(action) && !window.confirm(action === "formatcard" ? "Erase ALL recordings on the active SD card?" : "Delete this X-Live item?")) return;
+    const value = action === "setposition" ? Number(document.getElementById("xlive-position").value) : Number(button.dataset.value);
+    document.getElementById("xlive-message").textContent = "Sending command…";
+    sendX32("x32_xlive", {action: action, value: value});
+  });
+  document.addEventListener("change", function (event) {
+    if (event.target.matches("[data-xlive-pref]") && !event.target.disabled && event.target.value !== "" && !clientLocked) sendX32("x32_xlive", {action: event.target.dataset.xlivePref, value: Number(event.target.value)});
+  });
+
   function updateX32Availability() {
+    renderXLiveAvailability();
+    if (appSettings.x32_enabled && appSettings.xlive_enabled) { fetchX32Data(); startX32Polling(); }
+
     if ($navX32) {
       $navX32.hidden = clientLocked || appSettings.x32_enabled !== true;
     }
@@ -2330,6 +2428,7 @@
 
   function fetchX32Data() {
     if (appSettings.x32_enabled !== true) return Promise.resolve();
+    fetchXLive();
     return Promise.all([
       apiFetch("/api/x32/mixer/"),
       apiFetch("/api/x32/control-events/").catch(function () { return null; }),
@@ -2367,6 +2466,7 @@
   }
 
   function renderX32() {
+    renderXLiveAvailability();
     const status = x32Mixer.status || {};
     if ($x32ConnectionStatus) {
       $x32ConnectionStatus.textContent = status.online
@@ -3055,6 +3155,7 @@
     const payload = {
       ableton_osc_host: $settingsForm.ableton_osc_host.value.trim(),
       x32_enabled: !!$settingsForm.x32_enabled.checked,
+      xlive_enabled: !!$settingsForm.xlive_enabled.checked,
       x32_host: $settingsForm.x32_host.value.trim(),
       sliding_animation_enabled: !!$settingsForm.sliding_animation_enabled.checked,
       sliding_animation_duration_ms: Number.isFinite(durationRaw)

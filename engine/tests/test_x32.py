@@ -192,3 +192,64 @@ class X32DesktopTests(TestCase):
         with patch('engine.x32.desktop.editor_command', return_value=['open', '/Applications/X32-Edit.app']), patch('engine.x32.desktop.subprocess.Popen') as launch:
             self.assertTrue(open_editor('::1')['opened'])
         launch.assert_called_once_with(['open', '/Applications/X32-Edit.app'], shell=False)
+
+
+class XLiveTests(TestCase):
+    def setUp(self):
+        self.service = X32Service()
+        self.client = FakeX32Client()
+        self.service._client = self.client
+        self.service._enabled = self.service._online = self.service._xlive_enabled = True
+
+    def test_transport_uses_sd_recorder_and_never_usb_tape(self):
+        for action, value in (("record", 3), ("stop", 0), ("play", 2), ("pause", 1)):
+            self.service.xlive_command(action)
+            self.assertEqual(self.client.sent[-1], ("/-stat/urec/state", (value,)))
+        self.service.xlive_command("addmarker")
+        self.assertEqual(self.client.sent[-1], ("/-action/addmarker", (1,)))
+        self.assertNotIn("/-stat/urec/state", self.service.xlive_state()["values"])
+
+    def test_disabled_offline_and_invalid_commands_do_not_send(self):
+        for action, value in (("invalid", 1), ("selsession", 0), ("selmarker", 101),
+                              ("setposition", -1), ("sdsel", 2), ("tracks", True),
+                              ("setposition", 1.5), ("selsession", "1")):
+            with self.assertRaises(X32Error):
+                self.service.xlive_command(action, value)
+        self.service._xlive_enabled = False
+        with self.assertRaises(X32Error):
+            self.service.xlive_command("record")
+        self.service._xlive_enabled = True
+        self.service._online = False
+        with self.assertRaises(X32Error):
+            self.service.xlive_command("record")
+        self.assertEqual(self.client.sent, [])
+
+    def test_session_and_marker_lists_include_unknown_values(self):
+        for address, value in {"/-urec/sessionmax": 2, "/-urec/session/001/name": "Show",
+                               "/-urec/markermax": 1, "/-urec/marker/001/time": 1234}.items():
+            self.service._on_update(address, value)
+        result = self.service.xlive_state()
+        self.assertEqual(result["sessions"], [{"index": 1, "name": "Show"}, {"index": 2, "name": None}])
+        self.assertEqual(result["markers"], [{"index": 1, "time": 1234}])
+        self.service._online = False
+        self.assertEqual(self.service.xlive_state()["sessions"], [])
+
+    def test_card_and_session_switches_clear_stale_lists(self):
+        self.service._on_update("/-prefs/card/URECsdsel", 0)
+        self.service._on_update("/-urec/sessionpos", 1)
+        self.service._on_update("/-urec/markermax", 1)
+        self.service._on_update("/-urec/marker/001/time", 1000)
+        self.service._on_update("/-urec/sessionpos", 2)
+        self.assertEqual(self.service.xlive_state()["markers"], [])
+        self.service._on_update("/-urec/sessionmax", 1)
+        self.service._on_update("/-urec/session/001/name", "Old card")
+        self.service._on_update("/-prefs/card/URECsdsel", 1)
+        self.assertEqual(self.service.xlive_state()["sessions"], [])
+
+    def test_refresh_queries_existing_entries_without_selecting_sessions(self):
+        self.client.values.update({"/-prefs/card/URECsdsel": 0, "/-urec/sessionmax": 1,
+            "/-urec/markermax": 1, "/-urec/session/001/name": "Live", "/-urec/marker/001/time": 500})
+        self.service.refresh_xlive()
+        self.assertEqual(self.service.xlive_state()["sessions"], [{"index": 1, "name": "Live"}])
+        self.assertEqual(self.service.xlive_state()["markers"], [{"index": 1, "time": 500}])
+        self.assertEqual(self.client.sent, [])

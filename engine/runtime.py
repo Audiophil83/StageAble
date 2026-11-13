@@ -833,6 +833,22 @@ class RuntimeEngine:
             in_memory_timeline=in_memory_timeline,
         )
 
+    def recover_stored_project(self, source_id: int, duplicate_id: int):
+        """Restore cached application state without touching Ableton transport."""
+        from .project_cache import recover_project_record, _cache_payload_from_row
+
+        with self._scan_lock, self._lock:
+            active = self.state.active_project
+            if not active or active.get("id") != duplicate_id:
+                raise ValueError("The active project changed. Refresh the project list and try again.")
+            project = recover_project_record(source_id=source_id, duplicate_id=duplicate_id)
+            self._current_project_identity = project.identity
+            self._suppressed_project_identities.discard(project.identity)
+            apply_cache_payload_to_state(self.state, _cache_payload_from_row(project))
+            self.reload_active_setlist(broadcast=False)
+        self.notify_state_changed()
+        return project
+
     def forget_stored_project(self, identity: str) -> None:
         """Stop treating *identity* as a stored project until the user rescans.
 

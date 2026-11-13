@@ -197,7 +197,9 @@ class EngineConsumer(AsyncJsonWebsocketConsumer):
         project = engine_state.active_project
         project_id = project.get("id") if project else None
         service = get_x32_service()
-        if cmd == "x32_open_editor":
+        if cmd == "x32_xlive":
+            result = await sync_to_async(service.xlive_command, thread_sensitive=False)(content.get("action"), content.get("value"))
+        elif cmd == "x32_open_editor":
             from .x32.desktop import open_editor
             result = await sync_to_async(open_editor, thread_sensitive=False)(self.scope.get("client", ("",))[0])
         elif cmd == "x32_phantom":

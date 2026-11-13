@@ -16,6 +16,7 @@ class AppSettings(models.Model):
 
     ableton_osc_host = models.CharField(max_length=255, default="127.0.0.1")
     x32_enabled = models.BooleanField(default=False)
+    xlive_enabled = models.BooleanField(default=False)
     x32_host = models.CharField(max_length=255, blank=True, default="")
     sliding_animation_enabled = models.BooleanField(
         default=False,

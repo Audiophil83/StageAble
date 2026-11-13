@@ -249,6 +249,13 @@ def mixer_track_mute(request, track_index: int):
 
 
 @api_view(["GET"])
+def x32_xlive(request):
+    from .x32 import get_x32_service
+
+    return Response(get_x32_service().xlive_state())
+
+
+@api_view(["GET"])
 def x32_status(request):
     from .x32 import get_x32_service
 
@@ -450,6 +457,23 @@ class ProjectViewSet(
 
         # Suppress auto-recreation while Ableton still has this Live set open.
         get_engine().forget_stored_project(identity)
+
+    @action(detail=True, methods=["post"])
+    def recover(self, request, pk=None):
+        """Recover this saved project in place of the active empty duplicate."""
+        project = self.get_object()
+        duplicate_id = request.data.get("active_project_id")
+        if type(duplicate_id) is not int:
+            raise ValidationError({"active_project_id": "Provide the active duplicate project ID."})
+        from .runtime import get_engine
+
+        try:
+            recovered = get_engine().recover_stored_project(project.pk, duplicate_id)
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)})
+        return Response(ProjectCacheSerializer(
+            recovered, context={"active_project_id": _active_project_id()}
+        ).data)
 
     @action(detail=True, methods=["post"])
     def rename(self, request, pk=None):

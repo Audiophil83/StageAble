@@ -199,3 +199,79 @@ class ProjectApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(engine_state.active_project["file_path"], "/new/Show.als")
         self.assertEqual(engine_state.active_project["identity"], "/new/Show.als")
+
+
+class ProjectRecoveryApiTests(TestCase):
+    def setUp(self):
+        from django.utils import timezone
+        from engine.project_cache import project_to_state_dict
+        self.client = APIClient()
+        self.path = '/sets/Show.als'
+        self.saved = ProjectCache.objects.create(
+            identity='unsaved:unknown', name='Show', file_path=self.path,
+            scanned_at=timezone.now(), timeline_data=_sample_timeline_data(),
+        )
+        self.duplicate = ProjectCache.objects.create(identity=self.path, file_path=self.path)
+        self.setlist = Setlist.objects.create(project=self.saved, name='Tonight', is_active=True)
+        self.preset = MixerPreset.objects.create(project=self.saved, name='Live', tracks=[])
+        settings, _ = AppSettings.objects.get_or_create(pk=1)
+        settings.last_active_project = self.duplicate
+        settings.save()
+        engine_state.update(active_project=project_to_state_dict(self.duplicate), timeline=None)
+
+    def tearDown(self):
+        engine_state.update(active_project=None, timeline=None, active_setlist=None)
+
+    def recover(self, **data):
+        return self.client.post(reverse('project-recover', kwargs={'pk': self.saved.pk}),
+            data or {'active_project_id': self.duplicate.pk}, format='json')
+
+    def test_recovery_keeps_original_ids_and_restores_runtime_without_transport(self):
+        from unittest.mock import patch
+        from engine.runtime import get_engine
+        engine = get_engine()
+        with patch.object(engine.osc, 'send') as send:
+            response = self.recover()
+        self.assertEqual(response.status_code, 200, response.data)
+        send.assert_not_called()
+        self.saved.refresh_from_db()
+        self.setlist.refresh_from_db()
+        self.preset.refresh_from_db()
+        self.assertEqual(self.saved.identity, self.path)
+        self.assertEqual(self.setlist.project_id, self.saved.pk)
+        self.assertEqual(self.preset.project_id, self.saved.pk)
+        self.assertFalse(ProjectCache.objects.filter(pk=self.duplicate.pk).exists())
+        self.assertEqual(AppSettings.objects.get(pk=1).last_active_project_id, self.saved.pk)
+        self.assertEqual(engine_state.active_project['id'], self.saved.pk)
+        self.assertIsNotNone(engine_state.timeline)
+        self.assertEqual(engine_state.active_setlist['id'], self.setlist.pk)
+        self.assertEqual(engine._current_project_identity, self.path)
+        self.assertEqual(self.client.get(reverse('mixer-preset-list')).data[0]['id'], self.preset.pk)
+
+    def test_recovery_rejects_duplicate_with_user_data_and_leaves_everything_intact(self):
+        Setlist.objects.create(project=self.duplicate, name='Do not delete')
+        response = self.recover()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(ProjectCache.objects.exclude(identity="legacy:imported").count(), 2)
+        self.saved.refresh_from_db()
+        self.assertEqual(self.saved.identity, 'unsaved:unknown')
+        self.assertEqual(Setlist.objects.count(), 2)
+
+    def test_recovery_rejects_duplicate_with_scan_or_x32_data(self):
+        from engine.models import X32CaptureState
+        capture = X32CaptureState.objects.create(project=self.duplicate)
+        self.assertEqual(self.recover().status_code, 400)
+        capture.delete()
+        self.duplicate.timeline_data = _sample_timeline_data()
+        self.duplicate.save()
+        self.assertEqual(self.recover().status_code, 400)
+        self.assertEqual(ProjectCache.objects.exclude(identity="legacy:imported").count(), 2)
+
+    def test_recovery_rejects_changed_active_project_different_paths_and_invalid_ids(self):
+        self.assertEqual(self.recover(active_project_id='invalid').status_code, 400)
+        self.duplicate.file_path = '/sets/Other.als'
+        self.duplicate.save()
+        self.assertEqual(self.recover().status_code, 400)
+        engine_state.update(active_project=None)
+        self.assertEqual(self.recover().status_code, 400)
+        self.assertEqual(ProjectCache.objects.exclude(identity="legacy:imported").count(), 2)

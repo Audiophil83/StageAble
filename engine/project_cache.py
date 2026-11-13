@@ -131,6 +131,13 @@ def find_relocation_candidate(
         if ProjectCache.objects.filter(identity=new_identity).exists():
             return None
 
+        # A saved path is stronger evidence than an old fallback lookup key.
+        # Only use an unambiguous exact path; names alone are never sufficient.
+        if new_file_path:
+            path_matches = list(ProjectCache.objects.filter(file_path=new_file_path)[:2])
+            if len(path_matches) == 1:
+                return path_matches[0]
+
         previous: ProjectCache | None = None
         if previous_identity and previous_identity != new_identity:
             previous = ProjectCache.objects.filter(identity=previous_identity).first()
@@ -248,6 +255,46 @@ def resolve_or_relocate_project_record(
         )
     finally:
         close_old_connections()
+
+
+def recover_project_record(*, source_id: int, duplicate_id: int) -> ProjectCache:
+    """Reclaim a path from an empty duplicate without moving saved user data.
+
+    Keep the original row and all its foreign keys. Only an entirely empty,
+    same-path duplicate can be removed. Any validation failure rolls back.
+    """
+    from django.db import transaction
+
+    with transaction.atomic():
+        records = {p.pk: p for p in ProjectCache.objects.select_for_update().filter(
+            pk__in=[source_id, duplicate_id]
+        )}
+        source, duplicate = records.get(source_id), records.get(duplicate_id)
+        if source is None or duplicate is None or source_id == duplicate_id:
+            raise ValueError("Select two different existing project records.")
+        if not source.file_path or source.file_path != duplicate.file_path:
+            raise ValueError("Recovery requires exactly the same saved Live set path.")
+        if duplicate.identity != compute_project_identity(source.file_path, source.name):
+            raise ValueError("The duplicate does not own the saved file path identity.")
+        if not source.scanned_at or not source.timeline_data:
+            raise ValueError("The selected project has no saved scan to recover.")
+        if (duplicate.scanned_at or duplicate.timeline_data or duplicate.cue_points
+                or duplicate.mixer_tracks or duplicate.arrangement_fingerprint
+                or duplicate.timeline_errors or duplicate.is_valid):
+            raise ValueError("The active project has scan data; recovery will not overwrite it.")
+        # Include future project-owned relations, not only setlists and presets.
+        for relation in ProjectCache._meta.related_objects:
+            if relation.related_model is AppSettings:
+                continue
+            if relation.related_model.objects.filter(**{relation.field.name: duplicate}).exists():
+                raise ValueError("The active project has saved data; recovery will not delete or merge it.")
+        identity = duplicate.identity
+        AppSettings.objects.filter(last_active_project=duplicate).update(last_active_project=source)
+        duplicate.delete()
+        source.identity = identity
+        source.save(update_fields=["identity", "updated_at"])
+        logger.info("Recovered project %s from empty duplicate %s", source.pk, duplicate_id)
+        return source
 
 
 def project_to_state_dict(project: ProjectCache) -> dict[str, Any]:
