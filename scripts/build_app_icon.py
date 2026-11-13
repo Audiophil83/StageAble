@@ -35,21 +35,35 @@ ICONSET = ASSETS / "StageAble.iconset"
 
 
 def draw_mark(image: Image.Image, box: tuple[int, int, int, int], fill) -> None:
-    """Two cue bars and a play triangle, readable even at menu bar size."""
+    """Four vertical bars and four stripes clipped to a symmetric play shape.
+
+    Draw both groups on the same grid so their thickness and height match.
+    """
     draw = ImageDraw.Draw(image)
     x, y, width, height = box
-    for offset in (0, 0.21):
-        left = x + round(width * offset)
-        draw.rounded_rectangle(
-            (left, y, left + round(width * 0.10), y + height),
-            radius=round(width * 0.04), fill=fill,
+    scale = min(width / 720, height / 420)
+    ox = x + (width - 720 * scale) / 2
+    oy = y + (height - 420 * scale) / 2
+
+    def polygon(points):
+        draw.polygon(
+            [(round(ox + px * scale), round(oy + py * scale))
+             for px, py in points], fill=fill,
         )
-    draw.polygon(
-        [(x + round(width * 0.45), y),
-         (x + width, y + height // 2),
-         (x + round(width * 0.45), y + height)],
-        fill=fill,
-    )
+
+    for index in range(4):
+        left = index * 100
+        polygon([(left, 0), (left + 60, 0),
+                 (left + 60, 420), (left, 420)])
+
+    def right_edge(py):
+        return 420 + 300 * (1 - abs(py - 210) / 210)
+
+    for index in range(4):
+        top = index * 120
+        bottom = top + 60
+        polygon([(420, top), (right_edge(top), top),
+                 (right_edge(bottom), bottom), (420, bottom)])
 
 
 def build_master() -> Image.Image:
@@ -57,7 +71,7 @@ def build_master() -> Image.Image:
     ImageDraw.Draw(image).rounded_rectangle(
         (32, 32, 992, 992), radius=216, fill="#20212b",
     )
-    draw_mark(image, (256, 304, 512, 416), "#ffffff")
+    draw_mark(image, (192, 325, 640, 374), "#ffffff")
     return image
 
 
@@ -65,7 +79,7 @@ def write_menu_bar_icon() -> None:
     # 2x artwork; rumps displays this at 20 points. Only alpha defines a
     # template image, letting AppKit choose the appropriate foreground color.
     image = Image.new("RGBA", (320, 320))
-    draw_mark(image, (40, 56, 240, 208), "#000000")
+    draw_mark(image, (16, 76, 288, 168), "#000000")
     image.resize((40, 40), Image.Resampling.LANCZOS).save(
         ASSETS / "menu-bar-template.png"
     )

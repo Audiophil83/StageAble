@@ -19,7 +19,7 @@ COMMIT_HEADER = re.compile(
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class Version:
     major: int
     minor: int
