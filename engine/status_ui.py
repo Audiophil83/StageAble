@@ -20,8 +20,8 @@ if TYPE_CHECKING:
 
 def app_icon_path() -> Path:
     if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "assets" / "app-icon.png"
-    return Path(__file__).resolve().parent.parent / "assets" / "app-icon.png"
+        return Path(sys._MEIPASS) / "assets" / "menu-bar-template.png"
+    return Path(__file__).resolve().parent.parent / "assets" / "menu-bar-template.png"
 
 
 def copy_to_clipboard(text: str) -> None:
@@ -45,6 +45,7 @@ class StageableStatusApp(rumps.App):
         super().__init__(
             "StageAble",
             icon=str(icon) if icon.exists() else None,
+            template=True,
             quit_button=None,
         )
         self.url = url

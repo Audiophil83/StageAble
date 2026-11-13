@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build app icons and favicons from assets/StageAble.png.
+Build app icons and favicons from a simple, reproducible playback mark.
 
 Outputs:
   assets/StageAble.icns          macOS app bundle icon
@@ -23,7 +23,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
@@ -32,6 +32,43 @@ DEFAULT_SOURCE = ASSETS / "StageAble.png"
 OUT_ICNS = ASSETS / "StageAble.icns"
 OUT_APP_ICON = ASSETS / "app-icon.png"
 ICONSET = ASSETS / "StageAble.iconset"
+
+
+def draw_mark(image: Image.Image, box: tuple[int, int, int, int], fill) -> None:
+    """Two cue bars and a play triangle, readable even at menu bar size."""
+    draw = ImageDraw.Draw(image)
+    x, y, width, height = box
+    for offset in (0, 0.21):
+        left = x + round(width * offset)
+        draw.rounded_rectangle(
+            (left, y, left + round(width * 0.10), y + height),
+            radius=round(width * 0.04), fill=fill,
+        )
+    draw.polygon(
+        [(x + round(width * 0.45), y),
+         (x + width, y + height // 2),
+         (x + round(width * 0.45), y + height)],
+        fill=fill,
+    )
+
+
+def build_master() -> Image.Image:
+    image = Image.new("RGBA", (1024, 1024))
+    ImageDraw.Draw(image).rounded_rectangle(
+        (32, 32, 992, 992), radius=216, fill="#20212b",
+    )
+    draw_mark(image, (256, 304, 512, 416), "#ffffff")
+    return image
+
+
+def write_menu_bar_icon() -> None:
+    # 2x artwork; rumps displays this at 20 points. Only alpha defines a
+    # template image, letting AppKit choose the appropriate foreground color.
+    image = Image.new("RGBA", (320, 320))
+    draw_mark(image, (40, 56, 240, 208), "#000000")
+    image.resize((40, 40), Image.Resampling.LANCZOS).save(
+        ASSETS / "menu-bar-template.png"
+    )
 
 
 def load_square(source: Path) -> Image.Image:
@@ -89,15 +126,18 @@ def write_favicons(master: Image.Image) -> None:
 
 
 def main() -> int:
-    source = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SOURCE
-    if not source.exists():
+    source = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+    if source is not None and not source.exists():
         print(f"Source not found: {source}", file=sys.stderr)
         return 1
 
-    master = load_square(source)
+    master = load_square(source) if source else build_master()
     if master.width != 1024:
         master = master.resize((1024, 1024), Image.Resampling.LANCZOS)
 
+    if source is None:
+        master.save(DEFAULT_SOURCE)
+    write_menu_bar_icon()
     master.resize((128, 128), Image.Resampling.LANCZOS).save(OUT_APP_ICON, format="PNG")
     write_favicons(master)
 
@@ -108,7 +148,8 @@ def main() -> int:
             write_iconset(master)
             print(f"Wrote {OUT_ICNS}")
         except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-            print(f"Warning: could not build .icns: {exc}", file=sys.stderr)
+            print(f"iconutil unavailable; using Pillow ICNS encoder: {exc}", file=sys.stderr)
+            master.save(OUT_ICNS, format="ICNS")
 
     print(f"Wrote {OUT_APP_ICON}")
     print(f"Wrote favicons in {STATIC}/")
